@@ -1,0 +1,1 @@
+tmux -S /root/.tmux-socket/new-socket attach -t flask_app
