@@ -12,16 +12,19 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Install development dependencies for hot reloading
+RUN pip install --no-cache-dir watchdog
+
 # Copy the rest of the application
 COPY . .
 
 # Set environment variables
 ENV FLASK_APP=run.py
-ENV FLASK_ENV=production
+ENV FLASK_DEBUG=1
 ENV PYTHONUNBUFFERED=1
 
 # Expose port
 EXPOSE 5000
 
-# Command to run the application
-CMD ["python", "run.py"] 
+# Command to run the application with hot reloading
+CMD ["python", "-m", "flask", "run", "--host=0.0.0.0", "--reload"] 
