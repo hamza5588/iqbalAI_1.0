@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  nginx:
+    build:
+      context: .
+      dockerfile: Dockerfile.nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./static:/app/static
+    depends_on:
+      - flask_app1
+      - flask_app2
+      - flask_app3
+      - flask_app4
+    networks:
+      - app_network
+
+  flask_app1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - FLASK_ENV=production
+    volumes:
+      - ./static:/app/static
+    networks:
+      - app_network
+
+  flask_app2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - FLASK_ENV=production
+    volumes:
+      - ./static:/app/static
+    networks:
+      - app_network
+
+  flask_app3:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - FLASK_ENV=production
+    volumes:
+      - ./static:/app/static
+    networks:
+      - app_network
+
+  flask_app4:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - FLASK_ENV=production
+    volumes:
+      - ./static:/app/static
+    networks:
+      - app_network
+
+networks:
+  app_network:
+    driver: bridge 
