@@ -6,6 +6,7 @@ import secrets
 from datetime import datetime, timedelta
 from flask_mail import Message
 from app import mail
+import os
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('auth', __name__)
@@ -34,13 +35,25 @@ def register_email():
             msg = Message('Verify your email',
                         recipients=[email])
             
-            verification_link = url_for('auth.verify_email', token=token, _external=True)
+            # Generate verification link using the request host
+            verification_link = url_for('auth.verify_email',
+                                      token=token,
+                                      _external=True,
+                                      _scheme=request.scheme)
+            
+            # If behind proxy, use X-Forwarded-Host
+            if 'X-Forwarded-Host' in request.headers:
+                verification_link = f"{request.scheme}://{request.headers['X-Forwarded-Host']}{url_for('auth.verify_email', token=token)}"
+            
             msg.body = f'''Please click the following link to verify your email and complete registration:
 {verification_link}
 
-This link will expire in 24 hours.'''
+This link will expire in 24 hours.
+
+If clicking the link doesn't work, please copy and paste it into your browser.'''
             
             mail.send(msg)
+            logger.info(f"Verification email sent to {email} with link: {verification_link}")
             
             return render_template('email_sent.html', email=email)
             
@@ -52,16 +65,28 @@ This link will expire in 24 hours.'''
 
 @bp.route('/verify_email/<token>')
 def verify_email(token):
-    if token not in verification_tokens:
-        return render_template('register.html', error="Invalid or expired verification link")
+    try:
+        logger.info(f"Verifying email with token: {token[:10]}...")  # Log only first 10 chars for security
         
-    token_data = verification_tokens[token]
-    if datetime.now() > token_data['expires']:
-        verification_tokens.pop(token)
-        return render_template('register.html', error="Verification link has expired")
+        if token not in verification_tokens:
+            logger.warning(f"Invalid token attempted: {token[:10]}...")
+            return render_template('register.html', error="Invalid or expired verification link")
         
-    email = token_data['email']
-    return render_template('register.html', email=email)
+        token_data = verification_tokens[token]
+        if datetime.now() > token_data['expires']:
+            verification_tokens.pop(token)
+            logger.warning(f"Expired token attempted: {token[:10]}...")
+            return render_template('register.html', error="Verification link has expired")
+        
+        email = token_data['email']
+        logger.info(f"Email verified successfully for: {email}")
+        
+        # Keep the token valid until registration is complete
+        return render_template('register.html', email=email)
+        
+    except Exception as e:
+        logger.error(f"Error in email verification: {str(e)}")
+        return render_template('register.html', error="An error occurred during verification. Please try again.")
 
 @bp.route('/register', methods=['GET', 'POST'])
 def register():
@@ -135,16 +160,21 @@ def check_session():
 def get_session():
     """Get OpenAI realtime session token"""
     try:
-        api_key = "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"
-        if not api_key:
+        if 'user_id' not in session:
             return jsonify({
-                'error': 'OpenAI API key not found in session'
+                'error': 'Not authenticated'
             }), 401
 
-        url = "https://api.openai.com/v1/realtime/sessions"
+        api_key = session.get('groq_api_key')
+        if not api_key:
+            return jsonify({
+                'error': 'API key not found in session'
+            }), 401
+
+        url = "https://api.openai.com/v1/audio/speech"
         
         payload = {
-            "model": "gpt-4o-realtime-preview-2024-12-17",
+            "model": "gpt-4-turbo-preview",  # Using the latest model
             "modalities": ["audio", "text"],
             "instructions": """Role: You are Mr. Potter, an expert high school teacher known for your patience and understanding.
 
@@ -167,14 +197,17 @@ def get_session():
         
         headers = {
             'Authorization': f'Bearer {api_key}',
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'OpenAI-Beta': 'assistants=v1'  # Add beta header for latest features
         }
 
         response = requests.post(url, json=payload, headers=headers)
         
         if response.status_code != 200:
+            logger.error(f"OpenAI API error: {response.text}")
             return jsonify({
-                'error': 'Failed to get session token'
+                'error': 'Failed to get session token',
+                'details': response.text
             }), response.status_code
 
         return response.json()

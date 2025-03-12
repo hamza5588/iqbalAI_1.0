@@ -74,3 +74,4 @@ else
 fi
 
 echo -e "${YELLOW}Deployment process completed.${NC}"
+

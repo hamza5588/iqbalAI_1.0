@@ -22,9 +22,16 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      - FLASK_ENV=production
+      - FLASK_DEBUG=1
+      - PYTHONUNBUFFERED=1
+      - GOOGLE_CLIENT_ID=507995986306-qcdrhrrt3d71la4pkrf7lt1b2tvuusqm.apps.googleusercontent.com
+      - GROQ_CLIENT_ID=your-groq-client-id
+      - GROQ_CLIENT_SECRET=your-groq-client-secret
     volumes:
-      - ./static:/app/static
+      - .:/app
+      - /app/__pycache__
+      - /app/*/__pycache__
+      - /app/*/*/__pycache__
     networks:
       - app_network
 
@@ -33,9 +40,16 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      - FLASK_ENV=production
+      - FLASK_DEBUG=1
+      - PYTHONUNBUFFERED=1
+      - GOOGLE_CLIENT_ID=your-google-client-id
+      - GROQ_CLIENT_ID=your-groq-client-id
+      - GROQ_CLIENT_SECRET=your-groq-client-secret
     volumes:
-      - ./static:/app/static
+      - .:/app
+      - /app/__pycache__
+      - /app/*/__pycache__
+      - /app/*/*/__pycache__
     networks:
       - app_network
 
@@ -44,9 +58,16 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      - FLASK_ENV=production
+      - FLASK_DEBUG=1
+      - PYTHONUNBUFFERED=1
+      - GOOGLE_CLIENT_ID=your-google-client-id
+      - GROQ_CLIENT_ID=your-groq-client-id
+      - GROQ_CLIENT_SECRET=your-groq-client-secret
     volumes:
-      - ./static:/app/static
+      - .:/app
+      - /app/__pycache__
+      - /app/*/__pycache__
+      - /app/*/*/__pycache__
     networks:
       - app_network
 
@@ -55,9 +76,16 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      - FLASK_ENV=production
+      - FLASK_DEBUG=1
+      - PYTHONUNBUFFERED=1
+      - GOOGLE_CLIENT_ID=your-google-client-id
+      - GROQ_CLIENT_ID=your-groq-client-id
+      - GROQ_CLIENT_SECRET=your-groq-client-secret
     volumes:
-      - ./static:/app/static
+      - .:/app
+      - /app/__pycache__
+      - /app/*/__pycache__
+      - /app/*/*/__pycache__
     networks:
       - app_network
 
