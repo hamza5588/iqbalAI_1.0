@@ -8,6 +8,11 @@ import logging
 logger = logging.getLogger(__name__)
 bp = Blueprint('chat', __name__)
 
+@bp.route('/health')
+def health_check():
+    """Health check endpoint for container orchestration"""
+    return jsonify({'status': 'healthy'}), 200
+
 @bp.route('/')
 @login_required
 def index():
@@ -153,21 +158,97 @@ def delete_conversation(conversation_id):
 def submit_survey():
     """Handle survey submission"""
     try:
-        data = request.json
-        helpful = data.get('helpful')
-        experience = data.get('experience')
+        data = request.get_json()
+        logger.info(f"Received survey data: {data}")
+        
+        rating = data.get('rating')
+        user_id = session.get('user_id')
+        
+        logger.info(f"Processing survey - Rating: {rating}, User ID: {user_id}")
 
-        if not helpful or not experience:
-            return jsonify({'error': 'Missing survey responses'}), 400
+        if not user_id:
+            logger.error("Survey submission failed: No user_id in session")
+            return jsonify({'error': 'Not authenticated'}), 401
 
-        # Save survey response to database
-        survey_model = SurveyModel(session['user_id'])
-        survey_model.save_survey_response(helpful, experience)
+        if not isinstance(rating, (int, float)):
+            logger.error(f"Survey submission failed: Rating is not a number - Type: {type(rating)}")
+            return jsonify({'error': 'Invalid rating. Must be a number between 1 and 5'}), 400
+            
+        # Convert to integer if it's a float
+        rating = int(rating)
 
+        if rating < 1 or rating > 5:  # Updated to match 5-star rating system
+            logger.error(f"Survey submission failed: Rating {rating} is out of range")
+            return jsonify({'error': 'Invalid rating. Must be a number between 1 and 5'}), 400
+
+        # Check if user has already submitted
+        survey_model = SurveyModel(user_id)
+        if survey_model.has_submitted_survey():
+            logger.warning(f"User {user_id} attempted to submit multiple surveys")
+            return jsonify({'error': 'Survey already submitted'}), 400
+
+        # Create survey model instance and save response
+        logger.info(f"Saving survey response - User: {user_id}, Rating: {rating}")
+        survey_model.save_survey_response(rating)
+
+        logger.info(f"Survey successfully submitted - User ID: {user_id}, Rating: {rating}")
         return jsonify({
             'success': True,
-            'message': 'Survey submitted successfully'
+            'message': 'Thank you for your feedback!'
         })
+        
     except Exception as e:
-        logger.error(f"Error submitting survey: {str(e)}")
-        return jsonify({'error': 'Failed to submit survey'}), 500
+        logger.error(f"Survey submission failed with exception: {str(e)}")
+        logger.exception("Full traceback:")  # This will log the full stack trace
+        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
+
+@bp.route('/check_survey_status')
+@login_required
+def check_survey_status():
+    """Check if the current user has submitted a survey"""
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            logger.warning("Survey status check failed: No user_id in session")
+            return jsonify({'error': 'Not authenticated'}), 401
+            
+        logger.info(f"Checking survey status for user_id: {user_id}")
+        survey_model = SurveyModel(user_id)
+        has_submitted = survey_model.has_submitted_survey()
+        
+        status_msg = f"User {user_id} has {'submitted' if has_submitted else 'not submitted'} the survey"
+        logger.info(status_msg)
+        print(f"\n=== Survey Status ===\n{status_msg}\n===================")
+        
+        return jsonify({
+            'has_submitted': has_submitted
+        })
+        
+    except Exception as e:
+        logger.error(f"Error checking survey status: {str(e)}")
+        return jsonify({'error': 'Failed to check survey status'}), 500
+
+@bp.route('/test_survey_db')
+@login_required
+def test_survey_db():
+    """Test route to verify survey database operations"""
+    try:
+        user_id = session.get('user_id')
+        if not user_id:
+            return jsonify({'error': 'Not authenticated'}), 401
+
+        survey_model = SurveyModel(user_id)
+        
+        # Test database connection and operations
+        has_submitted = survey_model.has_submitted_survey()
+        all_responses = survey_model.get_user_survey_responses()
+        
+        return jsonify({
+            'user_id': user_id,
+            'has_submitted': has_submitted,
+            'responses': all_responses
+        })
+        
+    except Exception as e:
+        logger.error(f"Database test failed: {str(e)}")
+        return jsonify({'error': f'Database test failed: {str(e)}'}), 500

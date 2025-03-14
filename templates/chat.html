@@ -463,8 +463,14 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.5);
             z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .modal.show {
+            opacity: 1;
         }
         
         .modal-content {
@@ -1023,6 +1029,203 @@
     }
 }
 
+/* Rating buttons styles */
+.rating-group {
+    margin-top: 20px;
+}
+
+.rating-buttons {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.rating-btn {
+    width: 45px;
+    height: 45px;
+    border: 2px solid #10a37f;
+    background: white;
+    color: #10a37f;
+    border-radius: 50%;
+    font-size: 18px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.rating-btn:hover {
+    background: #10a37f;
+    color: white;
+}
+
+.rating-btn.selected {
+    background: #10a37f;
+    color: white;
+}
+
+@media screen and (max-width: 768px) {
+    .rating-btn {
+        width: 40px;
+        height: 40px;
+        font-size: 16px;
+    }
+}
+
+/* Survey Modal Styles */
+.survey-modal {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    max-width: 400px;
+    width: 90%;
+    transform: scale(0.8);
+    opacity: 0;
+    transition: all 0.3s ease;
+    margin: 15% auto;
+    position: relative;
+}
+
+.modal.show .survey-modal {
+    transform: scale(1);
+    opacity: 1;
+}
+
+.survey-description {
+    color: #666;
+    text-align: center;
+    margin-bottom: 24px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.rating-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.emoji-rating {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.emoji-display {
+    font-size: 48px;
+    margin-bottom: 10px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.rating-label {
+    font-size: 0.9rem;
+    color: #666;
+    margin-top: 8px;
+}
+
+.rating-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.rating-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 25px;
+    border: 2px solid #e0e0e0;
+    background: white;
+    color: #666;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.rating-btn:hover {
+    border-color: #10a37f;
+    color: #10a37f;
+    transform: translateY(-2px);
+}
+
+.rating-btn.selected {
+    background: #10a37f;
+    color: white;
+    border-color: #10a37f;
+}
+
+.rating-feedback {
+    text-align: center;
+    min-height: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.rating-message {
+    color: #666;
+    font-size: 0.9rem;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.3s ease;
+}
+
+.rating-message.show {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.rating-success {
+    display: none;
+    color: #10a37f;
+    font-size: 0.95rem;
+    align-items: center;
+    gap: 8px;
+    animation: successFadeIn 0.5s ease forwards;
+}
+
+@keyframes successFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Mobile Responsiveness */
+@media screen and (max-width: 480px) {
+    .survey-modal {
+        width: 95%;
+        margin: 10px;
+    }
+
+    .rating-buttons {
+        gap: 8px;
+    }
+
+    .rating-btn {
+        width: 45px;
+        height: 45px;
+        font-size: 14px;
+    }
+
+    .emoji-display {
+        font-size: 40px;
+        height: 50px;
+    }
+}
+
     </style>
 </head>
 <body>
@@ -1150,38 +1353,40 @@
 
     <!-- Survey Modal -->
     <div id="surveyModal" class="modal">
-        <div class="modal-content">
+        <div class="modal-content survey-modal">
             <div class="modal-header">
-                <h2>Quick Survey</h2>
+                <h2>How was your experience?</h2>
                 <button class="close-modal" id="closeSurveyBtn">&times;</button>
             </div>
             <div class="modal-body">
-                <div class="survey-group">
-                    <label>1. Was this chat session helpful?</label>
-                    <div class="radio-group">
-                        <label>
-                            <input type="radio" name="helpful" value="yes"> Yes
-                        </label>
-                        <label>
-                            <input type="radio" name="helpful" value="no"> No
-                        </label>
+                <div class="survey-description">
+                    Your feedback helps us improve our AI chat experience. Please rate your interaction with us.
+                </div>
+                
+                <div class="rating-container">
+                    <div class="emoji-rating">
+                        <div class="emoji-display">
+                            <i class="far fa-meh"></i>
+                        </div>
+                        <div class="rating-label">Select your rating</div>
+                    </div>
+                    
+                    <div class="rating-buttons">
+                        <button class="rating-btn" data-value="1" data-emoji="far fa-angry">1</button>
+                        <button class="rating-btn" data-value="2" data-emoji="far fa-frown">2</button>
+                        <button class="rating-btn" data-value="3" data-emoji="far fa-meh">3</button>
+                        <button class="rating-btn" data-value="4" data-emoji="far fa-smile">4</button>
+                        <button class="rating-btn" data-value="5" data-emoji="far fa-grin-stars">5</button>
+                    </div>
+                    
+                    <div class="rating-feedback">
+                        <div class="rating-message"></div>
+                        <div class="rating-success">
+                            <i class="fas fa-check-circle"></i>
+                            Thank you for your feedback!
+                        </div>
                     </div>
                 </div>
-                <div class="survey-group">
-                    <label>2. How was your experience?</label>
-                    <div class="radio-group">
-                        <label>
-                            <input type="radio" name="experience" value="excellent"> Excellent
-                        </label>
-                        <label>
-                            <input type="radio" name="experience" value="good"> Good
-                        </label>
-                        <label>
-                            <input type="radio" name="experience" value="poor"> Poor
-                        </label>
-                    </div>
-                </div>
-                <button id="submitSurvey" class="update-btn">Submit Survey</button>
             </div>
         </div>
     </div>
@@ -1230,6 +1435,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     const messageInput = document.getElementById('messageInput');
     messageInput.addEventListener('input', () => autoResizeTextarea(messageInput));
+
+    // Check if user has already submitted survey when page loads
+    checkSurveyStatus();
 });
 
 // File handling functions
@@ -2243,81 +2451,157 @@ function endVoiceChat() {
 
 // Survey handling
 let hasSubmittedSurvey = false;
-const surveyModal = document.getElementById('surveyModal');
-const closeSurveyBtn = document.getElementById('closeSurveyBtn');
-const submitSurveyBtn = document.getElementById('submitSurvey');
+let selectedRating = null;
 
-// Show survey when user is about to leave
-window.addEventListener('beforeunload', function(e) {
-    if (!hasSubmittedSurvey) {
-        showSurvey();
-        e.preventDefault();
-        e.returnValue = '';
-    }
-});
-
-// Show survey on logout
-const originalLogout = window.logout;
-window.logout = function() {
-    if (!hasSubmittedSurvey) {
-        showSurvey();
-        return;
-    }
-    originalLogout();
-};
-
-function showSurvey() {
-    surveyModal.style.display = 'block';
+// Check if user has already submitted survey when page loads
+function checkSurveyStatus() {
+    fetch('/check_survey_status')
+        .then(response => response.json())
+        .then(data => {
+            hasSubmittedSurvey = data.has_submitted;
+            if (!hasSubmittedSurvey) {
+                // Show survey after 10 seconds only if user hasn't submitted
+                setTimeout(() => {
+                    if (!hasSubmittedSurvey) {
+                        showSurvey();
+                    }
+                }, 10 * 1000);
+            }
+        })
+        .catch(error => {
+            console.error('Error checking survey status:', error);
+        });
 }
 
-// Close survey modal
-closeSurveyBtn.addEventListener('click', function() {
-    surveyModal.style.display = 'none';
-});
-
-// Handle survey submission
-submitSurveyBtn.addEventListener('click', function() {
-    const helpfulResponse = document.querySelector('input[name="helpful"]:checked')?.value;
-    const experienceResponse = document.querySelector('input[name="experience"]:checked')?.value;
-
-    if (!helpfulResponse || !experienceResponse) {
-        alert('Please answer both questions before submitting.');
-        return;
+function showSurvey() {
+    // Check again before showing to prevent race conditions
+    if (!hasSubmittedSurvey) {
+        const surveyModal = document.getElementById('surveyModal');
+        surveyModal.style.display = 'block';
+        // Force a reflow before adding the show class
+        surveyModal.offsetHeight;
+        surveyModal.classList.add('show');
     }
+}
 
-    // Send survey responses to server
-    fetch('/submit_survey', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            helpful: helpfulResponse,
-            experience: experienceResponse
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            hasSubmittedSurvey = true;
-            surveyModal.style.display = 'none';
-            showNotification('Thank you for your feedback!', 'success');
-        } else {
-            showNotification('Failed to submit survey. Please try again.', 'error');
-        }
-    })
-    .catch(error => {
-        console.error('Error submitting survey:', error);
-        showNotification('Failed to submit survey. Please try again.', 'error');
+function hideSurvey() {
+    const surveyModal = document.getElementById('surveyModal');
+    surveyModal.classList.remove('show');
+    setTimeout(() => {
+        surveyModal.style.display = 'none';
+    }, 300); // Match the transition duration
+}
+
+// Update the rating button click handler and submission logic
+document.addEventListener('DOMContentLoaded', () => {
+    // ... existing initialization code ...
+
+    // Initialize survey event listeners
+    const ratingButtons = document.querySelectorAll('.rating-btn');
+    const emojiDisplay = document.querySelector('.emoji-display i');
+    const ratingMessage = document.querySelector('.rating-message');
+    
+    const ratingMessages = {
+        1: "We're sorry to hear that. We'll work on improving.",
+        2: "Thanks for the feedback. We'll try to do better.",
+        3: "Thank you for your feedback.",
+        4: "Glad you had a good experience!",
+        5: "Fantastic! Thank you for the great rating!"
+    };
+
+    // Handle rating button clicks
+    ratingButtons.forEach(button => {
+        button.addEventListener('click', async function() {
+            const value = parseInt(this.dataset.value);
+            console.log('Rating clicked:', value); // Debug log
+            
+            // Remove selected class from all buttons
+            ratingButtons.forEach(btn => btn.classList.remove('selected'));
+            
+            // Add selected class to clicked button
+            this.classList.add('selected');
+            
+            // Show rating message
+            ratingMessage.textContent = ratingMessages[value];
+            ratingMessage.classList.add('show');
+            
+            // Update emoji
+            emojiDisplay.className = this.dataset.emoji;
+            
+            // Submit rating immediately
+            try {
+                await submitRating(value);
+            } catch (error) {
+                console.error('Error submitting rating:', error);
+                showNotification('Failed to submit rating. Please try again.', 'error');
+            }
+        });
     });
 });
 
+async function submitRating(rating) {
+    console.log('Submitting rating:', rating); // Debug log
+    
+    try {
+        const response = await fetch('/submit_survey', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                rating: rating
+            })
+        });
+
+        console.log('Response status:', response.status); // Debug log
+        
+        const data = await response.json();
+        console.log('Response data:', data); // Debug log
+
+        if (data.success) {
+            hasSubmittedSurvey = true;
+            const ratingSuccess = document.querySelector('.rating-success');
+            const ratingMessage = document.querySelector('.rating-message');
+            const ratingContainer = document.querySelector('.rating-container');
+            
+            // Hide message and show success
+            ratingMessage.style.display = 'none';
+            ratingSuccess.style.display = 'flex';
+            
+            // Disable rating buttons
+            document.querySelectorAll('.rating-btn').forEach(btn => {
+                btn.disabled = true;
+                btn.style.opacity = '0.5';
+                btn.style.cursor = 'default';
+            });
+            
+            // Store submission in localStorage
+            localStorage.setItem('surveySubmitted', 'true');
+            
+            // Show success notification
+            showNotification('Thank you for your feedback!', 'success');
+            
+            // Hide modal after delay
+            setTimeout(hideSurvey, 2000);
+        } else {
+            throw new Error(data.error || 'Failed to submit rating');
+        }
+    } catch (error) {
+        console.error('Error in submitRating:', error);
+        showNotification(error.message || 'Failed to submit rating. Please try again.', 'error');
+        throw error;
+    }
+}
+
 // Close survey modal when clicking outside
 window.addEventListener('click', function(event) {
-    if (event.target === surveyModal) {
-        surveyModal.style.display = 'none';
+    if (event.target === document.getElementById('surveyModal')) {
+        hideSurvey();
     }
 });
+
+// Close survey with close button
+document.getElementById('closeSurveyBtn').addEventListener('click', hideSurvey);
 
     </script>
 </body>

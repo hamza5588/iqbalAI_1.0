@@ -382,14 +382,17 @@ class SurveyModel:
     def __init__(self, user_id: int):
         self.user_id = user_id
     
-    def save_survey_response(self, helpful: str, experience: str) -> int:
+    def save_survey_response(self, rating: int) -> int:
         """Save a survey response to the database"""
         try:
+            if not isinstance(rating, int) or rating < 1 or rating > 10:
+                raise ValueError("Rating must be an integer between 1 and 10")
+
             db = get_db()
             cursor = db.execute(
-                '''INSERT INTO survey_responses (user_id, helpful, experience)
-                   VALUES (?, ?, ?)''',
-                (self.user_id, helpful, experience)
+                '''INSERT INTO survey_responses (user_id, rating)
+                   VALUES (?, ?)''',
+                (self.user_id, rating)
             )
             db.commit()
             return cursor.lastrowid
@@ -402,7 +405,7 @@ class SurveyModel:
         try:
             db = get_db()
             responses = db.execute(
-                '''SELECT helpful, experience, created_at
+                '''SELECT rating, created_at
                    FROM survey_responses
                    WHERE user_id = ?
                    ORDER BY created_at DESC''',
@@ -411,4 +414,23 @@ class SurveyModel:
             return [dict(response) for response in responses]
         except Exception as e:
             logger.error(f"Error retrieving survey responses: {str(e)}")
+            raise
+
+    def has_submitted_survey(self):
+        """Check if the user has already submitted a survey"""
+        try:
+            logger.info(f"Checking survey submission status for user_id: {self.user_id}")
+            db = get_db()
+            result = db.execute(
+                'SELECT COUNT(*) as count FROM survey_responses WHERE user_id = ?',
+                (self.user_id,)
+            ).fetchone()
+            count = result['count']
+            
+            status = "has" if count > 0 else "has not"
+            logger.info(f"Survey check result: User {self.user_id} {status} submitted a survey (count: {count})")
+            
+            return count > 0
+        except Exception as e:
+            logger.error(f"Error checking survey submission for user {self.user_id}: {str(e)}")
             raise

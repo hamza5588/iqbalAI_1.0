@@ -9,7 +9,7 @@ def get_db():
     if 'db' not in g:
         try:
             g.db = sqlite3.connect(
-                'chat.db',
+                current_app.config['DATABASE'],
                 detect_types=sqlite3.PARSE_DECLTYPES
             )
             g.db.row_factory = sqlite3.Row
@@ -80,8 +80,7 @@ def init_db(app):
                 CREATE TABLE IF NOT EXISTS survey_responses (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER NOT NULL,
-                    helpful TEXT NOT NULL CHECK(helpful IN ('yes', 'no')),
-                    experience TEXT NOT NULL CHECK(experience IN ('excellent', 'good', 'poor')),
+                    rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 10),
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 )
