@@ -10,10 +10,14 @@ services:
     volumes:
       - ./static:/app/static
     depends_on:
-      - flask_app1
-      - flask_app2
-      - flask_app3
-      - flask_app4
+      flask_app1:
+        condition: service_healthy
+      flask_app2:
+        condition: service_healthy
+      flask_app3:
+        condition: service_healthy
+      flask_app4:
+        condition: service_healthy
     networks:
       - app_network
 
@@ -21,6 +25,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    ports:
+      - "5000"
     environment:
       - FLASK_DEBUG=1
       - PYTHONUNBUFFERED=1
@@ -32,6 +38,12 @@ services:
       - /app/__pycache__
       - /app/*/__pycache__
       - /app/*/*/__pycache__
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     networks:
       - app_network
 
@@ -39,6 +51,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    ports:
+      - "5000"
     environment:
       - FLASK_DEBUG=1
       - PYTHONUNBUFFERED=1
@@ -50,6 +64,12 @@ services:
       - /app/__pycache__
       - /app/*/__pycache__
       - /app/*/*/__pycache__
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     networks:
       - app_network
 
@@ -57,6 +77,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    ports:
+      - "5000"
     environment:
       - FLASK_DEBUG=1
       - PYTHONUNBUFFERED=1
@@ -68,6 +90,12 @@ services:
       - /app/__pycache__
       - /app/*/__pycache__
       - /app/*/*/__pycache__
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     networks:
       - app_network
 
@@ -75,6 +103,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    ports:
+      - "5000"
     environment:
       - FLASK_DEBUG=1
       - PYTHONUNBUFFERED=1
@@ -86,6 +116,12 @@ services:
       - /app/__pycache__
       - /app/*/__pycache__
       - /app/*/*/__pycache__
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     networks:
       - app_network
 

@@ -160,21 +160,16 @@ def check_session():
 def get_session():
     """Get OpenAI realtime session token"""
     try:
-        if 'user_id' not in session:
-            return jsonify({
-                'error': 'Not authenticated'
-            }), 401
-
-        api_key = session.get('groq_api_key')
+        api_key = os.getenv('OPENAI_API_KEY')
         if not api_key:
             return jsonify({
-                'error': 'API key not found in session'
+                'error': 'OpenAI API key not found in session'
             }), 401
 
-        url = "https://api.openai.com/v1/audio/speech"
+        url = "https://api.openai.com/v1/realtime/sessions"
         
         payload = {
-            "model": "gpt-4-turbo-preview",  # Using the latest model
+            "model": "gpt-4o-realtime-preview-2024-12-17",
             "modalities": ["audio", "text"],
             "instructions": """Role: You are Mr. Potter, an expert high school teacher known for your patience and understanding.
 
@@ -197,17 +192,14 @@ def get_session():
         
         headers = {
             'Authorization': f'Bearer {api_key}',
-            'Content-Type': 'application/json',
-            'OpenAI-Beta': 'assistants=v1'  # Add beta header for latest features
+            'Content-Type': 'application/json'
         }
 
         response = requests.post(url, json=payload, headers=headers)
         
         if response.status_code != 200:
-            logger.error(f"OpenAI API error: {response.text}")
             return jsonify({
-                'error': 'Failed to get session token',
-                'details': response.text
+                'error': 'Failed to get session token'
             }), response.status_code
 
         return response.json()
