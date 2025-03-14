@@ -8,6 +8,7 @@ def get_db():
     """Get database connection."""
     if 'db' not in g:
         try:
+            print(current_app.config['DATABASE'])
             g.db = sqlite3.connect(
                 current_app.config['DATABASE'],
                 detect_types=sqlite3.PARSE_DECLTYPES
