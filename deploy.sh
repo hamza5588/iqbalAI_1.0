@@ -30,11 +30,24 @@ if ! command -v docker-compose &> /dev/null; then
     chmod +x /usr/local/bin/docker-compose
 fi
 
+# Install Certbot for SSL certificates
+if ! command -v certbot &> /dev/null; then
+    echo -e "${GREEN}Installing Certbot...${NC}"
+    apt-get install -y certbot python3-certbot-nginx
+fi
+
 # Create app directory if it doesn't exist
 APP_DIR="/opt/flask-app"
 if [ ! -d "$APP_DIR" ]; then
     echo -e "${GREEN}Creating application directory...${NC}"
     mkdir -p $APP_DIR
+fi
+
+# Create SSL directory if it doesn't exist
+SSL_DIR="/etc/nginx/ssl"
+if [ ! -d "$SSL_DIR" ]; then
+    echo -e "${GREEN}Creating SSL directory...${NC}"
+    mkdir -p $SSL_DIR
 fi
 
 # Move to app directory
@@ -57,6 +70,26 @@ mkdir -p $APP_DIR/static
 echo -e "${GREEN}Setting proper permissions...${NC}"
 chmod +x $APP_DIR/run.py
 
+# Check if SSL certificates exist
+if [ ! -f "$SSL_DIR/iqbalai.com.crt" ] || [ ! -f "$SSL_DIR/iqbalai.com.key" ]; then
+    echo -e "${YELLOW}SSL certificates not found. Obtaining new certificates...${NC}"
+    certbot certonly --standalone -d iqbalai.com -d www.iqbalai.com --non-interactive --agree-tos --email your-email@example.com
+    
+    # Copy certificates to the correct location
+    cp /etc/letsencrypt/live/iqbalai.com/fullchain.pem $SSL_DIR/iqbalai.com.crt
+    cp /etc/letsencrypt/live/iqbalai.com/privkey.pem $SSL_DIR/iqbalai.com.key
+    
+    # Set proper permissions
+    chmod 600 $SSL_DIR/iqbalai.com.key
+    chmod 644 $SSL_DIR/iqbalai.com.crt
+fi
+
+# Configure firewall
+echo -e "${GREEN}Configuring firewall...${NC}"
+ufw allow 80
+ufw allow 443
+ufw allow 22
+
 # Build and start the containers
 echo -e "${GREEN}Building and starting containers...${NC}"
 docker-compose down
@@ -67,11 +100,18 @@ docker-compose up -d
 echo -e "${GREEN}Checking container status...${NC}"
 if docker-compose ps | grep -q "Up"; then
     echo -e "${GREEN}Deployment successful! Application is running.${NC}"
-    echo -e "${GREEN}You can access your application at http://your-server-ip${NC}"
+    echo -e "${GREEN}You can access your application at:${NC}"
+    echo -e "${GREEN}https://iqbalai.com${NC}"
+    echo -e "${GREEN}https://www.iqbalai.com${NC}"
 else
     echo -e "${RED}Deployment failed. Containers are not running properly.${NC}"
     echo -e "${YELLOW}Check logs with: docker-compose logs${NC}"
 fi
+
+# Set up automatic SSL renewal
+echo -e "${GREEN}Setting up automatic SSL renewal...${NC}"
+(crontab -l 2>/dev/null | grep -v "certbot renew") | crontab -
+(crontab -l 2>/dev/null; echo "0 12 * * * /usr/bin/certbot renew --quiet") | crontab -
 
 echo -e "${YELLOW}Deployment process completed.${NC}"
 
