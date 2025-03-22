@@ -7,6 +7,13 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
+# Check if script is run with sudo
+if [ "$EUID" -ne 0 ]; then 
+    echo -e "${RED}Please run this script with sudo privileges${NC}"
+    echo -e "${YELLOW}Usage: sudo ./deploy.sh${NC}"
+    exit 1
+fi
+
 echo -e "${YELLOW}Starting deployment process...${NC}"
 
 # Update system packages
@@ -73,15 +80,38 @@ chmod +x $APP_DIR/run.py
 # Check if SSL certificates exist
 if [ ! -f "$SSL_DIR/iqbalai.com.crt" ] || [ ! -f "$SSL_DIR/iqbalai.com.key" ]; then
     echo -e "${YELLOW}SSL certificates not found. Obtaining new certificates...${NC}"
-    certbot certonly --standalone -d iqbalai.com -d www.iqbalai.com --non-interactive --agree-tos --email your-email@example.com
     
-    # Copy certificates to the correct location
-    cp /etc/letsencrypt/live/iqbalai.com/fullchain.pem $SSL_DIR/iqbalai.com.crt
-    cp /etc/letsencrypt/live/iqbalai.com/privkey.pem $SSL_DIR/iqbalai.com.key
+    # Stop any running nginx to free port 80
+    systemctl stop nginx || true
     
-    # Set proper permissions
-    chmod 600 $SSL_DIR/iqbalai.com.key
-    chmod 644 $SSL_DIR/iqbalai.com.crt
+    # Get admin email
+    read -p "Enter your email address for SSL certificate notifications: " ADMIN_EMAIL
+    
+    # Obtain SSL certificate
+    certbot certonly --standalone \
+        -d iqbalai.com \
+        -d www.iqbalai.com \
+        --non-interactive \
+        --agree-tos \
+        --email "$ADMIN_EMAIL" \
+        --preferred-challenges http-01 \
+        --rsa-key-size 2048
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}SSL certificates obtained successfully!${NC}"
+        
+        # Copy certificates to the correct location
+        cp /etc/letsencrypt/live/iqbalai.com/fullchain.pem $SSL_DIR/iqbalai.com.crt
+        cp /etc/letsencrypt/live/iqbalai.com/privkey.pem $SSL_DIR/iqbalai.com.key
+        
+        # Set proper permissions
+        chmod 600 $SSL_DIR/iqbalai.com.key
+        chmod 644 $SSL_DIR/iqbalai.com.crt
+    else
+        echo -e "${RED}Failed to obtain SSL certificates. Please check the error message above.${NC}"
+        echo -e "${YELLOW}You can try running: sudo certbot certonly --standalone -d iqbalai.com -d www.iqbalai.com${NC}"
+        exit 1
+    fi
 fi
 
 # Configure firewall
