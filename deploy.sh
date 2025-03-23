@@ -20,6 +20,28 @@ echo -e "${YELLOW}Starting deployment process...${NC}"
 echo -e "${GREEN}Updating system packages...${NC}"
 apt-get update && apt-get upgrade -y
 
+# Install required packages
+echo -e "${GREEN}Installing required packages...${NC}"
+apt-get install -y dnsutils curl wget
+
+# Check DNS configuration
+echo -e "${GREEN}Checking DNS configuration...${NC}"
+DOMAIN_IP=$(dig +short iqbalai.com)
+SERVER_IP=$(curl -s ifconfig.me)
+
+if [ -z "$DOMAIN_IP" ]; then
+    echo -e "${RED}Error: Could not resolve iqbalai.com${NC}"
+    echo -e "${YELLOW}Please check your DNS configuration in your domain provider${NC}"
+    exit 1
+fi
+
+if [ "$DOMAIN_IP" != "$SERVER_IP" ]; then
+    echo -e "${RED}Warning: Domain IP ($DOMAIN_IP) does not match server IP ($SERVER_IP)${NC}"
+    echo -e "${YELLOW}Please update your DNS A record to point to: $SERVER_IP${NC}"
+    echo -e "${YELLOW}Current DNS A record points to: $DOMAIN_IP${NC}"
+    read -p "Press enter to continue if you've updated DNS records, or Ctrl+C to exit..."
+fi
+
 # Install Docker if not installed
 if ! command -v docker &> /dev/null; then
     echo -e "${GREEN}Installing Docker...${NC}"
@@ -77,6 +99,12 @@ mkdir -p $APP_DIR/static
 echo -e "${GREEN}Setting proper permissions...${NC}"
 chmod +x $APP_DIR/run.py
 
+# Configure firewall
+echo -e "${GREEN}Configuring firewall...${NC}"
+ufw allow 80
+ufw allow 443
+ufw allow 22
+
 # Check if SSL certificates exist
 if [ ! -f "$SSL_DIR/iqbalai.com.crt" ] || [ ! -f "$SSL_DIR/iqbalai.com.key" ]; then
     echo -e "${YELLOW}SSL certificates not found. Obtaining new certificates...${NC}"
@@ -87,7 +115,18 @@ if [ ! -f "$SSL_DIR/iqbalai.com.crt" ] || [ ! -f "$SSL_DIR/iqbalai.com.key" ]; t
     # Get admin email
     read -p "Enter your email address for SSL certificate notifications: " ADMIN_EMAIL
     
+    # Test port 80 accessibility
+    echo -e "${GREEN}Testing port 80 accessibility...${NC}"
+    if nc -z -w5 localhost 80; then
+        echo -e "${GREEN}Port 80 is accessible${NC}"
+    else
+        echo -e "${RED}Warning: Port 80 is not accessible${NC}"
+        echo -e "${YELLOW}Please ensure no other service is using port 80${NC}"
+        read -p "Press enter to continue if you've resolved the port issue, or Ctrl+C to exit..."
+    fi
+    
     # Obtain SSL certificate
+    echo -e "${GREEN}Attempting to obtain SSL certificate...${NC}"
     certbot certonly --standalone \
         -d iqbalai.com \
         -d www.iqbalai.com \
@@ -95,7 +134,8 @@ if [ ! -f "$SSL_DIR/iqbalai.com.crt" ] || [ ! -f "$SSL_DIR/iqbalai.com.key" ]; t
         --agree-tos \
         --email "$ADMIN_EMAIL" \
         --preferred-challenges http-01 \
-        --rsa-key-size 2048
+        --rsa-key-size 2048 \
+        --verbose
     
     if [ $? -eq 0 ]; then
         echo -e "${GREEN}SSL certificates obtained successfully!${NC}"
@@ -109,16 +149,14 @@ if [ ! -f "$SSL_DIR/iqbalai.com.crt" ] || [ ! -f "$SSL_DIR/iqbalai.com.key" ]; t
         chmod 644 $SSL_DIR/iqbalai.com.crt
     else
         echo -e "${RED}Failed to obtain SSL certificates. Please check the error message above.${NC}"
-        echo -e "${YELLOW}You can try running: sudo certbot certonly --standalone -d iqbalai.com -d www.iqbalai.com${NC}"
+        echo -e "${YELLOW}Troubleshooting steps:${NC}"
+        echo -e "1. Ensure your domain DNS A record points to: $SERVER_IP"
+        echo -e "2. Check if port 80 is accessible: nc -zv iqbalai.com 80"
+        echo -e "3. Verify firewall rules: sudo ufw status"
+        echo -e "4. Try running manually: sudo certbot certonly --standalone -d iqbalai.com -d www.iqbalai.com"
         exit 1
     fi
 fi
-
-# Configure firewall
-echo -e "${GREEN}Configuring firewall...${NC}"
-ufw allow 80
-ufw allow 443
-ufw allow 22
 
 # Build and start the containers
 echo -e "${GREEN}Building and starting containers...${NC}"
