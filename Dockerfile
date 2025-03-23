@@ -9,8 +9,8 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Set Python path
-ENV PYTHONPATH=/app
+# Set Python path to include the current directory
+ENV PYTHONPATH=/app:${PYTHONPATH}
 
 # Copy requirements first to leverage Docker cache
 COPY requirements.txt .
@@ -32,5 +32,5 @@ ENV FLASK_DEBUG=1
 # Expose port
 EXPOSE 5000
 
-# Run the application
+# Run the application with hot reloading
 CMD ["python", "run.py"] 
