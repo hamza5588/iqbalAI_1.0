@@ -481,6 +481,12 @@
             width: 90%;
             max-width: 500px;
             position: relative;
+            transform: scale(0.8);
+            transition: transform 0.3s ease;
+        }
+        
+        .modal.show .modal-content {
+            transform: scale(1);
         }
         
         .modal-header {
@@ -550,46 +556,6 @@
         
         .update-btn:hover {
             background: #0d8a6a;
-        }
-
-
-
-        .prompt-adjust-btn {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid #565869;
-            border-radius: 8px;
-            background: transparent;
-            color: #fff;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: background 0.3s ease;
-            margin-top: 8px;
-        }
-        
-        .prompt-adjust-btn:hover {
-            background: #343541;
-        }
-        
-        .prompt-input {
-            width: 100%;
-            min-height: 200px;
-            padding: 12px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-family: inherit;
-            font-size: 14px;
-            line-height: 1.5;
-            resize: vertical;
-            margin-bottom: 12px;
-        }
-        
-        .prompt-input:focus {
-            outline: none;
-            border-color: #10a37f;
-            box-shadow: 0 0 0 2px rgba(16, 163, 127, 0.2);
         }
 
         /* Markdown Formatting */
@@ -1226,13 +1192,17 @@
                 <i class="fas fa-plus"></i>
                 New Chat
             </button>
-            <button id="logoutBtn" class="logout-btn" onclick="logout()">
-                <i class="fas fa-sign-out-alt"></i>
-                Logout
+            <button id="voiceChatBtn" class="voice-chat-btn">
+                <i class="fas fa-microphone"></i>
+                Voice Chat
             </button>
             <button id="settingsBtn" class="settings-btn">
                 <i class="fas fa-cog"></i>
                 Update Api Key
+            </button>
+            <button id="logoutBtn" class="logout-btn" onclick="logout()">
+                <i class="fas fa-sign-out-alt"></i>
+                Logout
             </button>
         </div>
         <div id="conversationList"></div>
@@ -1308,34 +1278,6 @@
                         </button>
                     </div>
                     <button id="updateApiKey" class="update-btn">Update API Key</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-
-
-
-
-   
-    
-    <!-- Add this modal after the settings modal -->
-    <div id="promptModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Adjust Teaching Prompt</h2>
-                <button class="close-modal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="prompt-group">
-                    <label for="promptInput">Teaching Prompt:</label>
-                    <textarea 
-                        id="promptInput" 
-                        class="prompt-input" 
-                        rows="10" 
-                        placeholder="Enter your teaching prompt here..."
-                    ></textarea>
-                    <button id="updatePrompt" class="update-btn">Update Prompt</button>
                 </div>
             </div>
         </div>
@@ -1522,10 +1464,6 @@ function initializeSidebar() {
             <button id="settingsBtn" class="settings-btn">
                 <i class="fas fa-cog"></i>
                 Update Api Key
-            </button>
-            <button id="promptAdjustBtn" class="prompt-adjust-btn">
-                <i class="fas fa-sliders"></i>
-                Adjust Prompt
             </button>
             <button id="logoutBtn" class="logout-btn" onclick="logout()">
                 <i class="fas fa-sign-out-alt"></i>
@@ -2050,58 +1988,52 @@ function stopVoiceOutput() {
 function initializeSettings() {
     const settingsBtn = document.getElementById('settingsBtn');
     const settingsModal = document.getElementById('settingsModal');
-    const promptAdjustBtn = document.getElementById('promptAdjustBtn');
-    const promptModal = document.getElementById('promptModal');
     const closeButtons = document.querySelectorAll('.close-modal');
     const toggleApiKeyBtn = document.getElementById('toggleApiKey');
     const updateApiKeyBtn = document.getElementById('updateApiKey');
-    const updatePromptBtn = document.getElementById('updatePrompt');
 
     // Settings modal event listeners
-    settingsBtn.addEventListener('click', () => settingsModal.style.display = 'block');
-    
-    // Prompt adjustment modal event listeners
-    promptAdjustBtn.addEventListener('click', () => {
-        // Fetch current prompt before showing the modal
-        fetch('/get_prompt')
-            .then(response => response.json())
-            .then(data => {
-                if (data.prompt) {
-                    document.getElementById('promptInput').value = data.prompt;
-                }
-                promptModal.style.display = 'block';
-            })
-            .catch(error => {
-                console.error('Error fetching prompt:', error);
-                promptModal.style.display = 'block';
-            });
-    });
+    if (settingsBtn && settingsModal) {
+        settingsBtn.addEventListener('click', () => {
+            settingsModal.style.display = 'block';
+            settingsModal.classList.add('show');
+        });
+    }
 
     // Close button event listeners
     closeButtons.forEach(button => {
         button.addEventListener('click', () => {
-            settingsModal.style.display = 'none';
-            promptModal.style.display = 'none';
+            settingsModal.classList.remove('show');
+            setTimeout(() => {
+                settingsModal.style.display = 'none';
+            }, 300);
         });
     });
 
-    // Close modals when clicking outside
+    // Close modal when clicking outside
     window.addEventListener('click', (event) => {
-        if (event.target === settingsModal) settingsModal.style.display = 'none';
-        if (event.target === promptModal) promptModal.style.display = 'none';
+        if (event.target === settingsModal) {
+            settingsModal.classList.remove('show');
+            setTimeout(() => {
+                settingsModal.style.display = 'none';
+            }, 300);
+        }
     });
 
-    toggleApiKeyBtn.addEventListener('click', () => {
-        const apiKeyInput = document.getElementById('apiKeyInput');
-        const type = apiKeyInput.type;
-        apiKeyInput.type = type === 'password' ? 'text' : 'password';
-        toggleApiKeyBtn.innerHTML = `<i class="fas fa-eye${type === 'password' ? '' : '-slash'}"></i>`;
-    });
+    // Toggle API key visibility
+    if (toggleApiKeyBtn) {
+        toggleApiKeyBtn.addEventListener('click', () => {
+            const apiKeyInput = document.getElementById('apiKeyInput');
+            const type = apiKeyInput.type;
+            apiKeyInput.type = type === 'password' ? 'text' : 'password';
+            toggleApiKeyBtn.innerHTML = `<i class="fas fa-eye${type === 'password' ? '' : '-slash'}"></i>`;
+        });
+    }
 
-    updateApiKeyBtn.addEventListener('click', updateApiKey);
-    
-    // Add event listener for updating the prompt
-    updatePromptBtn.addEventListener('click', updatePrompt);
+    // Update API key
+    if (updateApiKeyBtn) {
+        updateApiKeyBtn.addEventListener('click', updateApiKey);
+    }
 }
 
 function updateApiKey() {
@@ -2133,39 +2065,6 @@ function updateApiKey() {
     .catch(error => {
         console.error('Error:', error);
         alert('Error updating API key');
-    });
-}
-
-// Add the updatePrompt function
-function updatePrompt() {
-    const promptInput = document.getElementById('promptInput');
-    const newPrompt = promptInput.value.trim();
-
-    if (!newPrompt) {
-        alert('Please enter a prompt');
-        return;
-    }
-
-    fetch('/update_prompt', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ prompt: newPrompt })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('Prompt updated successfully');
-            document.getElementById('promptModal').style.display = 'none';
-            promptInput.value = '';
-        } else {
-            alert(data.error || 'Failed to update prompt');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('Error updating prompt');
     });
 }
 
