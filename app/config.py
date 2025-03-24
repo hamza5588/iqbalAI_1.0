@@ -16,4 +16,7 @@ class Config:
     UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'app', 'uploads')
     
     # Database configuration
-    DATABASE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'instance', 'chatbot.db') 
+    DATABASE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'instance', 'chatbot.db')
+    
+    # Nomic API configuration
+    NOMIC_API_KEY = os.getenv('NOMIC_API_KEY', 'nk-7Em9YdxJJI09E4vXTxJ9VOC2zygDGWD9eGBYxDLuG0E')  # Replace with your Nomic API key 
