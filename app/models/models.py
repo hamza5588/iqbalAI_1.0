@@ -8,6 +8,7 @@ from datetime import datetime
 import logging
 from app.utils.db import get_db
 import pickle
+from app.config import Config
 
 logger = logging.getLogger(__name__)
 # Add this to your app's initialization code (before any Groq clients are created)
@@ -229,8 +230,13 @@ class VectorStoreModel:
         """Lazy initialization of embeddings"""
         if not self._embeddings:
             try:
+                nomic_api_key = Config.NOMIC_API_KEY
+                if nomic_api_key == 'your_nomic_api_key_here':
+                    raise ValueError("Please configure your Nomic API key in the config file")
+                
                 self._embeddings = NomicEmbeddings(
-                    model="nomic-embed-text-v1.5"
+                    model="nomic-embed-text-v1.5",
+                    nomic_api_key=nomic_api_key
                 )
             except Exception as e:
                 logger.error(f"Failed to create embeddings: {str(e)}")
