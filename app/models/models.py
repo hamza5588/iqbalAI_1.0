@@ -180,6 +180,8 @@ from langchain_community.vectorstores import FAISS
 import logging
 import os
 import pickle
+from dotenv import load_dotenv
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
