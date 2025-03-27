@@ -1265,7 +1265,7 @@
     <div id="settingsModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Settings2</h2>
+                <h2>Update Api Key</h2>
                 <button class="close-modal">&times;</button>
             </div>
             <div class="modal-body">
@@ -1323,6 +1323,27 @@
         </div>
     </div>
 
+    <!-- Add this new modal for initial API key setup -->
+    <div id="apiKeySetupModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Setup API Key</h2>
+            </div>
+            <div class="modal-body">
+                <div class="settings-group">
+                    <p class="mb-3">Please enter your API key to continue using the chat interface.</p>
+                    <div class="api-key-input-group">
+                        <input type="password" id="initialApiKeyInput" placeholder="Enter your API key">
+                        <button id="toggleInitialApiKey" type="button">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                    <button id="submitInitialApiKey" class="update-btn">Submit API Key</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     
 
 
@@ -1370,6 +1391,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Check if user has already submitted survey when page loads
     checkSurveyStatus();
+
+    // Check if API key is set
+    checkApiKeyStatus();
 });
 
 // File handling functions
@@ -1459,7 +1483,7 @@ function initializeSidebar() {
             </button>
             <button id="voiceChatBtn" class="voice-chat-btn">
                 <i class="fas fa-microphone"></i>
-                Voice Chat
+                RealTime Voice Chat
             </button>
             <button id="settingsBtn" class="settings-btn">
                 <i class="fas fa-cog"></i>
@@ -2463,6 +2487,77 @@ window.addEventListener('click', function(event) {
 
 // Close survey with close button
 document.getElementById('closeSurveyBtn').addEventListener('click', hideSurvey);
+
+// Add these new functions
+function checkApiKeyStatus() {
+    fetch('/check_api_key_status')
+        .then(response => response.json())
+        .then(data => {
+            if (!data.has_api_key) {
+                showApiKeySetupModal();
+            }
+        })
+        .catch(error => {
+            console.error('Error checking API key status:', error);
+        });
+}
+
+function showApiKeySetupModal() {
+    const modal = document.getElementById('apiKeySetupModal');
+    modal.style.display = 'block';
+    modal.classList.add('show');
+}
+
+// Add event listeners for the initial API key setup
+document.addEventListener('DOMContentLoaded', () => {
+    const toggleInitialApiKeyBtn = document.getElementById('toggleInitialApiKey');
+    const submitInitialApiKeyBtn = document.getElementById('submitInitialApiKey');
+    const initialApiKeyInput = document.getElementById('initialApiKeyInput');
+
+    if (toggleInitialApiKeyBtn) {
+        toggleInitialApiKeyBtn.addEventListener('click', () => {
+            const type = initialApiKeyInput.type;
+            initialApiKeyInput.type = type === 'password' ? 'text' : 'password';
+            toggleInitialApiKeyBtn.innerHTML = `<i class="fas fa-eye${type === 'password' ? '' : '-slash'}"></i>`;
+        });
+    }
+
+    if (submitInitialApiKeyBtn) {
+        submitInitialApiKeyBtn.addEventListener('click', () => {
+            const apiKey = initialApiKeyInput.value.trim();
+            if (!apiKey) {
+                showNotification('Please enter an API key', 'error');
+                return;
+            }
+
+            fetch('/update_api_key', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ api_key: apiKey })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('API key updated successfully', 'success');
+                    const modal = document.getElementById('apiKeySetupModal');
+                    modal.classList.remove('show');
+                    setTimeout(() => {
+                        modal.style.display = 'none';
+                    }, 300);
+                    initialApiKeyInput.value = '';
+                } else {
+                    showNotification(data.error || 'Failed to update API key', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showNotification('Error updating API key', 'error');
+            });
+        });
+    }
+});
 
     </script>
 </body>
