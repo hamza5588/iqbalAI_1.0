@@ -1182,6 +1182,81 @@
     }
 }
 
+.api-key-info {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.api-key-steps {
+    margin: 10px 0;
+    padding-left: 20px;
+}
+
+.api-key-steps li {
+    margin-bottom: 8px;
+    color: #666;
+}
+
+.api-key-steps a {
+    color: #10a37f;
+    text-decoration: none;
+}
+
+.api-key-steps a:hover {
+    text-decoration: underline;
+}
+
+.settings-group {
+    margin-bottom: 20px;
+}
+
+.settings-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #333;
+    font-weight: 500;
+}
+
+.api-key-input-group {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.api-key-input-group input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.api-key-input-group button {
+    background: none;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 0 12px;
+    cursor: pointer;
+}
+
+.update-btn {
+    background: #10a37f;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    cursor: pointer;
+    width: 100%;
+    font-size: 14px;
+    transition: background 0.3s ease;
+}
+
+.update-btn:hover {
+    background: #0d8a6a;
+}
+
     </style>
 </head>
 <body>
@@ -1270,6 +1345,16 @@
             </div>
             <div class="modal-body">
                 <div class="settings-group">
+                    <div class="api-key-info">
+                        <p class="mb-3">To get your API key:</p>
+                        <ol class="api-key-steps">
+                            <li>Visit <a href="https://console.groq.com/keys" target="_blank">Groq Console</a></li>
+                            <li>Sign up or log in to your account</li>
+                            <li>Go to the API Keys section</li>
+                            <li>Click "Create API Key"</li>
+                            <li>Copy your API key and paste it below</li>
+                        </ol>
+                    </div>
                     <label for="apiKeyInput">API Key</label>
                     <div class="api-key-input-group">
                         <input type="password" id="apiKeyInput" placeholder="Enter your API key">
