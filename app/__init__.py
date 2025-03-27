@@ -21,6 +21,12 @@ def create_app():
     # Load configuration
     app.config.from_object(Config)
     
+    # Configure session to expire when browser is closed
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=1)  # Set session lifetime to 1 hour
+    app.config['SESSION_COOKIE_SECURE'] = True  # Only send cookie over HTTPS
+    app.config['SESSION_COOKIE_HTTPONLY'] = True  # Prevent JavaScript access to session cookie
+    app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'  # Protect against CSRF
+    
     # Initialize Flask-Mail
     mail.init_app(app)
     
