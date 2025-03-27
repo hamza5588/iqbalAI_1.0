@@ -102,7 +102,7 @@ def chat():
 @login_required
 def create_conversation():
     """Create a new conversation"""
-    try:.
+    try:
         data = request.json
         title = data.get('title', 'New Conversation')
         
