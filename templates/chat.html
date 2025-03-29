@@ -2148,11 +2148,17 @@ function initializeSettings() {
 function updateApiKey() {
     const apiKeyInput = document.getElementById('apiKeyInput');
     const newApiKey = apiKeyInput.value.trim();
+    const updateBtn = document.getElementById('updateApiKey');
+    const originalBtnText = updateBtn.textContent;
 
     if (!newApiKey) {
-        alert('Please enter an API key');
+        showNotification('Please enter an API key', 'error');
         return;
     }
+
+    // Disable button and show loading state
+    updateBtn.disabled = true;
+    updateBtn.textContent = 'Updating...';
 
     fetch('/update_api_key', {
         method: 'POST',
@@ -2161,19 +2167,126 @@ function updateApiKey() {
         },
         body: JSON.stringify({ api_key: newApiKey })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(data => {
+                throw new Error(data.error || 'Failed to update API key');
+            });
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
-            alert('API key updated successfully');
-            document.getElementById('settingsModal').style.display = 'none';
+            showNotification('API key updated successfully', 'success');
+            const settingsModal = document.getElementById('settingsModal');
+            settingsModal.classList.remove('show');
+            setTimeout(() => {
+                settingsModal.style.display = 'none';
+                // Reload the page to ensure everything is properly initialized with the new API key
+                window.location.reload();
+            }, 300);
             apiKeyInput.value = '';
         } else {
-            alert(data.error || 'Failed to update API key');
+            throw new Error(data.error || 'Failed to update API key');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        alert('Error updating API key');
+        showNotification(error.message || 'Error updating API key', 'error');
+    })
+    .finally(() => {
+        // Re-enable button and restore text
+        updateBtn.disabled = false;
+        updateBtn.textContent = originalBtnText;
+    });
+}
+
+function checkApiKeyStatus() {
+    fetch('/check_api_key_status')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Failed to check API key status');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (!data.has_api_key) {
+                showApiKeySetupModal();
+            }
+        })
+        .catch(error => {
+            console.error('Error checking API key status:', error);
+            showNotification('Error checking API key status. Please try updating your API key.', 'error');
+            showApiKeySetupModal();
+        });
+}
+
+function showApiKeySetupModal() {
+    const modal = document.getElementById('apiKeySetupModal');
+    modal.style.display = 'block';
+    modal.classList.add('show');
+
+    // Add event listener for the submit button if not already added
+    const submitBtn = document.getElementById('submitInitialApiKey');
+    if (!submitBtn.hasEventListener) {
+        submitBtn.hasEventListener = true;
+        submitBtn.addEventListener('click', submitInitialApiKey);
+    }
+}
+
+function submitInitialApiKey() {
+    const apiKeyInput = document.getElementById('initialApiKeyInput');
+    const newApiKey = apiKeyInput.value.trim();
+    const submitBtn = document.getElementById('submitInitialApiKey');
+    const originalBtnText = submitBtn.textContent;
+
+    if (!newApiKey) {
+        showNotification('Please enter an API key', 'error');
+        return;
+    }
+
+    // Disable button and show loading state
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Submitting...';
+
+    fetch('/update_api_key', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ api_key: newApiKey })
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(data => {
+                throw new Error(data.error || 'Failed to update API key');
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            showNotification('API key updated successfully', 'success');
+            const modal = document.getElementById('apiKeySetupModal');
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.style.display = 'none';
+                // Reload the page to ensure everything is properly initialized with the new API key
+                window.location.reload();
+            }, 300);
+            apiKeyInput.value = '';
+        } else {
+            throw new Error(data.error || 'Failed to update API key');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showNotification(error.message || 'Error updating API key', 'error');
+    })
+    .finally(() => {
+        // Re-enable button and restore text
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalBtnText;
     });
 }
 
@@ -2572,77 +2685,6 @@ window.addEventListener('click', function(event) {
 
 // Close survey with close button
 document.getElementById('closeSurveyBtn').addEventListener('click', hideSurvey);
-
-// Add these new functions
-function checkApiKeyStatus() {
-    fetch('/check_api_key_status')
-        .then(response => response.json())
-        .then(data => {
-            if (!data.has_api_key) {
-                showApiKeySetupModal();
-            }
-        })
-        .catch(error => {
-            console.error('Error checking API key status:', error);
-        });
-}
-
-function showApiKeySetupModal() {
-    const modal = document.getElementById('apiKeySetupModal');
-    modal.style.display = 'block';
-    modal.classList.add('show');
-}
-
-// Add event listeners for the initial API key setup
-document.addEventListener('DOMContentLoaded', () => {
-    const toggleInitialApiKeyBtn = document.getElementById('toggleInitialApiKey');
-    const submitInitialApiKeyBtn = document.getElementById('submitInitialApiKey');
-    const initialApiKeyInput = document.getElementById('initialApiKeyInput');
-
-    if (toggleInitialApiKeyBtn) {
-        toggleInitialApiKeyBtn.addEventListener('click', () => {
-            const type = initialApiKeyInput.type;
-            initialApiKeyInput.type = type === 'password' ? 'text' : 'password';
-            toggleInitialApiKeyBtn.innerHTML = `<i class="fas fa-eye${type === 'password' ? '' : '-slash'}"></i>`;
-        });
-    }
-
-    if (submitInitialApiKeyBtn) {
-        submitInitialApiKeyBtn.addEventListener('click', () => {
-            const apiKey = initialApiKeyInput.value.trim();
-            if (!apiKey) {
-                showNotification('Please enter an API key', 'error');
-                return;
-            }
-
-            fetch('/update_api_key', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ api_key: apiKey })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showNotification('API key updated successfully', 'success');
-                    const modal = document.getElementById('apiKeySetupModal');
-                    modal.classList.remove('show');
-                    setTimeout(() => {
-                        modal.style.display = 'none';
-                    }, 300);
-                    initialApiKeyInput.value = '';
-                } else {
-                    showNotification(data.error || 'Failed to update API key', 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showNotification('Error updating API key', 'error');
-            });
-        });
-    }
-});
 
     </script>
 </body>
