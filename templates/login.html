@@ -33,14 +33,17 @@
         }
         .toggle-password {
             position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
+            right: 12px;
+            top: 16px;
             cursor: pointer;
             border: none;
             background: none;
             padding: 0;
             color: #6c757d;
+            z-index: 2;
+            height: 100%;
+            display: flex;
+            align-items: center;
         }
         .form-control:focus {
             box-shadow: 0 0 0 0.25rem rgba(13,110,253,.25);
@@ -74,6 +77,7 @@
                 <button type="submit" class="btn btn-primary w-100">Login</button>
             </form>
             <p class="mt-3 text-center">Don't have an account? <a href="{{ url_for('auth.register_email') }}">Register here</a></p>
+            <p class="text-center"><a href="{{ url_for('auth.forgot_password') }}">Forgot Password?</a></p>
         </div>
     </div>
 
