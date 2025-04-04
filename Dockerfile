@@ -59,12 +59,12 @@ COPY . .
 
 # Set environment variables
 ENV FLASK_APP=run.py
-ENV FLASK_ENV=production
-ENV FLASK_DEBUG=0
+ENV FLASK_ENV=development
+ENV FLASK_DEBUG=1
 ENV PYTHONPATH=/app
 
 # Expose port
 EXPOSE 5000
 
 # Run the application with hot reloading
-CMD ["python", "-u", "run.py"] 
+CMD ["flask", "run", "--host=0.0.0.0", "--port=5000", "--reload"] 

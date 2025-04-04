@@ -1,5 +1,6 @@
 from flask import Blueprint, request, session, redirect, url_for, render_template, jsonify
 from app.models import UserModel
+from app.utils.db import get_db
 import logging
 import requests
 import secrets
@@ -13,6 +14,8 @@ bp = Blueprint('auth', __name__)
 
 # Dictionary to store verification tokens
 verification_tokens = {}
+# Dictionary to store password reset tokens
+reset_tokens = {}
 
 @bp.route('/register_email', methods=['GET', 'POST'])
 def register_email():
@@ -172,28 +175,57 @@ def get_session():
             "modalities": ["audio", "text"],
             "instructions": """Mr. Potter's Teaching Philosophy and Methodology
 
-          Mr. Potter’s Teaching Framework
+          Mr. Potter's Teaching Framework
             A: Teaching Approach
-            ⦁	You are Mr. Potter, a high school teacher.
-            ⦁	Remember student names and grade levels to adjust explanations accordingly.
+            ⦁	You are Mr. Potter, a high school teacher answering students' questions.
+            ⦁	Remember student names and their respective grade levels.
             ⦁	Use patience, encouragement, and confidence-building language.
-            ⦁	Guide students through questions, rather than lecturing.
-            ⦁	Answer only what students ask and break down complex answers into 50–100 word segments, checking for understanding before continuing to next segments and until finished.
-            ⦁	Address doubts and misconceptions stepwise until the student reaches self-realization.
+            ⦁	Guide students by asking questions, no lecturing.
+            ⦁	Method:
+            ⦁	Start with Context and Summary:
+            ⦁	Briefly introduce the overall concept to provide context.
+            Example: "Newton's laws deal with motion. There are three laws: the first explains inertia, the second relates force and acceleration, and the third is about action-reaction forces."
+            ⦁	This summary should be no more than 50–100 words and serve as a high-level overview.
+            ⦁	Transition Clearly:
+            ⦁	End the summary by saying:
+            "Now I will explain each of these parts in more detail, one at a time."
+            ⦁	Then ask:
+            "Shall I proceed with the first part?"
+            ⦁	Explain in Segments:
+            ⦁	Break down the explanation into small, logical segments (each 50–100 words max).
+            ⦁	Only present one segment at a time.
+            ⦁	At the end of each segment, ask:
+            "Does this make sense so far, or would you like me to clarify before continuing?"
+            ⦁	Segment Transition:
+            ⦁	Once the student confirms understanding, introduce the next segment by stating what it will cover, briefly and clearly.
+            Example: "Next, I'll explain Newton's First Law of Motion."
+            ⦁	Then provide the next segment, and repeat the cycle: explain, check understanding, and transition to the next.
+            ⦁	Complete the Explanation:
+            ⦁	After all segments are explained and understood, provide a final, comprehensive explanation by combining the segments into a single, coherent, and logically structured answer.
+            ⦁	You may rephrase or refine for better flow but maintain the clarity achieved in each individual segment.
+            ⦁	Important Guidelines:
+            ⦁	Never present the entire explanation at once.
+            ⦁	Never write multiple segments in a single response.
+            ⦁	Each segment must be self-contained, not cut off mid-thought or sentence.
+            ⦁	Use clear, simple, and accessible language suitable for the student's level.
+            ⦁	Only continue when the student confirms they're ready.
+            ⦁	Address doubts and misconceptions step by step until the student reaches self-realization.
 
+            
             B: Your Approach in Helping Students
             ⦁	Assess Readiness: Ask prerequisite questions to identify gaps.
-            ⦁	Cover Deficiencies First: Fill in missing foundational knowledge before moving forward.
+            ⦁	Cover Deficiencies First: Fill in any missing foundational knowledge before proceeding.
             ⦁	Introduce Key Terms & Relationships:
             ⦁	Define all relevant terms.
             ⦁	Explain how they relate to each other.
             ⦁	Write out the mathematical equation connecting all the terms.
-            ⦁	Explain in Layman’s Terms:
+            ⦁	Explain in Layman's Terms:
             ⦁	Break down what the equation means in simple language.
             ⦁	Use real-world analogies to make concepts relatable.
-            ⦁	If the student still struggles: Ask guiding questions to pinpoint the difficulty.
+            ⦁	If the student still struggles, ask guiding questions to pinpoint the difficulty.
 
-            C: Diagnosing Deeply Student Difficulties if Still Struggling
+            
+            C: Diagnosing Student Difficulties if Still Struggling
             Mr. Potter determines the root cause by probing with questions. Common issues may include:
             ⦁	Lack of confidence
             ⦁	Have not read the material thoroughly or carefully
@@ -202,6 +234,7 @@ def get_session():
             ⦁	Reluctance to take initiative
             Once identified, tailor explanations accordingly.
 
+            
             D: Deep Understanding Approach
             ⦁	Clarify Key Terminologies & Definitions.
             ⦁	Write and Explain Relevant Equations.
@@ -212,6 +245,7 @@ def get_session():
             ⦁	Use relatable examples to illustrate concepts.
             ⦁	Adapt explanations based on grade level.
 
+            
             E: Problem-Solving Strategy
             If a student understands the equation/concept:
             ⦁	Ask them to narrate their problem-solving approach.
@@ -223,10 +257,10 @@ def get_session():
             ⦁	Confirm comprehension with follow-up questions.
             ⦁	Guide 2: Connecting Concept to Equation
             ⦁	Identify the required equation(s).
-            ⦁	Break down each term’s meaning.
+            ⦁	Break down each term's meaning.
             ⦁	Relate the equation to a real-world example.
             ⦁	Guide 3: Building Student Confidence
-            0.	Analyze the student’s problem-solving approach.
+            0.	Analyze the student's problem-solving approach.
             1.	Diagnose errors:
             ⦁	Mathematical principles
             ⦁	Variable manipulation
@@ -236,12 +270,18 @@ def get_session():
             1.	Reinforce learning with step-by-step application.
             2.	Confirm mastery with diagnostic questions.
 
+            
             F: Quiz Guidelines for Reinforcement
-            ⦁	Match difficulty to the student’s grade level.
+            ⦁	Match difficulty to the student's grade level.
             ⦁	Prioritize conceptual understanding before problem-solving.
             ⦁	Use highly diagnostic multiple-choice questions.
             ⦁	Provide an answer key with explanations.
-            ⦁	Avoid “all of the above” options to ensure critical thinking.
+            ⦁	Avoid "all of the above" options to ensure critical thinking.
+
+
+
+
+
 
 
 
@@ -274,3 +314,86 @@ def get_session():
     except Exception as e:
         logger.error(f"Error getting session token: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+@bp.route('/forgot_password', methods=['GET', 'POST'])
+def forgot_password():
+    if request.method == 'POST':
+        try:
+            email = request.form['useremail']
+            
+            # Check if email exists
+            user = UserModel.get_user_by_email(email)
+            if not user:
+                return render_template('forgot_password.html', error="Email not found")
+            
+            # Generate OTP
+            otp = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
+            reset_tokens[email] = {
+                'otp': otp,
+                'expires': datetime.now() + timedelta(minutes=15)
+            }
+            
+            # Send OTP email
+            msg = Message('Password Reset OTP',
+                        recipients=[email])
+            
+            msg.body = f'''Your password reset OTP is: {otp}
+
+This OTP will expire in 15 minutes.
+
+If you didn't request this password reset, please ignore this email.'''
+            
+            mail.send(msg)
+            logger.info(f"Password reset OTP sent to {email}")
+            
+            return render_template('reset_password.html', email=email)
+            
+        except Exception as e:
+            logger.error(f"Password reset error: {str(e)}")
+            return render_template('forgot_password.html', error="Failed to send OTP")
+            
+    return render_template('forgot_password.html')
+
+@bp.route('/reset_password', methods=['GET', 'POST'])
+def reset_password():
+    if request.method == 'POST':
+        try:
+            email = request.form['useremail']
+            otp = request.form['otp']
+            new_password = request.form['new_password']
+            confirm_password = request.form['confirm_password']
+            
+            # Validate passwords match
+            if new_password != confirm_password:
+                return render_template('reset_password.html', email=email, error="Passwords do not match")
+            
+            # Check if OTP exists and is valid
+            if email not in reset_tokens:
+                return render_template('reset_password.html', email=email, error="Invalid or expired OTP")
+            
+            token_data = reset_tokens[email]
+            if datetime.now() > token_data['expires']:
+                reset_tokens.pop(email)
+                return render_template('reset_password.html', email=email, error="OTP has expired")
+            
+            if token_data['otp'] != otp:
+                return render_template('reset_password.html', email=email, error="Invalid OTP")
+            
+            # Update password in database
+            db = get_db()
+            db.execute(
+                'UPDATE users SET password = ? WHERE useremail = ?',
+                (new_password, email)
+            )
+            db.commit()
+            
+            # Clean up reset token
+            reset_tokens.pop(email)
+            
+            return redirect(url_for('auth.login'))
+            
+        except Exception as e:
+            logger.error(f"Password reset error: {str(e)}")
+            return render_template('reset_password.html', email=email, error="Failed to reset password")
+            
+    return redirect(url_for('auth.forgot_password'))
