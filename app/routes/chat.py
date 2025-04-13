@@ -172,14 +172,14 @@ def submit_survey():
 
         if not isinstance(rating, (int, float)):
             logger.error(f"Survey submission failed: Rating is not a number - Type: {type(rating)}")
-            return jsonify({'error': 'Invalid rating. Must be a number between 1 and 5'}), 400
+            return jsonify({'error': 'Invalid rating. Must be a number between 1 and 10'}), 400
             
         # Convert to integer if it's a float
         rating = int(rating)
 
-        if rating < 1 or rating > 5:  # Updated to match 5-star rating system
+        if rating < 1 or rating > 10:  # Updated to match NPS scale
             logger.error(f"Survey submission failed: Rating {rating} is out of range")
-            return jsonify({'error': 'Invalid rating. Must be a number between 1 and 5'}), 400
+            return jsonify({'error': 'Invalid rating. Must be a number between 1 and 10'}), 400
 
         # Check if user has already submitted
         survey_model = SurveyModel(user_id)

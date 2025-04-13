@@ -998,32 +998,41 @@
 }
 
 .rating-btn {
-    width: 45px;
-    height: 45px;
+    width: 40px;
+    height: 40px;
     border: 2px solid #10a37f;
     background: white;
     color: #10a37f;
     border-radius: 50%;
-    font-size: 18px;
+    font-size: 16px;
     cursor: pointer;
     transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .rating-btn:hover {
     background: #10a37f;
     color: white;
+    transform: translateY(-2px);
 }
 
 .rating-btn.selected {
     background: #10a37f;
     color: white;
+    border-color: #10a37f;
 }
 
-@media screen and (max-width: 768px) {
+@media screen and (max-width: 480px) {
     .rating-btn {
-        width: 40px;
-        height: 40px;
-        font-size: 16px;
+        width: 35px;
+        height: 35px;
+        font-size: 14px;
+    }
+    
+    .rating-buttons {
+        gap: 6px;
     }
 }
 
@@ -1393,7 +1402,12 @@
                         <button class="rating-btn" data-value="2" data-emoji="far fa-frown">2</button>
                         <button class="rating-btn" data-value="3" data-emoji="far fa-meh">3</button>
                         <button class="rating-btn" data-value="4" data-emoji="far fa-smile">4</button>
-                        <button class="rating-btn" data-value="5" data-emoji="far fa-grin-stars">5</button>
+                        <button class="rating-btn" data-value="5" data-emoji="far fa-grin">5</button>
+                        <button class="rating-btn" data-value="6" data-emoji="far fa-grin-alt">6</button>
+                        <button class="rating-btn" data-value="7" data-emoji="far fa-grin-beam">7</button>
+                        <button class="rating-btn" data-value="8" data-emoji="far fa-grin-beam-sweat">8</button>
+                        <button class="rating-btn" data-value="9" data-emoji="far fa-grin-stars">9</button>
+                        <button class="rating-btn" data-value="10" data-emoji="far fa-grin-hearts">10</button>
                     </div>
                     
                     <div class="rating-feedback">
@@ -2588,8 +2602,13 @@ document.addEventListener('DOMContentLoaded', () => {
         1: "We're sorry to hear that. We'll work on improving.",
         2: "Thanks for the feedback. We'll try to do better.",
         3: "Thank you for your feedback.",
-        4: "Glad you had a good experience!",
-        5: "Fantastic! Thank you for the great rating!"
+        4: "We appreciate your feedback.",
+        5: "Thank you for your rating.",
+        6: "Glad you had a good experience!",
+        7: "Great! We're happy to hear that.",
+        8: "Excellent! Thank you for the high rating.",
+        9: "Fantastic! We're thrilled with your feedback.",
+        10: "Amazing! Thank you for the perfect rating!"
     };
 
     // Handle rating button clicks
