@@ -1403,6 +1403,13 @@
             background: #343541;
         }
 
+        .voice-btn-disabled {
+            opacity: 0.5 !important;
+            pointer-events: none !important;
+            filter: grayscale(60%);
+            transition: opacity 0.2s, filter 0.2s;
+        }
+
     </style>
 </head>
 <body>
@@ -1415,11 +1422,15 @@
             </button>
             <button id="voiceChatBtn" class="voice-chat-btn">
                 <i class="fas fa-microphone" title="Voice Chat"></i>
-                Voice Chat
+                Real Time Chat
             </button>
             <button id="settingsBtn" class="settings-btn">
                 <i class="fas fa-cog" title="Update Api Key"></i>
                 Update Api Key
+            </button>
+            <button id="updatePromptBtn" class="settings-btn">
+                <i class="fas fa-edit" title="Update Prompt"></i>
+                Update Prompt
             </button>
             <button id="resetBtn" class="reset-btn" onclick="resetChat()">
                 <i class="fas fa-redo" title="Reset Chat"></i>
@@ -1585,9 +1596,22 @@
         </div>
     </div>
 
-    
-
-
+    <!-- Prompt Modal -->
+    <div id="promptModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Update Prompt</h2>
+                <button class="close-modal" id="closePromptModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-group">
+                    <label for="promptTextarea">Prompt</label>
+                    <textarea id="promptTextarea" rows="10" style="width:100%;border-radius:8px;padding:10px;"></textarea>
+                    <button id="savePromptBtn" class="update-btn" style="margin-top:10px;">Save Prompt</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script>
   // Global variables
@@ -1653,6 +1677,76 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Check if API key is set
     checkApiKeyStatus();
+
+    // Prompt modal logic
+    const updatePromptBtn = document.getElementById('updatePromptBtn');
+    const promptModal = document.getElementById('promptModal');
+    const closePromptModal = document.getElementById('closePromptModal');
+    const promptTextarea = document.getElementById('promptTextarea');
+    const savePromptBtn = document.getElementById('savePromptBtn');
+
+    if (updatePromptBtn && promptModal) {
+        updatePromptBtn.addEventListener('click', () => {
+            // Fetch current prompt
+            fetch('/get_prompt')
+                .then(res => res.json())
+                .then(data => {
+                    promptTextarea.value = data.prompt || '';
+                    promptModal.style.display = 'block';
+                    promptModal.classList.add('show');
+                })
+                .catch(() => {
+                    promptTextarea.value = '';
+                    promptModal.style.display = 'block';
+                    promptModal.classList.add('show');
+                });
+        });
+    }
+    if (closePromptModal) {
+        closePromptModal.addEventListener('click', () => {
+            promptModal.classList.remove('show');
+            setTimeout(() => { promptModal.style.display = 'none'; }, 300);
+        });
+    }
+    window.addEventListener('click', (event) => {
+        if (event.target === promptModal) {
+            promptModal.classList.remove('show');
+            setTimeout(() => { promptModal.style.display = 'none'; }, 300);
+        }
+    });
+    if (savePromptBtn) {
+        savePromptBtn.addEventListener('click', () => {
+            const newPrompt = promptTextarea.value.trim();
+            if (!newPrompt) {
+                showNotification('Prompt cannot be empty', 'error');
+                return;
+            }
+            savePromptBtn.disabled = true;
+            savePromptBtn.textContent = 'Saving...';
+            fetch('/update_prompt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: newPrompt })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showNotification('Prompt updated successfully', 'success');
+                    promptModal.classList.remove('show');
+                    setTimeout(() => { promptModal.style.display = 'none'; }, 300);
+                } else {
+                    showNotification(data.error || 'Failed to update prompt', 'error');
+                }
+            })
+            .catch(() => {
+                showNotification('Failed to update prompt', 'error');
+            })
+            .finally(() => {
+                savePromptBtn.disabled = false;
+                savePromptBtn.textContent = 'Save Prompt';
+            });
+        });
+    }
 });
 
 // File handling functions
@@ -1799,11 +1893,15 @@ function initializeSidebar() {
             </button>
             <button id="voiceChatBtn" class="voice-chat-btn">
                 <i class="fas fa-microphone" title="Voice Chat"></i>
-                Voice Chat
+                Real Time Chat
             </button>
             <button id="settingsBtn" class="settings-btn">
                 <i class="fas fa-cog" title="Update Api Key"></i>
                 Update Api Key
+            </button>
+            <button id="updatePromptBtn" class="settings-btn">
+                <i class="fas fa-edit" title="Update Prompt"></i>
+                Update Prompt
             </button>
             <button id="resetBtn" class="reset-btn" onclick="resetChat()">
                 <i class="fas fa-redo" title="Reset Chat"></i>
@@ -2239,12 +2337,17 @@ function copyMessage(button) {
 // Voice input/output functions
 function toggleVoiceInput() {
     const voiceInputBtn = document.getElementById('voiceInputBtn');
+    const voiceOutputBtn = document.getElementById('voiceOutputBtn');
     if (!isListening) {
         startVoiceInput();
         voiceInputBtn.classList.add('active');
+        // Speaker visible but disabled
+        if (voiceOutputBtn) voiceOutputBtn.classList.add('voice-btn-disabled');
     } else {
         stopVoiceInput();
         voiceInputBtn.classList.remove('active');
+        // Speaker enabled
+        if (voiceOutputBtn) voiceOutputBtn.classList.remove('voice-btn-disabled');
     }
 }
 
@@ -2282,16 +2385,24 @@ function stopVoiceInput() {
     }
     isListening = false;
     document.getElementById('voiceInputBtn').classList.remove('active');
+    // Always enable the speaker button when mic is off
+    const voiceOutputBtn = document.getElementById('voiceOutputBtn');
+    if (voiceOutputBtn) voiceOutputBtn.classList.remove('voice-btn-disabled');
 }
 
 function toggleVoiceOutput() {
     const voiceOutputBtn = document.getElementById('voiceOutputBtn');
+    const voiceInputBtn = document.getElementById('voiceInputBtn');
     if (!isSpeaking) {
         startVoiceOutput();
         voiceOutputBtn.classList.add('active');
+        // Mic visible but disabled
+        if (voiceInputBtn) voiceInputBtn.classList.add('voice-btn-disabled');
     } else {
         stopVoiceOutput();
         voiceOutputBtn.classList.remove('active');
+        // Mic enabled
+        if (voiceInputBtn) voiceInputBtn.classList.remove('voice-btn-disabled');
     }
 }
 let allVoices = [];
@@ -2368,6 +2479,9 @@ function stopVoiceOutput() {
     }
     isSpeaking = false;
     document.getElementById('voiceOutputBtn').classList.remove('active');
+    // Always enable the mic button when speaker is off
+    const voiceInputBtn = document.getElementById('voiceInputBtn');
+    if (voiceInputBtn) voiceInputBtn.classList.remove('voice-btn-disabled');
 }
 
 // Settings management functions
