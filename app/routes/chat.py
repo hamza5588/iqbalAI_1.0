@@ -153,6 +153,46 @@ def delete_conversation(conversation_id):
         logger.error(f"Error deleting conversation: {str(e)}")
         return jsonify({'error': 'Failed to delete conversation'}), 500
 
+@bp.route('/delete_all_conversations', methods=['DELETE'])
+@login_required
+def delete_all_conversations():
+    """Delete all conversations for the current user"""
+    try:
+        chat_service = ChatService(session['user_id'], session['groq_api_key'])
+        chat_service.reset_all_conversations()
+        return jsonify({'message': 'All conversations deleted successfully'})
+    except Exception as e:
+        logger.error(f"Error deleting all conversations: {str(e)}")
+        return jsonify({'error': 'Failed to delete conversations'}), 500
+
+@bp.route('/download_chat/<int:conversation_id>')
+@login_required
+def download_chat(conversation_id):
+    """Download a chat conversation as a text file"""
+    try:
+        chat_service = ChatService(session['user_id'], session['groq_api_key'])
+        messages = chat_service.get_conversation_messages(conversation_id)
+        
+        # Format messages for download
+        formatted_messages = []
+        for msg in messages:
+            role = "Mr. Potter" if msg['role'] == 'bot' else "User"
+            formatted_messages.append(f"{role}: {msg['message']}\n")
+        
+        # Create the text content
+        content = "Chat Conversation\n" + "=" * 20 + "\n\n" + "".join(formatted_messages)
+        
+        # Create response with appropriate headers
+        from flask import make_response
+        response = make_response(content)
+        response.headers["Content-Disposition"] = f"attachment; filename=chat_conversation_{conversation_id}.txt"
+        response.headers["Content-type"] = "text/plain"
+        
+        return response
+    except Exception as e:
+        logger.error(f"Error downloading chat: {str(e)}")
+        return jsonify({'error': 'Failed to download chat'}), 500
+
 @bp.route('/submit_survey', methods=['POST'])
 @login_required
 def submit_survey():

@@ -175,7 +175,8 @@ class ChatModel:
 
 # app/models/models.py (VectorStoreModel part)
 from typing import List, Optional
-from langchain_nomic import NomicEmbeddings
+# from langchain_nomic import NomicEmbeddings
+from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
 from langchain_community.vectorstores import FAISS
 import logging
 import os
@@ -231,9 +232,7 @@ class VectorStoreModel:
         """Lazy initialization of embeddings"""
         if not self._embeddings:
             try:
-                self._embeddings = NomicEmbeddings(
-                    model="nomic-embed-text-v1.5"
-                )
+                self._embeddings =FastEmbedEmbeddings()
             except Exception as e:
                 logger.error(f"Failed to create embeddings: {str(e)}")
                 raise
@@ -376,6 +375,20 @@ class ConversationModel:
             return [dict(msg) for msg in messages]
         except Exception as e:
             logger.error(f"Error retrieving chat history: {str(e)}")
+            raise
+
+    def delete_conversation(self, conversation_id: int) -> None:
+        """Delete a conversation and its associated messages"""
+        try:
+            db = get_db()
+            # Delete the conversation (this will cascade delete chat_history due to foreign key constraint)
+            db.execute(
+                'DELETE FROM conversations WHERE id = ? AND user_id = ?',
+                (conversation_id, self.user_id)
+            )
+            db.commit()
+        except Exception as e:
+            logger.error(f"Error deleting conversation: {str(e)}")
             raise
 
 class SurveyModel:
