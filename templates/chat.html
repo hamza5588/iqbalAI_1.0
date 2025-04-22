@@ -1570,6 +1570,13 @@
                             Thank you for your feedback!
                         </div>
                     </div>
+
+                    <div class="survey-fields" style="margin-top: 20px;">
+                        <div class="form-group">
+                            <label for="surveyMessage">Message (Optional)</label>
+                            <textarea id="surveyMessage" class="form-control" rows="3" placeholder="Share your thoughts about the chat experience..."></textarea>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2177,7 +2184,7 @@ function sendMessage() {
     if (!message) return;
 
     isWaitingForResponse = true;
-    messageInput.disabled = true;
+    // Don't disable the input field
     document.querySelector('.send-button').disabled = true;
 
     // Show typing indicator after the last message
@@ -2223,17 +2230,33 @@ function sendMessageToServer(message) {
     messageInput.value = '';
     messageInput.style.height = 'auto';
 
-    fetch('/chat', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            input: message,
-            conversation_id: currentConversationId
-        })
+    // Set a 5-second timeout
+    const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+            reject(new Error('Request timed out after 5 seconds'));
+        }, 5000);
+    });
+
+    // Race between the fetch and timeout
+    Promise.race([
+        fetch('/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                input: message,
+                conversation_id: currentConversationId
+            })
+        }),
+        timeoutPromise
+    ])
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
     })
-    .then(response => response.json())
     .then(data => {
         // Remove typing indicator
         const typingIndicator = document.querySelector('.typing-indicator');
@@ -2248,9 +2271,8 @@ function sendMessageToServer(message) {
             loadConversations();
         }
 
-        // Re-enable input and button
+        // Re-enable button
         isWaitingForResponse = false;
-        messageInput.disabled = false;
         document.querySelector('.send-button').disabled = false;
     })
     .catch(error => {
@@ -2260,11 +2282,14 @@ function sendMessageToServer(message) {
             typingIndicator.remove();
         }
 
-        handleError(error, 'Sorry, there was an error processing your message.');
+        if (error.message.includes('timed out')) {
+            handleError(error, 'Request timed out. Please try again.');
+        } else {
+            handleError(error, 'Sorry, there was an error processing your message.');
+        }
         
-        // Re-enable input and button
+        // Re-enable button
         isWaitingForResponse = false;
-        messageInput.disabled = false;
         document.querySelector('.send-button').disabled = false;
     });
 }
@@ -2955,12 +2980,12 @@ function checkSurveyStatus() {
         .then(data => {
             hasSubmittedSurvey = data.has_submitted;
             if (!hasSubmittedSurvey) {
-                // Show survey after 10 seconds only if user hasn't submitted
+                // Show survey after 5 minutes only if user hasn't submitted
                 setTimeout(() => {
                     if (!hasSubmittedSurvey) {
                         showSurvey();
                     }
-                }, 10 * 1000);
+                }, 5 * 60 * 1000); // 5 minutes in milliseconds
             }
         })
         .catch(error => {
@@ -3043,13 +3068,16 @@ async function submitRating(rating) {
     console.log('Submitting rating:', rating); // Debug log
     
     try {
+        const message = document.getElementById('surveyMessage').value.trim();
+        
         const response = await fetch('/submit_survey', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                rating: rating
+                rating: rating,
+                message: message
             })
         });
 
@@ -3068,12 +3096,14 @@ async function submitRating(rating) {
             ratingMessage.style.display = 'none';
             ratingSuccess.style.display = 'flex';
             
-            // Disable rating buttons
+            // Disable rating buttons and textareas
             document.querySelectorAll('.rating-btn').forEach(btn => {
                 btn.disabled = true;
                 btn.style.opacity = '0.5';
                 btn.style.cursor = 'default';
             });
+            
+            document.getElementById('surveyMessage').disabled = true;
             
             // Store submission in localStorage
             localStorage.setItem('surveySubmitted', 'true');

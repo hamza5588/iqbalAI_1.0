@@ -202,6 +202,7 @@ def submit_survey():
         logger.info(f"Received survey data: {data}")
         
         rating = data.get('rating')
+        message = data.get('message')
         user_id = session.get('user_id')
         
         logger.info(f"Processing survey - Rating: {rating}, User ID: {user_id}")
@@ -228,17 +229,17 @@ def submit_survey():
             return jsonify({'error': 'Survey already submitted'}), 400
 
         # Create survey model instance and save response
-        logger.info(f"Saving survey response - User: {user_id}, Rating: {rating}")
-        survey_model.save_survey_response(rating)
+        logger.info(f"Saving survey response - User: {user_id}, Rating: {rating}, Message: {message}")
+        survey_model.save_survey_response(rating, message)
 
         logger.info(f"Survey successfully submitted - User ID: {user_id}, Rating: {rating}")
         return jsonify({
             'success': True,
-            'message': 'Thank you for your feedback!'
-        })
+            'message': 'Survey submitted successfully'
+        }), 200
         
     except Exception as e:
-        logger.error(f"Survey submission failed with exception: {str(e)}")
+        logger.error(f"Error submitting survey: {str(e)}")
         logger.exception("Full traceback:")  # This will log the full stack trace
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 

@@ -82,6 +82,7 @@ def init_db(app):
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER NOT NULL,
                     rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 10),
+                    message TEXT,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 )
