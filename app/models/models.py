@@ -397,7 +397,7 @@ class SurveyModel:
     def __init__(self, user_id: int):
         self.user_id = user_id
     
-    def save_survey_response(self, rating: int) -> int:
+    def save_survey_response(self, rating: int, message: str = None) -> int:
         """Save a survey response to the database"""
         try:
             if not isinstance(rating, int) or rating < 1 or rating > 10:
@@ -405,9 +405,9 @@ class SurveyModel:
 
             db = get_db()
             cursor = db.execute(
-                '''INSERT INTO survey_responses (user_id, rating)
-                   VALUES (?, ?)''',
-                (self.user_id, rating)
+                '''INSERT INTO survey_responses (user_id, rating, message)
+                   VALUES (?, ?, ?)''',
+                (self.user_id, rating, message)
             )
             db.commit()
             return cursor.lastrowid
@@ -420,7 +420,7 @@ class SurveyModel:
         try:
             db = get_db()
             responses = db.execute(
-                '''SELECT rating, created_at
+                '''SELECT rating, message, created_at
                    FROM survey_responses
                    WHERE user_id = ?
                    ORDER BY created_at DESC''',
