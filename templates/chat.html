@@ -1434,7 +1434,7 @@
             </button>
             <button id="resetBtn" class="reset-btn" onclick="resetChat()">
                 <i class="fas fa-redo" title="Reset Chat"></i>
-                Reset Chat
+                Delete Chat
             </button>
             <button id="logoutBtn" class="logout-btn" onclick="logout()">
                 <i class="fas fa-sign-out-alt" title="Logout"></i>
@@ -1912,7 +1912,7 @@ function initializeSidebar() {
             </button>
             <button id="resetBtn" class="reset-btn" onclick="resetChat()">
                 <i class="fas fa-redo" title="Reset Chat"></i>
-                Reset Chat
+                Delete Chat
             </button>
             <button id="logoutBtn" class="logout-btn" onclick="logout()">
                 <i class="fas fa-sign-out-alt" title="Logout"></i>
@@ -2757,6 +2757,12 @@ async function initializeVoiceChat() {
     try {
         console.log('Initializing voice chat...');
         
+        // Disable mic and speaker buttons
+        const voiceInputBtn = document.getElementById('voiceInputBtn');
+        const voiceOutputBtn = document.getElementById('voiceOutputBtn');
+        if (voiceInputBtn) voiceInputBtn.classList.add('voice-btn-disabled');
+        if (voiceOutputBtn) voiceOutputBtn.classList.add('voice-btn-disabled');
+        
         // Request microphone permission first
         const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         
@@ -2957,10 +2963,16 @@ function endVoiceChat() {
         const voiceChatContainer = document.getElementById('voiceChatContainer');
         const ringBox = document.getElementById('ringBox');
         const voiceChatBtn = document.getElementById('voiceChatBtn');
+        const voiceInputBtn = document.getElementById('voiceInputBtn');
+        const voiceOutputBtn = document.getElementById('voiceOutputBtn');
         
         if (voiceChatContainer) voiceChatContainer.style.display = 'none';
         if (ringBox) ringBox.style.display = 'none';
         if (voiceChatBtn) voiceChatBtn.classList.remove('active');
+        
+        // Re-enable mic and speaker buttons
+        if (voiceInputBtn) voiceInputBtn.classList.remove('voice-btn-disabled');
+        if (voiceOutputBtn) voiceOutputBtn.classList.remove('voice-btn-disabled');
         
         showNotification('Voice chat ended', 'info');
     } catch (error) {
@@ -3233,7 +3245,7 @@ function downloadChat() {
             // Create a temporary link element
             const a = document.createElement('a');
             a.href = url;
-            a.download = `chat_conversation_${currentConversationId}.txt`;
+            a.download = `chat_conversation_${currentConversationId}.docx`;
             
             // Append to body, click, and remove
             document.body.appendChild(a);

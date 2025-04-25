@@ -168,25 +168,41 @@ def delete_all_conversations():
 @bp.route('/download_chat/<int:conversation_id>')
 @login_required
 def download_chat(conversation_id):
-    """Download a chat conversation as a text file"""
+    """Download a chat conversation as a Word document"""
     try:
         chat_service = ChatService(session['user_id'], session['groq_api_key'])
         messages = chat_service.get_conversation_messages(conversation_id)
         
-        # Format messages for download
-        formatted_messages = []
+        # Create a new Word document
+        from docx import Document
+        from docx.shared import Pt, RGBColor
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        
+        doc = Document()
+        
+        # Add title
+        title = doc.add_heading('Chat Conversation', 0)
+        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        
+        # Add messages
         for msg in messages:
             role = "Mr. Potter" if msg['role'] == 'bot' else "User"
-            formatted_messages.append(f"{role}: {msg['message']}\n")
+            p = doc.add_paragraph()
+            p.add_run(f"{role}: ").bold = True
+            p.add_run(msg['message'])
+            p.paragraph_format.space_after = Pt(12)
         
-        # Create the text content
-        content = "Chat Conversation\n" + "=" * 20 + "\n\n" + "".join(formatted_messages)
+        # Save the document to a BytesIO object
+        from io import BytesIO
+        doc_io = BytesIO()
+        doc.save(doc_io)
+        doc_io.seek(0)
         
         # Create response with appropriate headers
         from flask import make_response
-        response = make_response(content)
-        response.headers["Content-Disposition"] = f"attachment; filename=chat_conversation_{conversation_id}.txt"
-        response.headers["Content-type"] = "text/plain"
+        response = make_response(doc_io.getvalue())
+        response.headers["Content-Disposition"] = f"attachment; filename=chat_conversation_{conversation_id}.docx"
+        response.headers["Content-type"] = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         
         return response
     except Exception as e:
