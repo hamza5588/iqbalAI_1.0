@@ -8,6 +8,15 @@ from datetime import datetime
 import logging
 from app.utils.db import get_db
 import pickle
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+import httpx
+from httpx import Timeout
+from threading import Lock
+import time
+from collections import deque
+import random
+import re
+import json
 
 logger = logging.getLogger(__name__)
 # Add this to your app's initialization code (before any Groq clients are created)
@@ -92,21 +101,73 @@ class UserModel:
 from langchain_groq import ChatGroq
 from typing import Optional, List, Dict, Any
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
-# app/models/models.py (ChatModel part)
-from langchain_groq import ChatGroq
-from typing import Optional, List, Dict, Any
-import logging
+class TokenBucket:
+    """Token bucket rate limiter implementation"""
+    def __init__(self, rate: float, capacity: int):
+        self.rate = rate  # tokens per second
+        self.capacity = capacity  # maximum tokens
+        self.tokens = capacity  # current tokens
+        self.last_update = time.time()
+        self.lock = Lock()
+        self.request_history = deque(maxlen=100)  # Track last 100 requests
+        self.error_count = 0
+        self.last_error_time = 0
+        self.daily_limit_hit = False
+        self.daily_limit_reset_time = 0
 
-logger = logging.getLogger(__name__)
+    def acquire(self, tokens: int = 1) -> bool:
+        """Acquire tokens from the bucket"""
+        with self.lock:
+            now = time.time()
+            
+            # Check if we're in daily limit cooldown
+            if self.daily_limit_hit and now < self.daily_limit_reset_time:
+                return False
+            
+            # Add new tokens based on time passed
+            time_passed = now - self.last_update
+            new_tokens = time_passed * self.rate
+            
+            # If we've had recent errors, reduce the rate by 25% instead of 50%
+            if self.error_count > 0 and now - self.last_error_time < 60:
+                new_tokens *= 0.75  # Reduce rate by 25% after errors
+            
+            self.tokens = min(self.capacity, self.tokens + new_tokens)
+            self.last_update = now
 
-from langchain_groq import ChatGroq
-from typing import Optional, List, Dict, Any
-import logging
+            if self.tokens >= tokens:
+                self.tokens -= tokens
+                self.request_history.append(now)
+                return True
+            return False
 
-logger = logging.getLogger(__name__)
+    def record_error(self, error_data: Optional[Dict] = None):
+        """Record an error occurrence"""
+        with self.lock:
+            self.error_count += 1
+            self.last_error_time = time.time()
+            
+            # Handle daily limit error
+            if error_data and isinstance(error_data, dict):
+                if error_data.get('code') == 'rate_limit_exceeded' and error_data.get('type') == 'tokens':
+                    self.daily_limit_hit = True
+                    # Parse the reset time from the error message
+                    try:
+                        reset_time_str = error_data.get('message', '').split('try again in ')[1].split('.')[0]
+                        minutes, seconds = map(int, reset_time_str.split('m'))
+                        self.daily_limit_reset_time = time.time() + (minutes * 60) + seconds
+                    except:
+                        # Default to 1 hour if parsing fails
+                        self.daily_limit_reset_time = time.time() + 3600
+            
+            # Clear error count after 5 minutes
+            if time.time() - self.last_error_time > 300:
+                self.error_count = 0
+                self.daily_limit_hit = False
 
 class ChatModel:
     """Model for handling chat-related operations"""
@@ -116,6 +177,20 @@ class ChatModel:
         self.user_id = user_id
         self._chat_model = None
         self.vector_store = VectorStoreModel(user_id=user_id)
+        # Optimize timeout settings for faster responses
+        self.timeout = Timeout(
+            timeout=15.0,  # Reduced from 20.0
+            connect=3.0,   # Reduced from 5.0
+            read=10.0,     # Reduced from 15.0
+            write=3.0      # Reduced from 5.0
+        )
+        # Increase rate limiter capacity and rate
+        self.rate_limiter = TokenBucket(rate=10/60, capacity=10)  # Increased from 5/60 and capacity 5
+        self.last_request_time = 0
+        self.min_request_interval = 0.5  # Reduced from 1.0 seconds
+        self.daily_limit = 100000  # Daily token limit
+        self.used_tokens = 0  # Track used tokens
+        self.requested_tokens = 0  # Track requested tokens
     
     @property
     def chat_model(self):
@@ -124,18 +199,77 @@ class ChatModel:
             try:
                 self._chat_model = ChatGroq(
                     api_key=self.api_key,
-                    model_name="llama-3.3-70b-versatile"
+                    model_name="llama-3.3-70b-versatile",
+                    timeout=self.timeout,
+                    max_retries=3,
+                  
+
                 )
             except Exception as e:
                 logger.error(f"Failed to initialize chat model: {str(e)}")
                 raise
         return self._chat_model
 
+    def _wait_for_token(self):
+        """Wait for a token to become available with jitter"""
+        while not self.rate_limiter.acquire():
+            # Add random jitter to prevent thundering herd
+            jitter = random.uniform(0.1, 0.5)
+            time.sleep(jitter)
+            
+            # Ensure minimum interval between requests
+            now = time.time()
+            if now - self.last_request_time < self.min_request_interval:
+                time.sleep(self.min_request_interval - (now - self.last_request_time))
+
+    def _handle_error(self, error: Exception) -> Dict:
+        """Handle errors and update rate limiter state"""
+        error_info = {
+            'error': str(error),
+            'retry_after': None,
+            'is_daily_limit': False
+        }
+        
+        if isinstance(error, httpx.HTTPStatusError):
+            try:
+                error_data = error.response.json()
+                self.rate_limiter.record_error(error_data.get('error', {}))
+                
+                if error.response.status_code == 429:
+                    if error_data.get('error', {}).get('type') == 'tokens':
+                        error_info['is_daily_limit'] = True
+                        error_info['retry_after'] = self.rate_limiter.daily_limit_reset_time - time.time()
+                        logger.warning(f"Daily token limit reached. Reset in {error_info['retry_after']} seconds")
+                    else:
+                        logger.warning("Rate limit hit, increasing delay")
+                        time.sleep(10)
+                elif error.response.status_code >= 500:
+                    logger.warning("Server error, adding delay")
+                    time.sleep(5)
+            except:
+                logger.error("Error parsing error response")
+        
+        elif isinstance(error, httpx.TimeoutException):
+            logger.warning("Request timeout, adding delay")
+            time.sleep(3)
+        
+        return error_info
+
+    @retry(
+        stop=stop_after_attempt(3),  # Increased from 2
+        wait=wait_exponential(multiplier=0.5, min=1, max=5),  # More aggressive retry
+        retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.RequestError, httpx.TimeoutException)),
+        reraise=True
+    )
     def generate_response(self, input_text: str, 
                          system_prompt: Optional[str] = None, 
                          chat_history: Optional[List[Dict]] = None) -> str:
         """Generate a response using the chat model with vector store context"""
         try:
+            # Wait for rate limiter token with reduced jitter
+            self._wait_for_token()
+            self.last_request_time = time.time()
+            
             # Initialize messages list
             messages = []
             
@@ -165,13 +299,61 @@ class ChatModel:
             # Log the messages being sent to the model for debugging
             logger.debug(f"Sending messages to model: {messages}")
             
-            # Generate response
-            response = self.chat_model.invoke(messages)
-            return response.content
+            # Generate response with timeout
+            try:
+                response = self.chat_model.invoke(messages)
+                
+                # Update token usage
+                if hasattr(response, 'usage'):
+                    self.used_tokens += response.usage.get('total_tokens', 0)
+                    self.requested_tokens += response.usage.get('prompt_tokens', 0)
+                else:
+                    # Estimate token usage if not provided
+                    estimated_tokens = len(input_text.split()) * 1.3  # Rough estimation
+                    self.used_tokens += int(estimated_tokens)
+                    self.requested_tokens += int(estimated_tokens)
+                
+                return response.content
+            except Exception as e:
+                error_info = self._handle_error(e)
+                if error_info['is_daily_limit']:
+                    raise DailyLimitError(error_info)
+                raise
             
         except Exception as e:
-            logger.error(f"Error generating response: {str(e)}")
+            logger.error(f"Error in generate_response: {str(e)}")
+            if isinstance(e, DailyLimitError):
+                raise
+            error_info = self._handle_error(e)
+            if error_info['is_daily_limit']:
+                raise DailyLimitError(error_info)
             raise
+
+    def get_token_usage(self) -> Dict[str, Any]:
+        """Get current token usage information"""
+        now = time.time()
+        wait_time = None
+        
+        if self.rate_limiter.daily_limit_hit:
+            remaining_time = self.rate_limiter.daily_limit_reset_time - now
+            if remaining_time > 0:
+                minutes = int(remaining_time // 60)
+                seconds = int(remaining_time % 60)
+                wait_time = f"{minutes}m{seconds}s"
+        
+        return {
+            'daily_limit': f"{self.daily_limit:,}",
+            'used_tokens': f"{self.used_tokens:,}",
+            'requested_tokens': f"{self.requested_tokens:,}",
+            'wait_time': wait_time
+        }
+
+class DailyLimitError(Exception):
+    """Custom exception for daily token limit errors"""
+    def __init__(self, error_info: Dict):
+        self.error_info = error_info
+        self.retry_after = error_info.get('retry_after', 3600)  # Default to 1 hour
+        super().__init__(f"Daily token limit reached. Please try again in {int(self.retry_after/60)} minutes")
 
 # app/models/models.py (VectorStoreModel part)
 from typing import List, Optional

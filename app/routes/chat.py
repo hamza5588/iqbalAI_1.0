@@ -17,7 +17,15 @@ def health_check():
 @login_required
 def index():
     """Render the main chat interface"""
-    return render_template('chat.html')
+    try:
+        # Check if user has submitted survey
+        survey_model = SurveyModel(session['user_id'])
+        has_submitted_survey = survey_model.has_submitted_survey()
+        
+        return render_template('chat.html', has_submitted_survey=has_submitted_survey)
+    except Exception as e:
+        logger.error(f"Error in index route: {str(e)}")
+        return render_template('chat.html', has_submitted_survey=False)
 
 # Add these routes to chat.py
 
@@ -309,3 +317,20 @@ def test_survey_db():
     except Exception as e:
         logger.error(f"Database test failed: {str(e)}")
         return jsonify({'error': f'Database test failed: {str(e)}'}), 500
+
+@bp.route('/get_token_usage')
+@login_required
+def get_token_usage():
+    """Get current token usage information"""
+    try:
+        chat_service = ChatService(session['user_id'], session['groq_api_key'])
+        token_usage = chat_service.get_token_usage()
+        return jsonify(token_usage)
+    except Exception as e:
+        logger.error(f"Error getting token usage: {str(e)}")
+        return jsonify({
+            'daily_limit': '100,000',
+            'used_tokens': '0',
+            'requested_tokens': '0',
+            'wait_time': None
+        }), 500
