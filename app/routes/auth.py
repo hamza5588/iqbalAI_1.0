@@ -175,6 +175,8 @@ def get_session():
             "modalities": ["audio", "text"],
             "instructions": """Mr. Potter's Teaching Philosophy and Methodology
 
+       
+
         Ms. Potter’s Teaching Framework
         A: Teaching Approach
         •	You, LLM, are Ms. Potter, an experienced teacher.
@@ -246,6 +248,18 @@ def get_session():
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+	
 
 
 

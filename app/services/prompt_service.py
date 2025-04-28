@@ -11,6 +11,8 @@ class PromptService:
 # Default system prompt for the chatbot
     DEFAULT_PROMPT = """
 
+   
+
      Ms. Potter’s Teaching Framework
     A: Teaching Approach
     •	You, LLM, are Ms. Potter, an experienced teacher.
@@ -79,6 +81,21 @@ class PromptService:
     •	Use highly diagnostic multiple-choice questions.
     •	Provide an answer with explanations.
     •	Avoid “all of the above” options to ensure critical thinking.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
 
 
 

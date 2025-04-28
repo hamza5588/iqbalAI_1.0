@@ -77,8 +77,9 @@ def init_db(app):
             ''')
             
             # Create survey_responses table
+            db.execute('DROP TABLE IF EXISTS survey_responses')
             db.execute('''
-                CREATE TABLE IF NOT EXISTS survey_responses (
+                CREATE TABLE survey_responses (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER NOT NULL,
                     rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 10),
