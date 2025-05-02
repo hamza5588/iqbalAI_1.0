@@ -61,13 +61,6 @@
 #             except Exception as e:
 #                 logger.warning(f"Error retrieving context: {str(e)}")
             
-#             # Enhance system prompt with context
-#             enhanced_prompt = "You are a helpful assistant. "
-#             if system_prompt:
-#                 enhanced_prompt += system_prompt
-#             if context:
-#                 enhanced_prompt += f"\n\n{context}\n\nPlease use this information to answer the question accurately."
-            
 #             # Get and format chat history
 #             raw_history = self.conversation_model.get_chat_history(conversation_id)
 #             formatted_history = self.format_chat_history(raw_history)
@@ -75,10 +68,14 @@
 #             # For debugging
 #             logger.debug(f"Formatted history: {formatted_history}")
             
+#             # Use the provided system prompt or default to teaching framework
+#             if not system_prompt:
+#                 system_prompt = self.DEFAULT_PROMPT
+            
 #             # Generate response
 #             response = self.chat_model.generate_response(
 #                 input_text=message,
-#                 system_prompt=enhanced_prompt,
+#                 system_prompt=system_prompt,
 #                 chat_history=formatted_history
 #             )
             
@@ -167,6 +164,83 @@ logger = logging.getLogger(__name__)
 
 class ChatService:
     """Service class for handling chat-related business logic"""
+    
+    # Default teaching framework prompt
+    DEFAULT_PROMPT = """
+ 
+
+   
+
+     Ms. Potter's Teaching Framework
+    A: Teaching Approach
+    •	You, LLM, are Ms. Potter, an experienced teacher.
+    •	Remember student names, their respective grade levels, and all previous conversations.
+    •	Guide students with patience, encouragement, and confidence-building language, and no lecturing.
+    •	Never present the entire explanation at once.
+    •	Never write multiple segments in a single response.
+    •	Each segment must be self-contained, not cut off mid-thought or sentence.
+    •	Use clear, simple, and accessible language suitable for the student's level.
+    •	Only continue when the student confirms they're ready.
+    B. Ms. Potter's Teaching Method 
+    Method of Explanation of summary:
+    •	Ms. Potter will briefly introduce the overall concept summary in no more than 50 words to provide context.
+    Example: "Newton's laws deal with motion. There are three laws: the first explains inertia, the second relates force and acceleration, and the third concerns action-reaction forces.
+    •	Ms. Potter will ask student, "Do you understand"? If students don't understand, Ms. Potter will say, "ok, let me explain again."
+    Ms. Potter's approach whenever students don't understand 
+    •	Use simpler language. 
+    •	Ms. Potter will proceed to segments when students acknowledge that they understood.
+    Transition Clearly:
+    •	Ms. Potter will End the summary by saying:
+    "Now I will explain each of these segments in more detail, one at a time."
+    •	Then Ms. Potter will ask:
+    "Shall I proceed with the first segment?"
+    Ms. Potter will explain Concept in Segments:
+    Students can get overwhelmed, so Ms. Potter is careful not to give too much information at once. Ms. Potter breaks down concepts into self-explanatory segments. When all segments are put together, it explains the concept.
+    •	Break down the explanation into small, logical segments (each 50 words max).
+    •	Only present one segment at a time.
+    If the student struggles, 
+    •	Ms. Potter will ask guiding questions of no more than 10 to 15 words to pinpoint the difficulty.
+    •	Once difficulty is identified, Ms. Potter will tailor explanations accordingly.
+    •	At the end of each segment, Ms. Potter will ask:
+    "Does this make sense to you, or would you like me to clarify?"
+    Segment Transition:
+    •	Once the student confirms understanding of the segment, Ms. Potter will introduce the next segment briefly by stating what it will cover.
+    Example: "Next, I'll explain the next segment i.e. Newton's 2nd Law of Motion."
+    •	Then Ms. Potter will continue to the next segment.
+    Introduce Key Terms & their Relationships of relevant segment: 
+    •	Write out the mathematical equation connecting all the terms.
+    o	Define all relevant terms.
+    o	Explain how they relate to each other.
+    o	Break down what the equation means in simple language.
+    o	Use real-world analogies to make concepts relatable.
+    Transition:
+    •	End all the segments by saying:
+    "Now I will explain the concept."
+    •	Then ask:
+    "Shall I proceed with the concept?"
+    Complete the Explanation:
+    •	After all segments are explained and understood by students, Ms. Potter will provide a final, comprehensive explanation of the concept by combining the segments into a single, coherent, and logically structured answer of not more than 50 words.
+    •	Ms. Potter may rephrase or refine for better flow but maintain the clarity achieved in each segment.
+    •	Use relatable examples to illustrate concepts.
+    E: Ms. Potter attempts to confirm if the student understood the concept,
+    1.	Ms. Potter generates a problem on the taught concept and asks the student to read the problem
+    2.	Ask students to narrate at a high level their approach to problem-solving within a minute or two of reading the question 
+    3.	If the student is unable to narrate the approach in minutes of reading the problem, implies the student is unclear about the concept.
+    4.	Use diagnostic questions to identify misconceptions.
+    •	No lecturing.
+    •	Encourage self-correction through dialogue.
+    •	Correct misconceptions by guiding step by step 
+    •	Identify the equation and explain meaning of each term.
+    •	Reinforce learning with step-by-step application.
+    •	Confirm mastery with follow-up diagnostic questions.
+
+    F: Quiz Guidelines for Reinforcement
+    •	Prioritize conceptual understanding before problem-solving.
+    •	Use highly diagnostic multiple-choice questions.
+    •	Provide an answer with explanations.
+    •	Avoid "all of the above" options to ensure critical thinking.
+
+    """
     
     def __init__(self, user_id: int, api_key: str):
         self.user_id = user_id
@@ -267,129 +341,51 @@ class ChatService:
                        system_prompt: Optional[str] = None) -> Dict[str, Any]:
         """Process a user message and generate a response"""
         try:
-            # Get document context
-            document_context = self.get_document_context(message)
-            
-            # Base system prompt
-            base_prompt = """You are a helpful Mr. Potter Ai assistant that provides answers based on the provided documents.
-            Your primary goal is to help users understand the content of their documents.
-            
-            Guidelines for document-based assistance:
-            1. Always prioritize information from the provided documents
-            2. If the answer is not in the documents, clearly state that
-            3. When referencing document content:
-               - Mention the page number if available
-               - Quote relevant sections
-               - Explain the context
-            4. For multi-document queries:
-               - Compare information across documents
-               - Highlight any contradictions
-               - Provide a comprehensive view
-            5. If the user asks about something not in the documents:
-               - Acknowledge the limitation
-               - Suggest what information would be needed
-               - Offer to help with other document-related questions
-            
-            Always maintain a helpful and professional tone while focusing on the document content."""
-
-            if document_context:
-                base_prompt = f"{base_prompt}\n\n{document_context}"
-
-            if system_prompt:
-                limit = "always answer in 50 words or less"
-                base_prompt = f"{system_prompt} {limit}"
-
-            # Handle new conversation
+            # Create new conversation if needed
             if not conversation_id:
                 conversation_id = self.conversation_model.create_conversation(
                     title=message[:50]
                 )
-                
-                # Generate response with no history
-                try:
-                    response = self.chat_model.generate_response(
-                        input_text=message,
-                        system_prompt=base_prompt,
-                        chat_history=[]
-                    )
-                except httpx.TimeoutException:
-                    logger.warning("Request timed out during response generation")
-                    return {
-                        'error': 'The request is taking longer than expected. Please wait a moment and try again.',
-                        'conversation_id': conversation_id
-                    }
-                except httpx.HTTPStatusError as e:
-                    if e.response.status_code == 429:
-                        logger.warning("Rate limit hit during response generation")
-                        return {
-                            'error': 'The system is currently experiencing high demand. Please wait a moment and try again.',
-                            'conversation_id': conversation_id
-                        }
-                    elif e.response.status_code >= 500:
-                        logger.warning(f"Server error during response generation: {str(e)}")
-                        return {
-                            'error': 'The AI service is temporarily unavailable. Please try again in a few moments.',
-                            'conversation_id': conversation_id
-                        }
-                    raise
-                
-                # Save messages
-                self.conversation_model.save_message(
-                    conversation_id=conversation_id,
-                    message=message,
-                    role='user'
-                )
-                
-                self.conversation_model.save_message(
-                    conversation_id=conversation_id,
-                    message=response,
-                    role='bot'
-                )
-                
-            # Handle existing conversation
-            else:
-                self.conversation_model.save_message(
-                    conversation_id=conversation_id,
-                    message=message,
-                    role='user'
-                )
-                
-                # Get history only for this conversation
-                raw_history = self.conversation_model.get_chat_history(conversation_id)
-                formatted_history = self.format_chat_history(raw_history)
-                
-                try:
-                    response = self.chat_model.generate_response(
-                        input_text=message,
-                        system_prompt=base_prompt,
-                        chat_history=formatted_history
-                    )
-                except httpx.TimeoutException:
-                    logger.warning("Request timed out during response generation")
-                    return {
-                        'error': 'The request is taking longer than expected. Please wait a moment and try again.',
-                        'conversation_id': conversation_id
-                    }
-                except httpx.HTTPStatusError as e:
-                    if e.response.status_code == 429:
-                        logger.warning("Rate limit hit during response generation")
-                        return {
-                            'error': 'The system is currently experiencing high demand. Please wait a moment and try again.',
-                            'conversation_id': conversation_id
-                        }
-                    elif e.response.status_code >= 500:
-                        logger.warning(f"Server error during response generation: {str(e)}")
-                        return {
-                            'error': 'The AI service is temporarily unavailable. Please try again in a few moments.',
-                            'conversation_id': conversation_id
-                        }
-                    raise
-                
-                self.conversation_model.save_message(
-                    conversation_id=conversation_id,
-                    message=response,
-                    role='bot'
-                )
+            
+            # Save user message
+            self.conversation_model.save_message(
+                conversation_id=conversation_id,
+                message=message,
+                role='user'
+            )
+            
+            # Get document context
+            document_context = self.get_document_context(message)
+            
+            # Get and format chat history
+            raw_history = self.conversation_model.get_chat_history(conversation_id)
+            formatted_history = self.format_chat_history(raw_history)
+            
+            # For debugging
+            logger.debug(f"Formatted history: {formatted_history}")
+            
+            # Use the provided system prompt or default to teaching framework
+            if not system_prompt:
+                system_prompt = self.DEFAULT_PROMPT
+            
+            # Enhance system prompt with document context
+            enhanced_prompt = system_prompt
+            if document_context:
+                enhanced_prompt = f"{system_prompt}\n\nDocument Context:\n{document_context}\n\nWhen answering questions, prioritize information from the provided documents. If the answer is not in the documents, clearly state that and provide a general explanation based on your knowledge."
+            
+            # Generate response
+            response = self.chat_model.generate_response(
+                input_text=message,
+                system_prompt=enhanced_prompt,
+                chat_history=formatted_history
+            )
+            
+            # Save bot response
+            self.conversation_model.save_message(
+                conversation_id=conversation_id,
+                message=response,
+                role='bot'
+            )
             
             return {
                 'response': response,
@@ -398,26 +394,7 @@ class ChatService:
             
         except Exception as e:
             logger.error(f"Error processing message: {str(e)}")
-            if isinstance(e, httpx.TimeoutException):
-                return {
-                    'error': 'The request is taking longer than expected. Please wait a moment and try again.',
-                    'conversation_id': conversation_id
-                }
-            elif isinstance(e, httpx.HTTPStatusError):
-                if e.response.status_code == 429:
-                    return {
-                        'error': 'The system is currently experiencing high demand. Please wait a moment and try again.',
-                        'conversation_id': conversation_id
-                    }
-                elif e.response.status_code >= 500:
-                    return {
-                        'error': 'The AI service is temporarily unavailable. Please try again in a few moments.',
-                        'conversation_id': conversation_id
-                    }
-            return {
-                'error': 'your daily token limit has been reached. please try again tomorrow or try with different api key.',
-                'conversation_id': conversation_id
-            }
+            raise
 
     def get_recent_conversations(self, limit: int = 4) -> List[Dict[str, Any]]:
         """Get user's recent conversations"""

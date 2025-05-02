@@ -2678,6 +2678,26 @@ async function initializeVoiceChat() {
     try {
         console.log('Initializing voice chat...');
         
+        // Disable chat controls
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.querySelector('.send-button');
+        const voiceInputBtn = document.getElementById('voiceInputBtn');
+        const voiceOutputBtn = document.getElementById('voiceOutputBtn');
+        
+        messageInput.disabled = true;
+        sendButton.disabled = true;
+        
+        // Disable and style voice buttons
+        voiceInputBtn.disabled = true;
+        voiceInputBtn.classList.add('voice-btn-disabled');
+        voiceInputBtn.style.opacity = '0.5';
+        voiceInputBtn.style.cursor = 'not-allowed';
+        
+        voiceOutputBtn.disabled = true;
+        voiceOutputBtn.classList.add('voice-btn-disabled');
+        voiceOutputBtn.style.opacity = '0.5';
+        voiceOutputBtn.style.cursor = 'not-allowed';
+        
         // Request microphone permission first
         const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         
@@ -2873,6 +2893,26 @@ function endVoiceChat() {
         }
         
         isConnected = false;
+        
+        // Re-enable chat controls
+        const messageInput = document.getElementById('messageInput');
+        const sendButton = document.querySelector('.send-button');
+        const voiceInputBtn = document.getElementById('voiceInputBtn');
+        const voiceOutputBtn = document.getElementById('voiceOutputBtn');
+        
+        messageInput.disabled = false;
+        sendButton.disabled = false;
+        
+        // Re-enable and style voice buttons
+        voiceInputBtn.disabled = false;
+        voiceInputBtn.classList.remove('voice-btn-disabled');
+        voiceInputBtn.style.opacity = '1';
+        voiceInputBtn.style.cursor = 'pointer';
+        
+        voiceOutputBtn.disabled = false;
+        voiceOutputBtn.classList.remove('voice-btn-disabled');
+        voiceOutputBtn.style.opacity = '1';
+        voiceOutputBtn.style.cursor = 'pointer';
         
         // Update UI
         const voiceChatContainer = document.getElementById('voiceChatContainer');
