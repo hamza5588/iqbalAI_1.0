@@ -1448,7 +1448,7 @@
     </div>
 
     <!-- Survey Modal -->
-    <div id="surveyModal" class="modal">
+    <div id="surveyModal" class="modal" style="display: none;">
         <div class="modal-content survey-modal">
             <div class="modal-header">
                 <h2>How was your experience?</h2>
@@ -1490,10 +1490,14 @@
 
                     <div class="survey-fields" style="margin-top: 20px;">
                         <div class="form-group">
-                            <label for="surveyMessage">Message (Optional)</label>
-                            <textarea id="surveyMessage" class="form-control" rows="3" placeholder="Share your thoughts about the chat experience..."></textarea>
+                            <label for="surveyMessage">Message (Required)</label>
+                            <textarea id="surveyMessage" class="form-control" rows="3" placeholder="Please share your thoughts about the chat experience..."></textarea>
                         </div>
                     </div>
+
+                    <button id="submitSurvey" class="update-btn" style="margin-top: 20px;">
+                        <i class="fas fa-paper-plane"></i> Submit Feedback
+                    </button>
                 </div>
             </div>
         </div>
@@ -1557,19 +1561,10 @@ document.body.insertAdjacentHTML('beforeend', voiceChatHTML);
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM loaded, initializing components...'); // Debug log
     
-    // Add notification styles
-    const styleSheet = document.createElement('style');
-    styleSheet.textContent = notificationStyles;
-    document.head.appendChild(styleSheet);
-    
-    // Initialize sidebar
+    // Initialize everything
     initializeSidebar();
-    
-    // Initialize other components
     setupEventListeners();
     initializeSettings();
-    
-    // Load conversations when page loads
     loadConversations();
     
     // Initialize voice synthesis
@@ -1581,11 +1576,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const messageInput = document.getElementById('messageInput');
     messageInput.addEventListener('input', () => autoResizeTextarea(messageInput));
 
-    // Check if user has already submitted survey when page loads
-    checkSurveyStatus();
-
-    // Check if API key is set
-    checkApiKeyStatus();
+    // Initialize survey
+    initializeSurvey();
+    
+    // Show survey after 5 minutes
+    console.log('Setting up survey timer for 5 minutes...');
+    setTimeout(function() {
+        console.log('5 minutes passed, showing survey...');
+        showSurvey();
+    }, 5 * 60 * 1000); // 5 minutes in milliseconds
 });
 
 // Initialization functions
@@ -2651,12 +2650,12 @@ function checkSurveyStatus() {
         .then(data => {
             hasSubmittedSurvey = data.has_submitted;
             if (!hasSubmittedSurvey) {
-                // Show survey after 5 minutes only if user hasn't submitted
+                // Show survey after 5 seconds only if user hasn't submitted
                 setTimeout(() => {
                     if (!hasSubmittedSurvey) {
                         showSurvey();
                     }
-                }, 5 * 60 * 1000); // 5 minutes in milliseconds
+                }, 5000); // 5 seconds in milliseconds
             }
         })
         .catch(error => {
@@ -2665,33 +2664,59 @@ function checkSurveyStatus() {
 }
 
 function showSurvey() {
-    // Check again before showing to prevent race conditions
-    if (!hasSubmittedSurvey) {
-        const surveyModal = document.getElementById('surveyModal');
-        surveyModal.style.display = 'block';
-        // Force a reflow before adding the show class
-        surveyModal.offsetHeight;
-        surveyModal.classList.add('show');
+    console.log('Showing survey...'); // Debug log
+    
+    const surveyModal = document.getElementById('surveyModal');
+    if (!surveyModal) {
+        console.error('Survey modal not found');
+        return;
     }
+    
+    // Make sure the modal is visible
+    surveyModal.style.display = 'block';
+    
+    // Force a reflow
+    surveyModal.offsetHeight;
+    
+    // Add the show class
+    surveyModal.classList.add('show');
+    
+    // Log the modal's state
+    console.log('Modal display:', surveyModal.style.display);
+    console.log('Modal classes:', surveyModal.className);
+    console.log('Modal position:', surveyModal.getBoundingClientRect());
 }
 
 function hideSurvey() {
+    console.log('Hiding survey...'); // Debug log
     const surveyModal = document.getElementById('surveyModal');
+    if (!surveyModal) {
+        console.error('Survey modal not found');
+        return;
+    }
     surveyModal.classList.remove('show');
     setTimeout(() => {
         surveyModal.style.display = 'none';
-    }, 300); // Match the transition duration
+    }, 300);
 }
 
 // Update the rating button click handler and submission logic
 document.addEventListener('DOMContentLoaded', () => {
-    // ... existing initialization code ...
-
-    // Initialize survey event listeners
+    // Initialize survey elements
+    const surveyModal = document.getElementById('surveyModal');
+    const closeSurveyBtn = document.getElementById('closeSurveyBtn');
     const ratingButtons = document.querySelectorAll('.rating-btn');
     const emojiDisplay = document.querySelector('.emoji-display i');
     const ratingMessage = document.querySelector('.rating-message');
+    const surveyMessage = document.getElementById('surveyMessage');
+    const submitSurveyBtn = document.getElementById('submitSurvey');
     
+    if (!surveyModal || !closeSurveyBtn || !ratingButtons.length || !emojiDisplay || 
+        !ratingMessage || !surveyMessage || !submitSurveyBtn) {
+        console.error('Some survey elements are missing');
+        return;
+    }
+
     const ratingMessages = {
         1: "We're sorry to hear that. We'll work on improving.",
         2: "Thanks for the feedback. We'll try to do better.",
@@ -2707,15 +2732,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Handle rating button clicks
     ratingButtons.forEach(button => {
-        button.addEventListener('click', async function() {
+        button.addEventListener('click', function() {
             const value = parseInt(this.dataset.value);
-            console.log('Rating clicked:', value); // Debug log
+            console.log('Rating clicked:', value);
             
             // Remove selected class from all buttons
             ratingButtons.forEach(btn => btn.classList.remove('selected'));
             
             // Add selected class to clicked button
             this.classList.add('selected');
+            selectedRating = value;
             
             // Show rating message
             ratingMessage.textContent = ratingMessages[value];
@@ -2723,16 +2749,47 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Update emoji
             emojiDisplay.className = this.dataset.emoji;
-            
-            // Submit rating immediately
-            try {
-                await submitRating(value);
-            } catch (error) {
-                console.error('Error submitting rating:', error);
-                showNotification('Failed to submit rating. Please try again.', 'error');
-            }
         });
     });
+
+    // Add enter key handler for survey message
+    surveyMessage.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            submitSurveyBtn.click();
+        }
+    });
+
+    // Add submit button click handler
+    submitSurveyBtn.addEventListener('click', async function() {
+        if (!selectedRating) {
+            showNotification('Please select a rating', 'error');
+            return;
+        }
+
+        const message = surveyMessage.value.trim();
+        if (!message) {
+            showNotification('Please provide your feedback', 'error');
+            return;
+        }
+
+        try {
+            await submitRating(selectedRating);
+        } catch (error) {
+            console.error('Error submitting rating:', error);
+            showNotification('Failed to submit rating. Please try again.', 'error');
+        }
+    });
+
+    // Close survey modal when clicking outside
+    window.addEventListener('click', function(event) {
+        if (event.target === surveyModal) {
+            hideSurvey();
+        }
+    });
+
+    // Close survey with close button
+    closeSurveyBtn.addEventListener('click', hideSurvey);
 });
 
 async function submitRating(rating) {
@@ -2775,6 +2832,7 @@ async function submitRating(rating) {
             });
             
             document.getElementById('surveyMessage').disabled = true;
+            document.getElementById('submitSurvey').disabled = true;
             
             // Store submission in localStorage
             localStorage.setItem('surveySubmitted', 'true');
@@ -2791,43 +2849,6 @@ async function submitRating(rating) {
         console.error('Error in submitRating:', error);
         showNotification(error.message || 'Failed to submit rating. Please try again.', 'error');
         throw error;
-    }
-}
-
-// Close survey modal when clicking outside
-window.addEventListener('click', function(event) {
-    if (event.target === document.getElementById('surveyModal')) {
-        hideSurvey();
-    }
-});
-
-// Close survey with close button
-document.getElementById('closeSurveyBtn').addEventListener('click', hideSurvey);
-
-// Add this new function for deleting conversations
-function deleteConversation(conversationId) {
-    if (confirm('Are you sure you want to delete this conversation? This action cannot be undone.')) {
-        fetch(`/delete_conversation/${conversationId}`, {
-            method: 'DELETE'
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Failed to delete conversation');
-            }
-            return response.json();
-        })
-        .then(data => {
-            showNotification('Conversation deleted successfully', 'success');
-            if (currentConversationId === conversationId) {
-                currentConversationId = null;
-                clearChatContainer();
-            }
-            loadConversations();
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showNotification('Failed to delete conversation', 'error');
-        });
     }
 }
 
@@ -2916,9 +2937,172 @@ function downloadChat() {
         });
 }
 
+// Add this new function to initialize survey
+function initializeSurvey() {
+    console.log('Initializing survey...'); // Debug log
+    
+    const surveyModal = document.getElementById('surveyModal');
+    const closeSurveyBtn = document.getElementById('closeSurveyBtn');
+    const ratingButtons = document.querySelectorAll('.rating-btn');
+    const emojiDisplay = document.querySelector('.emoji-display i');
+    const ratingMessage = document.querySelector('.rating-message');
+    const surveyMessage = document.getElementById('surveyMessage');
+    const submitSurveyBtn = document.getElementById('submitSurvey');
+    
+    if (!surveyModal || !closeSurveyBtn || !ratingButtons.length || !emojiDisplay || 
+        !ratingMessage || !surveyMessage || !submitSurveyBtn) {
+        console.error('Some survey elements are missing:', {
+            surveyModal: !!surveyModal,
+            closeSurveyBtn: !!closeSurveyBtn,
+            ratingButtons: ratingButtons.length,
+            emojiDisplay: !!emojiDisplay,
+            ratingMessage: !!ratingMessage,
+            surveyMessage: !!surveyMessage,
+            submitSurveyBtn: !!submitSurveyBtn
+        });
+        return;
+    }
 
+    const ratingMessages = {
+        1: "We're sorry to hear that. We'll work on improving.",
+        2: "Thanks for the feedback. We'll try to do better.",
+        3: "Thank you for your feedback.",
+        4: "We appreciate your feedback.",
+        5: "Thank you for your rating.",
+        6: "Glad you had a good experience!",
+        7: "Great! We're happy to hear that.",
+        8: "Excellent! Thank you for the high rating.",
+        9: "Fantastic! We're thrilled with your feedback.",
+        10: "Amazing! Thank you for the perfect rating!"
+    };
+
+    // Handle rating button clicks
+    ratingButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const value = parseInt(this.dataset.value);
+            console.log('Rating clicked:', value);
+            
+            // Remove selected class from all buttons
+            ratingButtons.forEach(btn => btn.classList.remove('selected'));
+            
+            // Add selected class to clicked button
+            this.classList.add('selected');
+            selectedRating = value;
+            
+            // Show rating message
+            ratingMessage.textContent = ratingMessages[value];
+            ratingMessage.classList.add('show');
+            
+            // Update emoji
+            emojiDisplay.className = this.dataset.emoji;
+        });
+    });
+
+    // Add enter key handler for survey message
+    surveyMessage.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            submitSurveyBtn.click();
+        }
+    });
+
+    // Add submit button click handler
+    submitSurveyBtn.addEventListener('click', async function() {
+        if (!selectedRating) {
+            showNotification('Please select a rating', 'error');
+            return;
+        }
+
+        const message = surveyMessage.value.trim();
+        if (!message) {
+            showNotification('Please provide your feedback', 'error');
+            return;
+        }
+
+        try {
+            await submitRating(selectedRating);
+        } catch (error) {
+            console.error('Error submitting rating:', error);
+            showNotification('Failed to submit rating. Please try again.', 'error');
+        }
+    });
+
+    // Close survey modal when clicking outside
+    window.addEventListener('click', function(event) {
+        if (event.target === surveyModal) {
+            hideSurvey();
+        }
+    });
+
+    // Close survey with close button
+    closeSurveyBtn.addEventListener('click', hideSurvey);
+}
 
     // Update stats
+
+// Add this function to test the survey
+function testSurvey() {
+    console.log('Testing survey display...');
+    const surveyModal = document.getElementById('surveyModal');
+    if (!surveyModal) {
+        console.error('Survey modal not found');
+        return;
+    }
+    
+    // Make sure the modal is visible
+    surveyModal.style.display = 'block';
+    
+    // Force a reflow
+    surveyModal.offsetHeight;
+    
+    // Add the show class
+    surveyModal.classList.add('show');
+    
+    // Log the modal's state
+    console.log('Modal display:', surveyModal.style.display);
+    console.log('Modal classes:', surveyModal.className);
+    console.log('Modal position:', surveyModal.getBoundingClientRect());
+}
+
+// Update the showSurvey function
+function showSurvey() {
+    console.log('Showing survey...'); // Debug log
+    
+    const surveyModal = document.getElementById('surveyModal');
+    if (!surveyModal) {
+        console.error('Survey modal not found');
+        return;
+    }
+    
+    // Make sure the modal is visible
+    surveyModal.style.display = 'block';
+    
+    // Force a reflow
+    surveyModal.offsetHeight;
+    
+    // Add the show class
+    surveyModal.classList.add('show');
+    
+    // Log the modal's state
+    console.log('Modal display:', surveyModal.style.display);
+    console.log('Modal classes:', surveyModal.className);
+    console.log('Modal position:', surveyModal.getBoundingClientRect());
+}
+
+// Update the initialization code
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, initializing components...');
+    
+    // Initialize survey
+    initializeSurvey();
+    
+    // Show survey after 5 minutes
+    console.log('Setting up survey timer for 5 minutes...');
+    setTimeout(function() {
+        console.log('5 minutes passed, showing survey...');
+        showSurvey();
+    }, 5 * 60 * 1000); // 5 minutes in milliseconds
+});
 
 
 
