@@ -338,64 +338,28 @@
         }
 
         .file-upload-btn {
-            background: #40414f;
-            color: #fff;
-            border: none;
-            padding: 12px;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: background 0.3s ease;
+            display: none;
         }
 
-        .file-upload-btn:hover {
-            background: #343541;
-        }
-
-        /* File List */
         .file-list {
             display: none;
-            margin-top: 10px;
-            background: #f7f7f7;
-            padding: 10px;
-            border-radius: 12px;
         }
 
         .file-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px;
-            background: #fff;
-            border-radius: 8px;
-            margin-bottom: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            display: none;
         }
 
         .file-icon {
-            color: #10a37f;
-            margin-right: 10px;
+            display: none;
         }
 
         .remove-file {
-            background: none;
-            border: none;
-            color: #e74c3c;
-            cursor: pointer;
-            padding: 5px;
-            font-size: 16px;
-            transition: color 0.3s ease;
-        }
-
-        .remove-file:hover {
-            color: #c0392b;
+            display: none;
         }
 
         /* Processing Spinner */
         #processingSpinner {
             display: none;
-            margin-top: 10px;
-            text-align: center;
-            color: #10a37f;
         }
 
         .loader {
@@ -1390,10 +1354,6 @@
                 <i class="fas fa-cog" title="Update Api Key"></i>
                 Update Api Key
             </button>
-            <button id="updatePromptBtn" class="settings-btn">
-                <i class="fas fa-edit" title="Update Prompt"></i>
-                Update Prompt
-            </button>
             <button id="resetBtn" class="reset-btn" onclick="resetChat()">
                 <i class="fas fa-redo" title="Reset Chat"></i>
                 Reset Chat
@@ -1433,10 +1393,6 @@
                 <button class="send-button" onclick="sendMessage()">
                     <i class="fas fa-paper-plane"></i>
                 </button>
-                <button class="file-upload-btn" onclick="document.getElementById('fileInput').click()">
-                    <i class="fas fa-paperclip" title="Attach File"></i>
-                </button>
-               <!-- Add these buttons to the input area -->
                 <button class="voice-input-btn" id="voiceInputBtn" onclick="toggleVoiceInput()">
                     <i class="fas fa-microphone" title="Voice Input"></i>
                 </button>
@@ -1448,21 +1404,8 @@
                 <div id="voiceProcessing" style="display: none;">
                     <div class="loader"></div> Processing voice...
                 </div>
-                </button>
-                <input type="file" 
-                    id="fileInput" 
-                    multiple 
-                    accept=".txt,.pdf,.doc,.docx"
-                    style="display: none;" 
-                    onchange="handleFileSelect(event)"
-                >
             </div>
-            <div class="file-list" id="fileList"></div>
-            <div id="attachmentCount" style="margin-top: 5px; color: #10a37f; font-weight: bold;"></div>
-            <div id="processingSpinner">
-                <div class="loader"></div> Processing files...
-            </div>
-          
+        </div>
     </div>
 
     <div id="settingsModal" class="modal">
@@ -1577,26 +1520,8 @@
         </div>
     </div>
 
-    <!-- Prompt Modal -->
-    <div id="promptModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h2>Update Prompt</h2>
-                <button class="close-modal" id="closePromptModal">&times;</button>
-            </div>
-            <div class="modal-body">
-                <div class="settings-group">
-                    <label for="promptTextarea">Prompt</label>
-                    <textarea id="promptTextarea" rows="10" style="width:100%;border-radius:8px;padding:10px;"></textarea>
-                    <button id="savePromptBtn" class="update-btn" style="margin-top:10px;">Save Prompt</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <script>
   // Global variables
-let uploadedFiles = [];
 let currentConversationId = null;
 let isListening = false;
 let isSpeaking = false;
@@ -1610,6 +1535,9 @@ let dataChannel = null;
 let isConnected = false;
 let timerInterval = null;
 let seconds = 0;
+
+// Add a global variable to track if voice input was used
+let usedVoiceInput = false;
 
 // Voice chat container HTML
 const voiceChatHTML = `
@@ -1658,207 +1586,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Check if API key is set
     checkApiKeyStatus();
-
-    // Prompt modal logic
-    const updatePromptBtn = document.getElementById('updatePromptBtn');
-    const promptModal = document.getElementById('promptModal');
-    const closePromptModal = document.getElementById('closePromptModal');
-    const promptTextarea = document.getElementById('promptTextarea');
-    const savePromptBtn = document.getElementById('savePromptBtn');
-
-    if (updatePromptBtn && promptModal) {
-        updatePromptBtn.addEventListener('click', () => {
-            // Fetch current prompt
-            fetch('/get_prompt')
-                .then(res => res.json())
-                .then(data => {
-                    promptTextarea.value = data.prompt || '';
-                    promptModal.style.display = 'block';
-                    promptModal.classList.add('show');
-                })
-                .catch(() => {
-                    promptTextarea.value = '';
-                    promptModal.style.display = 'block';
-                    promptModal.classList.add('show');
-                });
-        });
-    }
-    if (closePromptModal) {
-        closePromptModal.addEventListener('click', () => {
-            promptModal.classList.remove('show');
-            setTimeout(() => { promptModal.style.display = 'none'; }, 300);
-        });
-    }
-    window.addEventListener('click', (event) => {
-        if (event.target === promptModal) {
-            promptModal.classList.remove('show');
-            setTimeout(() => { promptModal.style.display = 'none'; }, 300);
-        }
-    });
-    if (savePromptBtn) {
-        savePromptBtn.addEventListener('click', () => {
-            const newPrompt = promptTextarea.value.trim();
-            if (!newPrompt) {
-                showNotification('Prompt cannot be empty', 'error');
-                return;
-            }
-            savePromptBtn.disabled = true;
-            savePromptBtn.textContent = 'Saving...';
-            fetch('/update_prompt', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: newPrompt })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    showNotification('Prompt updated successfully', 'success');
-                    promptModal.classList.remove('show');
-                    setTimeout(() => { promptModal.style.display = 'none'; }, 300);
-                } else {
-                    showNotification(data.error || 'Failed to update prompt', 'error');
-                }
-            })
-            .catch(() => {
-                showNotification('Failed to update prompt', 'error');
-            })
-            .finally(() => {
-                savePromptBtn.disabled = false;
-                savePromptBtn.textContent = 'Save Prompt';
-            });
-        });
-    }
 });
-
-// File handling functions
-function handleFileSelect(event) {
-    const files = event.target.files;
-    if (files.length === 0) return;
-
-    const allowedExtensions = ['txt', 'pdf', 'doc', 'docx'];
-    const fileList = document.getElementById('fileList');
-    const spinner = document.getElementById('processingSpinner');
-    const messageInput = document.getElementById('messageInput');
-    const sendButton = document.querySelector('.send-button');
-    const attachmentCountDiv = document.getElementById('attachmentCount');
-
-    // Filter files by allowed extensions
-    const validFiles = Array.from(files).filter(file => {
-        const ext = file.name.split('.').pop().toLowerCase();
-        return allowedExtensions.includes(ext);
-    });
-    if (validFiles.length === 0) {
-        showNotification('Only .txt, .pdf, .doc, .docx files are allowed.', 'error');
-        event.target.value = '';
-        return;
-    }
-
-    // Add valid files to uploadedFiles, avoiding duplicates
-    for (const file of validFiles) {
-        if (!uploadedFiles.some(f => f.name === file.name && f.size === file.size)) {
-            uploadedFiles.push(file);
-        }
-    }
-
-    // Disable chat input and send button
-    messageInput.disabled = true;
-    sendButton.disabled = true;
-
-    fileList.style.display = 'block';
-    fileList.innerHTML = '';
-
-    // Show attachment number for each file
-    uploadedFiles.forEach((file, idx) => {
-        const fileItem = document.createElement('div');
-        fileItem.className = 'file-item';
-        fileItem.innerHTML = `
-            <div>
-                <i class="fas fa-file file-icon"></i>
-                <span>Attachment ${idx + 1}: ${file.name}</span>
-            </div>
-            <button class="remove-file" onclick="removeFile('${file.name}')">
-                <i class="fas fa-times"></i>
-            </button>
-        `;
-        fileList.appendChild(fileItem);
-    });
-
-    // Show total number of attachments
-    attachmentCountDiv.textContent = `Total Attachments: ${uploadedFiles.length}`;
-
-    spinner.style.display = 'block';
-
-    const formData = new FormData();
-    for (const file of validFiles) {
-        formData.append('files', file);
-    }
-
-    fetch('/upload', {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        spinner.style.display = 'none';
-        addMessage('bot', '<i class="fas fa-check-circle me-2"></i> Files processed successfully! You can now ask questions about them.');
-        // Re-enable chat input and send button
-        messageInput.disabled = false;
-        sendButton.disabled = false;
-    })
-    .catch(error => {
-        spinner.style.display = 'none';
-        handleError(error, 'Error processing files. Please try again.');
-        // Re-enable chat input and send button on error
-        messageInput.disabled = false;
-        sendButton.disabled = false;
-    });
-}
-
-function removeFile(fileName) {
-    uploadedFiles = uploadedFiles.filter(file => file.name !== fileName);
-    const fileList = document.getElementById('fileList');
-    const fileItems = Array.from(fileList.getElementsByClassName('file-item'));
-    const attachmentCountDiv = document.getElementById('attachmentCount');
-
-    fileItems.forEach(item => {
-        if (item.querySelector('span').textContent.includes(fileName)) {
-            item.remove();
-        }
-    });
-
-    // Re-render the file list with updated attachment numbers
-    fileList.innerHTML = '';
-    uploadedFiles.forEach((file, idx) => {
-        const fileItem = document.createElement('div');
-        fileItem.className = 'file-item';
-        fileItem.innerHTML = `
-            <div>
-                <i class="fas fa-file file-icon"></i>
-                <span>Attachment ${idx + 1}: ${file.name}</span>
-            </div>
-            <button class="remove-file" onclick="removeFile('${file.name}')">
-                <i class="fas fa-times"></i>
-            </button>
-        `;
-        fileList.appendChild(fileItem);
-    });
-
-    // Update total number of attachments
-    attachmentCountDiv.textContent = `Total Attachments: ${uploadedFiles.length}`;
-
-    if (fileList.children.length === 0) {
-        fileList.style.display = 'none';
-        attachmentCountDiv.textContent = '';
-    }
-
-    fetch('/remove-file', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ fileName })
-    });
-}
 
 // Initialization functions
 function initializeSidebar() {
@@ -1880,10 +1608,6 @@ function initializeSidebar() {
                 <i class="fas fa-cog" title="Update Api Key"></i>
                 Update Api Key
             </button>
-            <button id="updatePromptBtn" class="settings-btn">
-                <i class="fas fa-edit" title="Update Prompt"></i>
-                Update Prompt
-            </button>
             <button id="resetBtn" class="reset-btn" onclick="resetChat()">
                 <i class="fas fa-redo" title="Reset Chat"></i>
                 Reset Chat
@@ -1894,8 +1618,6 @@ function initializeSidebar() {
             </button>
         </div>
         
-      
-
         <div id="conversationList"></div>
     `;
 
@@ -2247,8 +1969,21 @@ function sendMessageToServer(message) {
             addMessage('bot', `<i class="fas fa-exclamation-circle"></i> ${data.error}`);
         } else {
             addMessage('bot', data.response);
+            // Only start voice output if voice input was used
+            if (usedVoiceInput) {
+                setTimeout(() => {
+                    startVoiceOutput();
+                    const voiceOutputBtn = document.getElementById('voiceOutputBtn');
+                    if (voiceOutputBtn) {
+                        voiceOutputBtn.classList.add('active');
+                    }
+                }, 100);
+            }
             loadConversations();
         }
+
+        // Reset voice input flag after response
+        usedVoiceInput = false;
 
         // Re-enable button
         isWaitingForResponse = false;
@@ -2268,6 +2003,9 @@ function sendMessageToServer(message) {
         } else {
             addMessage('bot', `<i class="fas fa-exclamation-circle"></i> ${error.message || 'Sorry, there was an error processing your message.'}`);
         }
+        
+        // Reset voice input flag after error
+        usedVoiceInput = false;
         
         // Re-enable button
         isWaitingForResponse = false;
@@ -2320,10 +2058,6 @@ function addMessage(type, content) {
         messageDiv.innerHTML = `<div class="markdown-content">${formattedContent}</div>`;
     }
     
-    if (type === 'bot' && isSpeaking) {
-        startVoiceOutput();
-    }
-    
     chatContainer.appendChild(messageDiv);
     chatContainer.scrollTop = chatContainer.scrollHeight;
 }
@@ -2365,6 +2099,7 @@ function startVoiceInput() {
 
     recognition.start();
     isListening = true;
+    usedVoiceInput = true; // Set flag when voice input starts
 
     recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
@@ -2398,38 +2133,15 @@ function stopVoiceInput() {
 
 function toggleVoiceOutput() {
     const voiceOutputBtn = document.getElementById('voiceOutputBtn');
-    const voiceInputBtn = document.getElementById('voiceInputBtn');
     if (!isSpeaking) {
         startVoiceOutput();
         voiceOutputBtn.classList.add('active');
-        // Mic visible but disabled
-        if (voiceInputBtn) voiceInputBtn.classList.add('voice-btn-disabled');
     } else {
         stopVoiceOutput();
         voiceOutputBtn.classList.remove('active');
-        // Mic enabled
-        if (voiceInputBtn) voiceInputBtn.classList.remove('voice-btn-disabled');
     }
 }
-let allVoices = [];
 
-// Function to load and cache voices
-function loadVoices() {
-    return new Promise((resolve) => {
-        const voices = window.speechSynthesis.getVoices();
-        if (voices.length > 0) {
-            allVoices = voices;
-            resolve(voices);
-        } else {
-            window.speechSynthesis.onvoiceschanged = () => {
-                allVoices = window.speechSynthesis.getVoices();
-                resolve(allVoices);
-            };
-        }
-    });
-}
-
-// Updated startVoiceOutput function
 function startVoiceOutput() {
     const lastBotMessage = document.querySelector('.bot-message:last-child');
     if (lastBotMessage) {
@@ -2479,15 +2191,13 @@ function startVoiceOutput() {
         isSpeaking = true;
     }
 }
+
 function stopVoiceOutput() {
     if (synthesis) {
         window.speechSynthesis.cancel();
     }
     isSpeaking = false;
     document.getElementById('voiceOutputBtn').classList.remove('active');
-    // Always enable the mic button when speaker is off
-    const voiceInputBtn = document.getElementById('voiceInputBtn');
-    if (voiceInputBtn) voiceInputBtn.classList.remove('voice-btn-disabled');
 }
 
 // Settings management functions
@@ -3150,12 +2860,6 @@ function resetChat() {
             document.querySelectorAll('.history-item').forEach(item => {
                 item.classList.remove('active');
             });
-            
-            // Clear any uploaded files
-            uploadedFiles = [];
-            const fileList = document.getElementById('fileList');
-            fileList.innerHTML = '';
-            fileList.style.display = 'none';
             
             // Stop any ongoing voice input/output
             stopVoiceInput();

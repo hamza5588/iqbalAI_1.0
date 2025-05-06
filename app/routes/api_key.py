@@ -1,51 +1,11 @@
-from flask import Blueprint, request, jsonify, current_app, session
-from app.models import VectorStoreModel
-from app.services import FileService
-from werkzeug.utils import secure_filename
-import os
-import logging
-
+from flask import Blueprint, request, jsonify, session
 from app.models import UserModel
 from app.services import ChatService
 from app.utils.db import get_db
+import logging
 
 logger = logging.getLogger(__name__)
-bp = Blueprint('files', __name__)
-
-def process_single_file(file, file_service, upload_folder):
-    """Helper function to process a single file"""
-    if not file or not file.filename:
-        return None
-    
-    if not file_service.allowed_file(file.filename):
-        return None
-
-    # Secure the filename and create full path
-    filename = secure_filename(file.filename)
-    temp_path = os.path.join(upload_folder, filename)
-    
-    try:
-        # Save the file
-        file.save(temp_path)
-        
-        # Process file and get chunks
-        chunks = file_service.process_file(temp_path)
-        return chunks
-    
-    except Exception as e:
-        logger.error(f"Error processing file {filename}: {str(e)}")
-        return None
-    
-    finally:
-        # Clean up temporary file
-        if os.path.exists(temp_path):
-            try:
-                os.remove(temp_path)
-            except Exception as e:
-                logger.error(f"Error removing temporary file {temp_path}: {str(e)}")
-
-from app.services import FileService
-from app.utils.constants import MAX_FILE_SIZE
+bp = Blueprint('api_key', __name__)
 
 @bp.route('/update_api_key', methods=['POST'])
 def update_api_key():
@@ -121,4 +81,4 @@ def check_api_key_status():
         
     except Exception as e:
         logger.error(f"API key status check error: {str(e)}")
-        return jsonify({'error': 'Failed to check API key status'}), 500
+        return jsonify({'error': 'Failed to check API key status'}), 500 

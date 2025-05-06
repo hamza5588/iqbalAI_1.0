@@ -44,18 +44,13 @@ def create_app():
     # Register blueprints
     from app.routes.auth import bp as auth_bp
     from app.routes.chat import bp as chat_bp
-    from app.routes.files import bp as files_bp
+    from app.routes.api_key import bp as api_key_bp
     
     app.register_blueprint(auth_bp)
     app.register_blueprint(chat_bp)
-    app.register_blueprint(files_bp)
-    
-    # Create upload folder if it doesn't exist
-    upload_folder = app.config['UPLOAD_FOLDER']
-    os.makedirs(upload_folder, exist_ok=True)
+    app.register_blueprint(api_key_bp)
     
     # Debug print to show template folder location
     print(f"Flask app template folder: {app.template_folder}")
-    print(f"Flask app static folder: {app.static_folder}")
     
     return app
