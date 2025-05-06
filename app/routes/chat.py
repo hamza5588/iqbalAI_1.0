@@ -92,14 +92,15 @@ def chat():
         try:
             result = chat_service.process_message(
                 message=user_input,
-                conversation_id=conversation_id,
-                system_prompt=system_prompt
+                conversation_id=conversation_id
             )
             return jsonify(result)
         except Exception as e:
             logger.error(f"Error generating response: {str(e)}")
             return jsonify({
-                'error': 'Your API key has expired. Please update it from the sidebar where the modal is displayed and enter the new API key here'
+                'error': """1:Your free key has expired,please login after 24 hours
+                            2:Create another gmail account and login
+                            3:Login to paid service-avalible in oct 2025"""
             }), 500
 
     except Exception as e:

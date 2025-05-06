@@ -17,8 +17,5 @@ class Config:
     MAIL_DEFAULT_SENDER = 'info@iqbalai.com'
     MAIL_DEBUG = True  # Enable debug mode to see more detailed logs
     
-    # Upload configuration
-    UPLOAD_FOLDER = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'app', 'uploads')
-    
     # Database configuration
     DATABASE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'instance', 'chatbot.db') 
