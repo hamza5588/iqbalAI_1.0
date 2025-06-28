@@ -144,6 +144,7 @@ services:
       - "443:443"
     volumes:
       - ./static:/app/static
+      - ./nginx.conf:/etc/nginx/nginx.conf
       - /etc/nginx/ssl:/etc/nginx/ssl:ro
     depends_on:
       flask_app1:
@@ -161,7 +162,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
+    expose:
       - "5000"
     environment:
       - FLASK_APP=run.py
@@ -169,9 +170,14 @@ services:
       - FLASK_DEBUG=0
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
+      - OPENBLAS_NUM_THREADS=1
+      - OMP_NUM_THREADS=1
+      - MKL_NUM_THREADS=1
       - GOOGLE_CLIENT_ID=507995986306-qcdrhrrt3d71la4pkrf7lt1b2tvuusqm.apps.googleusercontent.com
       - GROQ_CLIENT_ID=your-groq-client-id
       - GROQ_CLIENT_SECRET=your-groq-client-secret
+      - GROQ_API_KEY=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
+      - NOMIC_APIC_KEY=nk-7Ad201NonNkEv_pYdRwb-EkNjf84mVLW205ihoE7RyU
     volumes:
       - .:/app
     healthcheck:
@@ -187,7 +193,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
+    expose:
       - "5000"
     environment:
       - FLASK_APP=run.py
@@ -195,9 +201,14 @@ services:
       - FLASK_DEBUG=0
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
+      - OPENBLAS_NUM_THREADS=1
+      - OMP_NUM_THREADS=1
+      - MKL_NUM_THREADS=1
       - GOOGLE_CLIENT_ID=your-google-client-id
       - GROQ_CLIENT_ID=your-groq-client-id
       - GROQ_CLIENT_SECRET=your-groq-client-secret
+      - GROQ_API_KEY=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
+      - NOMIC_APIC_KEY=nk-7Ad201NonNkEv_pYdRwb-EkNjf84mVLW205ihoE7RyU
     volumes:
       - .:/app
     healthcheck:
@@ -213,7 +224,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
+    expose:
       - "5000"
     environment:
       - FLASK_APP=run.py
@@ -221,9 +232,14 @@ services:
       - FLASK_DEBUG=0
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
+      - OPENBLAS_NUM_THREADS=1
+      - OMP_NUM_THREADS=1
+      - MKL_NUM_THREADS=1
       - GOOGLE_CLIENT_ID=your-google-client-id
       - GROQ_CLIENT_ID=your-groq-client-id
       - GROQ_CLIENT_SECRET=your-groq-client-secret
+      - GROQ_API_KEY=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
+      - NOMIC_APIC_KEY=nk-7Ad201NonNkEv_pYdRwb-EkNjf84mVLW205ihoE7RyU
     volumes:
       - .:/app
     healthcheck:
@@ -239,7 +255,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
+    expose:
       - "5000"
     environment:
       - FLASK_APP=run.py
@@ -247,9 +263,14 @@ services:
       - FLASK_DEBUG=0
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
+      - OPENBLAS_NUM_THREADS=1
+      - OMP_NUM_THREADS=1
+      - MKL_NUM_THREADS=1
       - GOOGLE_CLIENT_ID=your-google-client-id
       - GROQ_CLIENT_ID=your-groq-client-id
       - GROQ_CLIENT_SECRET=your-groq-client-secret
+      - GROQ_API_KEY=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
+      - NOMIC_APIC_KEY=nk-7Ad201NonNkEv_pYdRwb-EkNjf84mVLW205ihoE7RyU
     volumes:
       - .:/app
     healthcheck:
