@@ -2,8 +2,10 @@
 from flask import Blueprint, redirect, request, session, jsonify, render_template, url_for
 from app.services import ChatService, PromptService
 from app.models.models import SurveyModel
-from app.utils.decorators import login_required
+# from app.utils.decorators import login_required
+from app.utils.auth import login_required
 import logging
+from app.utils.db import get_db
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('chat', __name__)
@@ -218,107 +220,6 @@ def download_chat(conversation_id):
         logger.error(f"Error downloading chat: {str(e)}")
         return jsonify({'error': 'Failed to download chat'}), 500
 
-@bp.route('/submit_survey', methods=['POST'])
-@login_required
-def submit_survey():
-    """Handle survey submission"""
-    try:
-        data = request.get_json()
-        logger.info(f"Received survey data: {data}")
-        
-        rating = data.get('rating')
-        message = data.get('message')
-        user_id = session.get('user_id')
-        
-        logger.info(f"Processing survey - Rating: {rating}, User ID: {user_id}")
-
-        if not user_id:
-            logger.error("Survey submission failed: No user_id in session")
-            return jsonify({'error': 'Not authenticated'}), 401
-
-        if not isinstance(rating, (int, float)):
-            logger.error(f"Survey submission failed: Rating is not a number - Type: {type(rating)}")
-            return jsonify({'error': 'Invalid rating. Must be a number between 1 and 10'}), 400
-            
-        # Convert to integer if it's a float
-        rating = int(rating)
-
-        if rating < 1 or rating > 10:  # Updated to match NPS scale
-            logger.error(f"Survey submission failed: Rating {rating} is out of range")
-            return jsonify({'error': 'Invalid rating. Must be a number between 1 and 10'}), 400
-
-        # Check if user has already submitted
-        survey_model = SurveyModel(user_id)
-        if survey_model.has_submitted_survey():
-            logger.warning(f"User {user_id} attempted to submit multiple surveys")
-            return jsonify({'error': 'Survey already submitted'}), 400
-
-        # Create survey model instance and save response
-        logger.info(f"Saving survey response - User: {user_id}, Rating: {rating}, Message: {message}")
-        survey_model.save_survey_response(rating, message)
-
-        logger.info(f"Survey successfully submitted - User ID: {user_id}, Rating: {rating}")
-        return jsonify({
-            'success': True,
-            'message': 'Survey submitted successfully'
-        }), 200
-        
-    except Exception as e:
-        logger.error(f"Error submitting survey: {str(e)}")
-        logger.exception("Full traceback:")  # This will log the full stack trace
-        return jsonify({'error': f'Internal server error: {str(e)}'}), 500
-
-@bp.route('/check_survey_status')
-@login_required
-def check_survey_status():
-    """Check if the current user has submitted a survey"""
-    try:
-        user_id = session.get('user_id')
-        if not user_id:
-            logger.warning("Survey status check failed: No user_id in session")
-            return jsonify({'error': 'Not authenticated'}), 401
-            
-        logger.info(f"Checking survey status for user_id: {user_id}")
-        survey_model = SurveyModel(user_id)
-        has_submitted = survey_model.has_submitted_survey()
-        
-        status_msg = f"User {user_id} has {'submitted' if has_submitted else 'not submitted'} the survey"
-        logger.info(status_msg)
-        print(f"\n=== Survey Status ===\n{status_msg}\n===================")
-        
-        return jsonify({
-            'has_submitted': has_submitted
-        })
-        
-    except Exception as e:
-        logger.error(f"Error checking survey status: {str(e)}")
-        return jsonify({'error': 'Failed to check survey status'}), 500
-
-@bp.route('/test_survey_db')
-@login_required
-def test_survey_db():
-    """Test route to verify survey database operations"""
-    try:
-        user_id = session.get('user_id')
-        if not user_id:
-            return jsonify({'error': 'Not authenticated'}), 401
-
-        survey_model = SurveyModel(user_id)
-        
-        # Test database connection and operations
-        has_submitted = survey_model.has_submitted_survey()
-        all_responses = survey_model.get_user_survey_responses()
-        
-        return jsonify({
-            'user_id': user_id,
-            'has_submitted': has_submitted,
-            'responses': all_responses
-        })
-        
-    except Exception as e:
-        logger.error(f"Database test failed: {str(e)}")
-        return jsonify({'error': f'Database test failed: {str(e)}'}), 500
-
 @bp.route('/get_token_usage')
 @login_required
 def get_token_usage():
@@ -335,3 +236,35 @@ def get_token_usage():
             'requested_tokens': '0',
             'wait_time': None
         }), 500
+    
+
+
+
+# TOKEN USAGE ROUTE 
+
+@bp.route('/token_status', methods=['GET'])
+@login_required
+def get_token_status():
+    try:
+        # Get current API key from session
+        current_api_key = session.get('groq_api_key')
+        
+        # Initialize chat service
+        chat_service = ChatService(session['user_id'], current_api_key)
+        
+        # Verify the API key matches what's being used
+        if chat_service.chat_model.api_key != current_api_key:
+            chat_service.chat_model.api_key = current_api_key  # This will trigger reset
+            
+        token_status = chat_service.chat_model.get_token_status()
+        
+        return jsonify({
+            'used': token_status['used'],
+            'remaining': token_status['remaining'],
+            'limit': token_status['limit'],
+            'reset_in': token_status['reset_in'],
+            'api_key_changed': False  # Can be used by frontend if needed
+        })
+    except Exception as e:
+        logger.error(f"Error getting token status: {str(e)}")
+        return jsonify({'error': str(e)}), 500
