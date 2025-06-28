@@ -66,5 +66,5 @@ ENV PYTHONPATH=/app
 # Expose port
 EXPOSE 5000
 
-# Run the application with hot reloading
-CMD ["python", "-u", "run.py"] 
+# Run the application with gunicorn for production
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--timeout", "120", "run:app"] 
