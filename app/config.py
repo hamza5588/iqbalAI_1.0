@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from datetime import timedelta
 
 # Load environment variables
 load_dotenv()
@@ -16,6 +17,7 @@ class Config:
     MAIL_PASSWORD = 'Iqbalai12@'  # Make sure this is the correct app-specific password
     MAIL_DEFAULT_SENDER = 'info@iqbalai.com'
     MAIL_DEBUG = True  # Enable debug mode to see more detailed logs
+
     
     # Database configuration
     DATABASE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'instance', 'chatbot.db') 

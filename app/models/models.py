@@ -97,6 +97,32 @@ class UserModel:
             logger.error(f"API key update failed: {str(e)}")
             raise
 
+    def get_api_key(self) -> Optional[str]:
+        """Get user's Groq API key from database"""
+        try:
+            if not self.user_id:
+                raise ValueError("User ID is required")
+            
+            print(f"Retrieving API key for user ID: {self.user_id}")  # Debug log
+            
+            db = get_db()
+            user = db.execute(
+                'SELECT groq_api_key FROM users WHERE id = ?',
+                (self.user_id,)
+            ).fetchone()
+            
+            if user:
+                api_key = user['groq_api_key']
+                print(f"Found API key: {api_key[:10]}..." if api_key else "No API key found")  # Debug log
+                return api_key
+            else:
+                print(f"No user found with ID: {self.user_id}")  # Debug log
+                return None
+        except Exception as e:
+            logger.error(f"Error retrieving API key: {str(e)}")
+            print(f"Exception in get_api_key: {str(e)}")  # Debug log
+            raise
+
 # app/models/models.py (ChatModel part)
 from langchain_groq import ChatGroq
 from typing import Optional, List, Dict, Any
@@ -169,6 +195,235 @@ class TokenBucket:
                 self.error_count = 0
                 self.daily_limit_hit = False
 
+# class ChatModel:
+#     """Model for handling chat-related operations"""
+    
+#     def __init__(self, api_key: str, user_id: int = None):
+#         self.api_key = api_key
+#         self.user_id = user_id
+#         self._chat_model = None
+#         self.vector_store = VectorStoreModel(user_id=user_id)
+#         # Optimize timeout settings for faster responses
+#         self.timeout = Timeout(
+#             timeout=15.0,  # Reduced from 20.0
+#             connect=3.0,   # Reduced from 5.0
+#             read=10.0,     # Reduced from 15.0
+#             write=3.0      # Reduced from 5.0
+#         )
+#         # Increase rate limiter capacity and rate
+#         self.rate_limiter = TokenBucket(rate=10/60, capacity=10)  # Increased from 5/60 and capacity 5
+#         self.last_request_time = 0
+#         self.min_request_interval = 0.5  # Reduced from 1.0 seconds
+#         self.daily_limit = 100000  # Daily token limit
+#         self.used_tokens = 0  # Track used tokens
+#         self.requested_tokens = 0  # Track requested tokens
+    
+#     @property
+#     def chat_model(self):
+#         """Lazy initialization of chat model"""
+#         if not self._chat_model:
+#             try:
+#                 self._chat_model = ChatGroq(
+#                     api_key=self.api_key,
+#                     model_name="llama-3.3-70b-versatile",
+#                     timeout=self.timeout,
+#                     max_retries=3,
+                  
+
+#                 )
+#             except Exception as e:
+#                 logger.error(f"Failed to initialize chat model: {str(e)}")
+#                 raise
+#         return self._chat_model
+
+#     def _wait_for_token(self):
+#         """Wait for a token to become available with jitter"""
+#         while not self.rate_limiter.acquire():
+#             # Add random jitter to prevent thundering herd
+#             jitter = random.uniform(0.1, 0.5)
+#             time.sleep(jitter)
+            
+#             # Ensure minimum interval between requests
+#             now = time.time()
+#             if now - self.last_request_time < self.min_request_interval:
+#                 time.sleep(self.min_request_interval - (now - self.last_request_time))
+
+#     def _handle_error(self, error: Exception) -> Dict:
+#         """Handle errors and update rate limiter state"""
+#         error_info = {
+#             'error': str(error),
+#             'retry_after': None,
+#             'is_daily_limit': False
+#         }
+        
+#         if isinstance(error, httpx.HTTPStatusError):
+#             try:
+#                 error_data = error.response.json()
+#                 self.rate_limiter.record_error(error_data.get('error', {}))
+                
+#                 if error.response.status_code == 429:
+#                     if error_data.get('error', {}).get('type') == 'tokens':
+#                         error_info['is_daily_limit'] = True
+#                         error_info['retry_after'] = self.rate_limiter.daily_limit_reset_time - time.time()
+#                         logger.warning(f"Daily token limit reached. Reset in {error_info['retry_after']} seconds")
+#                     else:
+#                         logger.warning("Rate limit hit, increasing delay")
+#                         time.sleep(10)
+#                 elif error.response.status_code >= 500:
+#                     logger.warning("Server error, adding delay")
+#                     time.sleep(5)
+#             except:
+#                 logger.error("Error parsing error response")
+        
+#         elif isinstance(error, httpx.TimeoutException):
+#             logger.warning("Request timeout, adding delay")
+#             time.sleep(3)
+        
+#         return error_info
+
+#     @retry(
+#         stop=stop_after_attempt(3),  # Increased from 2
+#         wait=wait_exponential(multiplier=0.5, min=1, max=5),  # More aggressive retry
+#         retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.RequestError, httpx.TimeoutException)),
+#         reraise=True
+#     )
+#     def generate_response(self, input_text: str, 
+#                          system_prompt: Optional[str] = None, 
+#                          chat_history: Optional[List[Dict]] = None) -> str:
+#         """Generate a response using the chat model with vector store context"""
+#         try:
+#             # Wait for rate limiter token with reduced jitter
+#             self._wait_for_token()
+#             self.last_request_time = time.time()
+            
+#             # Initialize messages list
+#             messages = []
+            
+#             # Add system prompt if provided
+#             if system_prompt:
+#                 messages.append({
+#                     "role": "system",
+#                     "content": system_prompt
+#                 })
+            
+#             # Add formatted chat history if provided
+#             if chat_history:
+#                 # Ensure chat history is properly formatted
+#                 for msg in chat_history:
+#                     if 'role' in msg and 'content' in msg:
+#                         messages.append({
+#                             "role": msg['role'],
+#                             "content": msg['content']
+#                         })
+            
+#             # Add current user message
+#             messages.append({
+#                 "role": "user",
+#                 "content": input_text
+#             })
+            
+#             # Log the messages being sent to the model for debugging
+#             logger.debug(f"Sending messages to model: {messages}")
+            
+#             # Generate response with timeout
+#             try:
+#                 response = self.chat_model.invoke(messages)
+                
+#                 # Update token usage
+#                 if hasattr(response, 'usage'):
+#                     self.used_tokens += response.usage.get('total_tokens', 0)
+#                     self.requested_tokens += response.usage.get('prompt_tokens', 0)
+#                 else:
+#                     # Estimate token usage if not provided
+#                     estimated_tokens = len(input_text.split()) * 1.3  # Rough estimation
+#                     self.used_tokens += int(estimated_tokens)
+#                     self.requested_tokens += int(estimated_tokens)
+                
+#                 return response.content
+#             except Exception as e:
+#                 error_info = self._handle_error(e)
+#                 if error_info['is_daily_limit']:
+#                     raise DailyLimitError(error_info)
+#                 raise
+            
+#         except Exception as e:
+#             logger.error(f"Error in generate_response: {str(e)}")
+#             if isinstance(e, DailyLimitError):
+#                 raise
+#             error_info = self._handle_error(e)
+#             if error_info['is_daily_limit']:
+#                 raise DailyLimitError(error_info)
+#             raise
+
+#     def get_token_usage(self) -> Dict[str, Any]:
+#         """Get current token usage information"""
+#         now = time.time()
+#         wait_time = None
+        
+#         if self.rate_limiter.daily_limit_hit:
+#             remaining_time = self.rate_limiter.daily_limit_reset_time - now
+#             if remaining_time > 0:
+#                 minutes = int(remaining_time // 60)
+#                 seconds = int(remaining_time % 60)
+#                 wait_time = f"{minutes}m{seconds}s"
+        
+#         return {
+#             'daily_limit': f"{self.daily_limit:,}",
+#             'used_tokens': f"{self.used_tokens:,}",
+#             'requested_tokens': f"{self.requested_tokens:,}",
+#             'wait_time': wait_time
+#         } 
+#     ## added 2 utility functions  --update_token_usage and  get_token_status
+#     def _update_token_usage(self, response):
+#         """Update token usage counts from response"""
+#         with self.token_lock:
+#             if hasattr(response, 'usage'):
+#                 tokens_used = response.usage.get('total_tokens', 0)
+#             else:
+#                 tokens_used = len(response.content) // 4  # Fallback estimation
+#                 print("estimated tokens used : {tokens_used}")
+            
+#             self.used_tokens += tokens_used
+            
+#             # Update database
+#             from app.utils.db import update_token_usage
+#             update_token_usage(self.user_id, tokens_used)
+            
+#             # Check if we've hit the daily limit
+#             if self.used_tokens >= self.daily_limit:
+#                 raise DailyLimitError({
+#                     'retry_after': self.token_reset_time - time.time(),
+#                     'is_daily_limit': True
+#                 })
+    
+
+#     def get_token_status(self):
+#         """Return current token usage information"""
+#         with self.token_lock:
+#             now = time.time()
+#             if now > self.token_reset_time:
+#                 # Reset counters if 24 hours have passed
+#                 from app.utils.db import record_token_reset
+#                 record_token_reset(
+#                     self.user_id,
+#                     self.used_tokens,
+#                     self.used_tokens >= self.daily_limit
+#                 )
+#                 self.used_tokens = 0
+#                 self.token_reset_time = now + 86400
+            
+#             # Get usage from database for accurate reporting
+#             from app.utils.db import get_token_usage
+#             db_usage = get_token_usage(self.user_id)
+            
+#             return {
+#                 'used': db_usage['today']['tokens_used'],
+#                 'remaining': max(0, self.daily_limit - db_usage['today']['tokens_used']),
+#                 'limit': self.daily_limit,
+#                 'reset_time': self.token_reset_time,
+#                 'reset_in': max(0, self.token_reset_time - now),
+#                 'history': db_usage['history']
+#             }
 class ChatModel:
     """Model for handling chat-related operations"""
     
@@ -177,20 +432,24 @@ class ChatModel:
         self.user_id = user_id
         self._chat_model = None
         self.vector_store = VectorStoreModel(user_id=user_id)
-        # Optimize timeout settings for faster responses
+        
+        # Token tracking attributes
+        self.token_lock = Lock()  # Critical missing piece
+        self.used_tokens = 0
+        self.requested_tokens = 0
+        self.daily_limit = 100000
+        self.token_reset_time = time.time() + 86400  # 24 hours from now
+        
+        # Request rate limiting
         self.timeout = Timeout(
-            timeout=15.0,  # Reduced from 20.0
-            connect=3.0,   # Reduced from 5.0
-            read=10.0,     # Reduced from 15.0
-            write=3.0      # Reduced from 5.0
+            timeout=15.0,
+            connect=3.0,
+            read=10.0,
+            write=3.0
         )
-        # Increase rate limiter capacity and rate
-        self.rate_limiter = TokenBucket(rate=10/60, capacity=10)  # Increased from 5/60 and capacity 5
+        self.rate_limiter = TokenBucket(rate=10/60, capacity=10)
         self.last_request_time = 0
-        self.min_request_interval = 0.5  # Reduced from 1.0 seconds
-        self.daily_limit = 100000  # Daily token limit
-        self.used_tokens = 0  # Track used tokens
-        self.requested_tokens = 0  # Track requested tokens
+        self.min_request_interval = 0.5
     
     @property
     def chat_model(self):
@@ -202,8 +461,6 @@ class ChatModel:
                     model_name="llama-3.3-70b-versatile",
                     timeout=self.timeout,
                     max_retries=3,
-                  
-
                 )
             except Exception as e:
                 logger.error(f"Failed to initialize chat model: {str(e)}")
@@ -213,11 +470,9 @@ class ChatModel:
     def _wait_for_token(self):
         """Wait for a token to become available with jitter"""
         while not self.rate_limiter.acquire():
-            # Add random jitter to prevent thundering herd
             jitter = random.uniform(0.1, 0.5)
             time.sleep(jitter)
             
-            # Ensure minimum interval between requests
             now = time.time()
             if now - self.last_request_time < self.min_request_interval:
                 time.sleep(self.min_request_interval - (now - self.last_request_time))
@@ -256,8 +511,8 @@ class ChatModel:
         return error_info
 
     @retry(
-        stop=stop_after_attempt(3),  # Increased from 2
-        wait=wait_exponential(multiplier=0.5, min=1, max=5),  # More aggressive retry
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=0.5, min=1, max=5),
         retry=retry_if_exception_type((httpx.HTTPStatusError, httpx.RequestError, httpx.TimeoutException)),
         reraise=True
     )
@@ -266,23 +521,15 @@ class ChatModel:
                          chat_history: Optional[List[Dict]] = None) -> str:
         """Generate a response using the chat model with vector store context"""
         try:
-            # Wait for rate limiter token with reduced jitter
             self._wait_for_token()
             self.last_request_time = time.time()
             
-            # Initialize messages list
             messages = []
             
-            # Add system prompt if provided
             if system_prompt:
-                messages.append({
-                    "role": "system",
-                    "content": system_prompt
-                })
+                messages.append({"role": "system", "content": system_prompt})
             
-            # Add formatted chat history if provided
             if chat_history:
-                # Ensure chat history is properly formatted
                 for msg in chat_history:
                     if 'role' in msg and 'content' in msg:
                         messages.append({
@@ -290,29 +537,13 @@ class ChatModel:
                             "content": msg['content']
                         })
             
-            # Add current user message
-            messages.append({
-                "role": "user",
-                "content": input_text
-            })
+            messages.append({"role": "user", "content": input_text})
             
-            # Log the messages being sent to the model for debugging
             logger.debug(f"Sending messages to model: {messages}")
             
-            # Generate response with timeout
             try:
                 response = self.chat_model.invoke(messages)
-                
-                # Update token usage
-                if hasattr(response, 'usage'):
-                    self.used_tokens += response.usage.get('total_tokens', 0)
-                    self.requested_tokens += response.usage.get('prompt_tokens', 0)
-                else:
-                    # Estimate token usage if not provided
-                    estimated_tokens = len(input_text.split()) * 1.3  # Rough estimation
-                    self.used_tokens += int(estimated_tokens)
-                    self.requested_tokens += int(estimated_tokens)
-                
+                self._update_token_usage(response)  # Updated to use the proper method
                 return response.content
             except Exception as e:
                 error_info = self._handle_error(e)
@@ -329,24 +560,68 @@ class ChatModel:
                 raise DailyLimitError(error_info)
             raise
 
-    def get_token_usage(self) -> Dict[str, Any]:
+    def _update_token_usage(self, response):
+        """Update token usage counts from response"""
+        with self.token_lock:
+            try:
+                if hasattr(response, 'usage'):
+                    tokens_used = response.usage.get('total_tokens', 0)
+                else:
+                    tokens_used = len(response.content) // 4  # Fallback estimation
+                    logger.debug(f"Estimated tokens used: {tokens_used}")
+                
+                self.used_tokens += tokens_used
+                self.requested_tokens += tokens_used
+                
+                # Update database
+                if self.user_id:
+                    from app.utils.db import update_token_usage
+                    update_token_usage(self.user_id, tokens_used)
+                
+                if self.used_tokens >= self.daily_limit:
+                    raise DailyLimitError({
+                        'retry_after': self.token_reset_time - time.time(),
+                        'is_daily_limit': True
+                    })
+            except Exception as e:
+                logger.error(f"Error updating token usage: {str(e)}")
+                raise
+
+    def get_token_status(self) -> Dict[str, Any]:
         """Get current token usage information"""
-        now = time.time()
-        wait_time = None
-        
-        if self.rate_limiter.daily_limit_hit:
-            remaining_time = self.rate_limiter.daily_limit_reset_time - now
-            if remaining_time > 0:
-                minutes = int(remaining_time // 60)
-                seconds = int(remaining_time % 60)
-                wait_time = f"{minutes}m{seconds}s"
-        
-        return {
-            'daily_limit': f"{self.daily_limit:,}",
-            'used_tokens': f"{self.used_tokens:,}",
-            'requested_tokens': f"{self.requested_tokens:,}",
-            'wait_time': wait_time
-        }
+        with self.token_lock:
+            now = time.time()
+            
+            # Reset if 24 hours have passed
+            if now > self.token_reset_time:
+                if self.user_id:
+                    from app.utils.db import record_token_reset
+                    record_token_reset(
+                        self.user_id,
+                        self.used_tokens,
+                        self.used_tokens >= self.daily_limit
+                    )
+                self.used_tokens = 0
+                self.token_reset_time = now + 86400
+            
+            # Get usage from database if available
+            db_usage = {'today': {'tokens_used': self.used_tokens}, 'history': []}
+            if self.user_id:
+                try:
+                    from app.utils.db import get_token_usage
+                    db_usage = get_token_usage(self.user_id)
+                except Exception as e:
+                    logger.error(f"Error getting token usage from DB: {str(e)}")
+            
+            return {
+                'used': db_usage['today']['tokens_used'],
+                'remaining': max(0, self.daily_limit - db_usage['today']['tokens_used']),
+                'limit': self.daily_limit,
+                'reset_time': self.token_reset_time,
+                'reset_in': max(0, self.token_reset_time - now),
+                'history': db_usage.get('history', [])
+            }
+
 
 class DailyLimitError(Exception):
     """Custom exception for daily token limit errors"""
@@ -357,14 +632,11 @@ class DailyLimitError(Exception):
 
 # app/models/models.py (VectorStoreModel part)
 from typing import List, Optional
-# from langchain_nomic import NomicEmbeddings
-from langchain_community.embeddings.fastembed import FastEmbedEmbeddings
+from langchain_nomic import NomicEmbeddings
 from langchain_community.vectorstores import FAISS
 import logging
 import os
 import pickle
-from dotenv import load_dotenv
-load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -414,7 +686,14 @@ class VectorStoreModel:
         """Lazy initialization of embeddings"""
         if not self._embeddings:
             try:
-                self._embeddings =FastEmbedEmbeddings()
+                nomic_api_key = Config.NOMIC_API_KEY
+                if nomic_api_key == 'your_nomic_api_key_here':
+                    raise ValueError("Please configure your Nomic API key in the config file")
+                
+                self._embeddings = NomicEmbeddings(
+                    model="nomic-embed-text-v1.5",
+                    nomic_api_key=nomic_api_key
+                )
             except Exception as e:
                 logger.error(f"Failed to create embeddings: {str(e)}")
                 raise
@@ -483,6 +762,98 @@ class VectorStoreModel:
             logger.error(f"Error deleting documents for user {self.user_id}: {str(e)}")
             raise
 
+# class ConversationModel:
+#     """Model for handling conversation-related database operations"""
+    
+#     def __init__(self, user_id: int):
+#         self.user_id = user_id
+    
+#     def create_conversation(self, title: str) -> int:
+#         """Create a new conversation"""
+#         try:
+#             db = get_db()
+#             cursor = db.execute(
+#                 'INSERT INTO conversations (user_id, title) VALUES (?, ?)',
+#                 (self.user_id, title)
+#             )
+#             db.commit()
+#             return cursor.lastrowid
+#         except Exception as e:
+#             logger.error(f"Error creating conversation: {str(e)}")
+#             raise
+
+#     def get_conversations(self, limit: int = 4) -> List[Dict]:
+#         """Get user's recent conversations"""
+#         try:
+#             db = get_db()
+#             conversations = db.execute(
+#                 '''SELECT c.id, c.title, MAX(ch.created_at) as last_message
+#                    FROM conversations c
+#                    LEFT JOIN chat_history ch ON c.id = ch.conversation_id
+#                    WHERE c.user_id = ?
+#                    GROUP BY c.id
+#                    ORDER BY last_message DESC
+#                    LIMIT ?''',
+#                 (self.user_id, limit)
+#             ).fetchall()
+#             return [dict(conv) for conv in conversations]
+#         except Exception as e:
+#             logger.error(f"Error retrieving conversations: {str(e)}")
+#             raise
+
+#     def save_message(self, conversation_id: int, message: str, role: str) -> int:
+#         """Save a message to the chat history"""
+#         try:
+#             db = get_db()
+#             cursor = db.execute(
+#                 'INSERT INTO chat_history (conversation_id, message, role) VALUES (?, ?, ?)',
+#                 (conversation_id, message, role)
+#             )
+            
+#             # Update conversation's last activity
+#             db.execute(
+#                 'UPDATE conversations SET updated_at = ? WHERE id = ?',
+#                 (datetime.now().isoformat(), conversation_id)
+#             )
+            
+#             db.commit()
+#             return cursor.lastrowid
+#         except Exception as e:
+#             logger.error(f"Error saving message: {str(e)}")
+#             raise
+
+#     def get_chat_history(self, conversation_id: int) -> List[Dict]:
+#         """Get chat history for a conversation"""
+#         try:
+#             db = get_db()
+#             messages = db.execute(
+#                 '''SELECT message, role, created_at
+#                    FROM chat_history
+#                    WHERE conversation_id = ?
+#                    ORDER BY created_at''',
+#                 (conversation_id,)
+#             ).fetchall()
+#             return [dict(msg) for msg in messages]
+#         except Exception as e:
+#             logger.error(f"Error retrieving chat history: {str(e)}")
+#             raise
+
+#     def delete_conversation(self, conversation_id: int) -> None:
+#         """Delete a conversation and its associated messages"""
+#         try:
+#             db = get_db()
+#             # Delete the conversation (this will cascade delete chat_history due to foreign key constraint)
+#             db.execute(
+#                 'DELETE FROM conversations WHERE id = ? AND user_id = ?',
+#                 (conversation_id, self.user_id)
+#             )
+#             db.commit()
+#         except Exception as e:
+#             logger.error(f"Error deleting conversation: {str(e)}")
+#             raise
+
+
+
 class ConversationModel:
     """Model for handling conversation-related database operations"""
     
@@ -502,7 +873,7 @@ class ConversationModel:
         except Exception as e:
             logger.error(f"Error creating conversation: {str(e)}")
             raise
-
+    
     def get_conversations(self, limit: int = 4) -> List[Dict]:
         """Get user's recent conversations"""
         try:
@@ -521,7 +892,7 @@ class ConversationModel:
         except Exception as e:
             logger.error(f"Error retrieving conversations: {str(e)}")
             raise
-
+    
     def save_message(self, conversation_id: int, message: str, role: str) -> int:
         """Save a message to the chat history"""
         try:
@@ -532,6 +903,7 @@ class ConversationModel:
             )
             
             # Update conversation's last activity
+            from datetime import datetime
             db.execute(
                 'UPDATE conversations SET updated_at = ? WHERE id = ?',
                 (datetime.now().isoformat(), conversation_id)
@@ -542,7 +914,7 @@ class ConversationModel:
         except Exception as e:
             logger.error(f"Error saving message: {str(e)}")
             raise
-
+    
     def get_chat_history(self, conversation_id: int) -> List[Dict]:
         """Get chat history for a conversation"""
         try:
@@ -572,6 +944,28 @@ class ConversationModel:
         except Exception as e:
             logger.error(f"Error deleting conversation: {str(e)}")
             raise
+
+    def reset_all_chats(self) -> None:
+        """Delete all conversations and chat history for the user"""
+        try:
+            db = get_db()
+            # Delete all conversations for the user (this will cascade delete all chat_history)
+            db.execute(
+                'DELETE FROM conversations WHERE user_id = ?',
+                (self.user_id,)
+            )
+            db.commit()
+            logger.info(f"All chats reset for user {self.user_id}")
+        except Exception as e:
+            logger.error(f"Error resetting all chats: {str(e)}")
+            raise
+
+
+
+
+
+
+
 
 class SurveyModel:
     """Model for handling survey-related database operations"""

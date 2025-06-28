@@ -147,10 +147,93 @@ def login():
             return render_template('login.html', error="Login failed")
     return render_template('login.html')
 
-@bp.route('/logout')
+# @bp.route('/logout',methods=['GET','POST'])
+# def logout():
+#     session.clear()
+#     return redirect(url_for('auth.login'))
+
+# @bp.route('/logout', methods=['GET', 'POST'])
+# def logout():
+#     # Debugging: Print session before clearing
+#     print("Session before clear:", session)
+    
+#     # Clear all session data
+#     session.clear()
+    
+#     # Debugging: Print session after clearing
+#     print("Session after clear:", session)
+    
+#     # Create redirect response
+#     login_url = url_for('auth.login')  # Ensure this matches your login route
+#     response = redirect(login_url)
+    
+#     # Add cache-control headers
+#     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+#     response.headers['Pragma'] = 'no-cache'
+#     response.headers['Expires'] = '0'
+    
+#     # Add header to prevent back button access
+#     response.headers['Cache-Control'] = 'no-store'
+    
+#     return response
+
+
+
+
+@bp.route('/logout', methods=['GET', 'POST'])
 def logout():
-    session.clear()
-    return redirect(url_for('auth.login'))
+    try:
+        # Debugging: Print session before clearing
+        print("Session before clear:", dict(session))
+        print("Request method:", request.method)
+        print("Request headers:", dict(request.headers))
+        
+        # Clear all session data
+        session.clear()
+        
+        # Debugging: Print session after clearing
+        print("Session after clear:", dict(session))
+        
+        # Handle AJAX requests differently
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            # For AJAX requests, return JSON with redirect URL
+            login_url = url_for('auth.login')
+            return jsonify({
+                'success': True,
+                'redirect_url': login_url
+            }), 200
+        
+        # For regular requests, redirect normally
+        login_url = url_for('auth.login')
+        response = redirect(login_url)
+        
+        # Add cache-control headers
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        
+        return response
+        
+    except Exception as e:
+        print(f"Logout error: {e}")
+        # Return error response for AJAX
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'success': False, 'error': str(e)}), 500
+        # For regular requests, still try to redirect
+        return redirect(url_for('auth.login'))
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 @bp.route('/check_session')
 def check_session():
