@@ -19,4 +19,4 @@ if __name__ == '__main__':
     debug = os.environ.get('FLASK_DEBUG', '0') == '1'
     
     # Never use reloader in containerized environments
-    app.run(debug=debug, host='0.0.0.0', port=port, use_reloader=False)
+    app.run(debug=debug, host='0.0.0.0', port=port, use_reloader=False, threaded=False)

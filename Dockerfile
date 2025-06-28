@@ -18,12 +18,12 @@ COPY . .
 
 # Set environment variables
 ENV FLASK_APP=run.py
-ENV FLASK_ENV=development
-ENV FLASK_DEBUG=1
+ENV FLASK_ENV=production
+ENV FLASK_DEBUG=0
 ENV PYTHONPATH=/app
 
 # Expose port
 EXPOSE 5000
 
-# Run the application without reloader to avoid permission issues
-CMD ["python", "-u", "run.py"]
+# Run the application with gunicorn for production
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "1", "--timeout", "120", "--preload", "run:app"]
