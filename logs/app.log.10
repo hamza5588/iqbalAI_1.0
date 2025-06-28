@@ -1,0 +1,3 @@
+2025-06-19 14:15:15,602 INFO: Document path: app/IqbalAI_FAQ.pdf [in /app/app/services/chatbot_service.py:93]
+2025-06-19 14:15:25,103 INFO: Vector store initialized. [in /app/app/services/chatbot_service.py:120]
+2025-06-19 14:15:25,103 INFO: Vector store initialized. [in /app/app/services/chatbot_service.py:120]
