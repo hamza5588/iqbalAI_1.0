@@ -183,3 +183,32 @@ echo -e "${GREEN}Setting up automatic SSL renewal...${NC}"
 
 echo -e "${YELLOW}Deployment process completed.${NC}"
 
+echo "Starting deployment for Atlantic Cloud..."
+
+# Stop all containers
+echo "Stopping containers..."
+docker-compose down
+
+# Clean up Docker cache and images
+echo "Cleaning Docker cache..."
+docker system prune -a --volumes -f
+
+# Remove any existing images
+echo "Removing existing images..."
+docker rmi $(docker images -q) 2>/dev/null || true
+
+# Build and start with no cache
+echo "Building containers with no cache..."
+docker-compose build --no-cache
+
+# Start the services
+echo "Starting services..."
+docker-compose up -d
+
+# Check status
+echo "Checking container status..."
+docker-compose ps
+
+echo "Deployment complete!"
+echo "Check logs with: docker-compose logs -f"
+
