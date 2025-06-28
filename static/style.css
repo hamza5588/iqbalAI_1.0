@@ -42,20 +42,33 @@ body {
 }
 
 .message {
-    margin-bottom: 15px;
-    padding: 10px 15px;
-    border-radius: 15px;
-    max-width: 70%;
     word-wrap: break-word;
+    white-space: pre-line;
+    line-height: 1.5;
+    padding: 10px 15px;
+    border-radius: 18px;
+    margin-bottom: 8px;
+    max-width: 80%;
 }
 
+
+
+
 .user-message {
-    background-color: #dcf8c6;
-    margin-left: auto;
+    background: #25D366;
+    color: white;
+    align-self: flex-end;
 }
 
 .bot-message {
-    background-color: #e8e8e8;
+    background:#40414f;
+    color: white;
+    align-self: flex-start;
+}
+.bot-message::before {
+    content: "• ";
+    color: #25D366;
+    font-weight: bold;
 }
 
 .chat-input {
