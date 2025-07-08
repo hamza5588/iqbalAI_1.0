@@ -331,8 +331,8 @@ services:
       - "5000"
     environment:
       - FLASK_APP=run.py
-      - FLASK_ENV=development
-      - FLASK_DEBUG=1
+      - FLASK_ENV=production
+      - FLASK_DEBUG=0
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
       - OPENBLAS_NUM_THREADS=1
@@ -362,8 +362,8 @@ services:
       - "5000"
     environment:
       - FLASK_APP=run.py
-      - FLASK_ENV=development
-      - FLASK_DEBUG=1
+      - FLASK_ENV=production
+      - FLASK_DEBUG=0
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
       - OPENBLAS_NUM_THREADS=1
@@ -393,8 +393,8 @@ services:
       - "5000"
     environment:
       - FLASK_APP=run.py
-      - FLASK_ENV=development
-      - FLASK_DEBUG=1
+      - FLASK_ENV=production
+      - FLASK_DEBUG=0
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
       - OPENBLAS_NUM_THREADS=1
@@ -424,8 +424,8 @@ services:
       - "5000"
     environment:
       - FLASK_APP=run.py
-      - FLASK_ENV=development
-      - FLASK_DEBUG=1
+      - FLASK_ENV=production
+      - FLASK_DEBUG=0
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
       - OPENBLAS_NUM_THREADS=1
