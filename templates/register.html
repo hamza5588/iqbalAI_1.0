@@ -126,17 +126,20 @@
                         <option value="Urdu">Urdu</option>
                     </select>
                 </div>
+                
                 <div class="mb-3">
-                    <label for="groq_api_key" class="form-label">Groq API Key</label>
-                    <div class="input-group">
-                        <input type="text" class="form-control" id="groq_api_key" name="groq_api_key" required>
-                        <div class="input-group-append">
-                            <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#groqModal">
-                                <i class="fas fa-key"></i> Get API Key
-                            </button>
-                        </div>
-                    </div>
-                    <small class="form-text text-muted">Click the button to get your GROQ API key</small>
+                    <label for="role" class="form-label">Role *</label>
+                    <select class="form-control" id="role" name="role" required>
+                        <option value="">Select your role...</option>
+                        <option value="student">Student - I want to view lessons created by teachers</option>
+                        <option value="teacher">Teacher - I want to create and manage lessons</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="groq_api_key" class="form-label">GROQ API Key</label>
+                    <input type="password" class="form-control" id="groq_api_key" name="groq_api_key" required>
+                    <small class="form-text text-muted">Get your API key from <a href="https://console.groq.com/" target="_blank">Groq Console</a></small>
                 </div>
                 <button type="submit" class="btn btn-primary w-100">Complete Registration</button>
             </form>
