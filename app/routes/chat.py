@@ -268,3 +268,31 @@ def get_token_status():
     except Exception as e:
         logger.error(f"Error getting token status: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+@bp.route('/user_info')
+def get_user_info():
+    """Get current user information including role"""
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    try:
+        from app.models import UserModel
+        user_model = UserModel(session['user_id'])
+        user_info = UserModel.get_user_by_id(session['user_id'])
+        
+        if not user_info:
+            return jsonify({'error': 'User not found'}), 404
+        
+        return jsonify({
+            'success': True,
+            'user': {
+                'id': user_info['id'],
+                'username': user_info['username'],
+                'role': user_info.get('role', 'student'),
+                'class_standard': user_info['class_standard'],
+                'medium': user_info['medium']
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error getting user info: {str(e)}")
+        return jsonify({'error': 'Failed to get user info'}), 500

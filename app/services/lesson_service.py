@@ -371,16 +371,28 @@ from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from docx import Document as DocxDocument
+from langchain_nomic import NomicEmbeddings
 from docx.shared import Inches
 from io import BytesIO
 import tempfile
 import json
 import re
+from app.models.models import LessonFAQ, LessonModel
 
 # Set up logging
 logger = logging.getLogger(__name__)
 
 class LessonService:
+    """
+    LessonService handles the teacher-focused lesson generation workflow:
+    1. Teacher selects 'Generate Lesson' from the sidebar.
+    2. Uploads a PDF file (e.g., textbook, handout).
+    3. Teacher enters details about the lesson plan to be generated (title, objectives, focus areas, etc.).
+    4. iqbalAI processes the file and user inputs, generates a structured lesson plan.
+    5. Teacher can review, ask follow-up questions, edit/refine lesson parts.
+    6. After final screening and edits, the final document is ready.
+    7. User/teacher can download the final version.
+    """
     def __init__(self, api_key: Optional[str] = None):
         """
         Initialize the LessonService with API key.
@@ -392,10 +404,10 @@ class LessonService:
         
         try:
             self.llm = ChatGroq(
-                api_key=self.api_key,
+                api_key="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",
                 model="llama3-70b-8192",
                 temperature=0.3,
-                max_tokens=4096  # Increased token limit
+                # max_tokens=4096  # Increased token limit
             )
         except Exception as e:
             logger.error(f"Failed to initialize ChatGroq: {str(e)}")
@@ -471,70 +483,50 @@ IMPORTANT:
         ext = filename.split(".")[-1].lower()
         return ext in ["pdf", "doc", "docx", "txt"]
 
-    def process_file(self, file: FileStorage) -> Dict[str, Any]:
+    def process_file(self, file: FileStorage, lesson_details: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """
         Process an uploaded file and return structured lesson content with DOCX bytes.
-        
+        Accepts additional lesson details (title, objectives, focus areas, etc.) for teacher-focused workflow.
         Args:
             file: Uploaded file to process
-            
+            lesson_details: Optional dictionary with lesson plan details (title, objectives, etc.)
         Returns:
             Dictionary containing lesson content, DOCX bytes, and filename
         """
         temp_path = None
-        
         try:
             if not file or not file.filename:
                 return {"error": "No file provided"}
-            
             if not self.allowed_file(file.filename):
                 return {"error": "File type not supported. Please upload PDF, DOC, DOCX, or TXT files."}
-            
-            # Create temporary file
             with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{secure_filename(file.filename)}") as temp_file:
                 temp_path = temp_file.name
                 file.save(temp_path)
-            
-            # Load and process the document
             documents = self._load_document(temp_path, file.filename)
-            
             if not documents:
                 return {"error": "Could not extract content from the file"}
-            
-            # Combine all document content
             full_text = "\n".join([doc.page_content for doc in documents])
-            
             if not full_text.strip():
                 return {"error": "No readable content found in the file"}
-            
-            # Generate structured lesson
-            lesson_data = self._generate_structured_lesson(full_text)
-            
+            # Merge lesson_details into prompt if provided
+            lesson_data = self._generate_structured_lesson(full_text, lesson_details)
             if 'error' in lesson_data:
                 return lesson_data
-            
-            # Create DOCX file
             docx_bytes = self._create_docx(lesson_data)
-            
-            # Generate filename
             base_name = os.path.splitext(file.filename)[0]
             filename = f"lesson_{base_name}.docx"
-            
             return {
                 "lesson": lesson_data,
                 "docx_bytes": docx_bytes,
                 "filename": filename
             }
-
         except Exception as e:
             logger.error(f"Error processing file: {str(e)}", exc_info=True)
             return {
                 "error": "Failed to process file",
                 "details": str(e)
             }
-        
         finally:
-            # Clean up temporary file
             if temp_path and os.path.exists(temp_path):
                 try:
                     os.remove(temp_path)
@@ -581,48 +573,39 @@ IMPORTANT:
             logger.error(f"Error loading document {filename}: {str(e)}")
             raise ValueError(f"Failed to load document: {str(e)}")
 
-    def _generate_structured_lesson(self, text: str) -> Dict[str, Any]:
-        """Generate structured lesson from text content"""
+    def _generate_structured_lesson(self, text: str, lesson_details: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+        """
+        Generate structured lesson from text content and optional teacher-provided lesson details.
+        """
         try:
-            # Truncate text if too long to avoid token limits
-            max_chars = 8000  # Reduced to leave more room for response
+            # Remove or greatly increase character limit for detailed lessons
+            max_chars = 1000000  # Effectively no truncation
             if len(text) > max_chars:
                 text = text[:max_chars] + "..."
                 logger.info(f"Text truncated to {max_chars} characters")
-            
             logger.info(f"Processing text of length: {len(text)}")
             logger.info("About to invoke LLM...")
-            
-            # Use the LLM directly instead of the parser chain
-            response = self.llm.invoke(self.lesson_prompt.format(text=text))
-            
+            # Compose prompt with lesson_details if provided
+            prompt_text = text
+            if lesson_details:
+                details_str = "\n".join([f"{k}: {v}" for k, v in lesson_details.items() if v])
+                prompt_text = f"Lesson Details Provided by Teacher:\n{details_str}\n\nDocument Content:\n{text}"
+            response = self.llm.invoke(self.lesson_prompt.format(text=prompt_text))
             logger.info(f"Received LLM response type: {type(response)}")
-            
-            # Extract content from the response
             if hasattr(response, 'content'):
                 response_text = response.content
             else:
                 response_text = str(response)
-            
             logger.info(f"Response text (first 200 chars): {response_text[:200]}")
-            
-            # FIXED: Better JSON extraction and parsing
             lesson_data = self._extract_and_parse_json(response_text)
-            
             if not lesson_data:
                 logger.error("Failed to extract valid JSON from response")
-                # Return a fallback lesson structure
                 return self._create_fallback_lesson(text)
-            
-            # Validate and fix the lesson structure
             lesson_data = self._validate_and_fix_lesson(lesson_data)
-            
             logger.info("Successfully generated structured lesson")
             return lesson_data
-            
         except Exception as e:
             logger.error(f"Error generating lesson: {str(e)}", exc_info=True)
-            # Return fallback lesson instead of error
             return self._create_fallback_lesson(text)
 
     def _extract_and_parse_json(self, response_text: str) -> Optional[Dict[str, Any]]:
@@ -832,6 +815,12 @@ IMPORTANT:
             ]
         }
 
+    def _sanitize_heading(self, heading: str) -> str:
+        """Remove or replace newlines from heading values for docx compatibility."""
+        if not isinstance(heading, str):
+            heading = str(heading)
+        return heading.replace('\n', ' ').replace('\r', ' ').strip()
+
     def _create_docx(self, lesson_data: Dict[str, Any]) -> bytes:
         """Convert structured lesson to DOCX format with improved formatting"""
         try:
@@ -839,18 +828,18 @@ IMPORTANT:
             
             # Add title with formatting
             title = doc.add_heading(level=1)
-            title_run = title.add_run(lesson_data.get("title", "Generated Lesson"))
+            title_run = title.add_run(self._sanitize_heading(lesson_data.get("title", "Generated Lesson")))
             title_run.bold = True
             
             # Add summary section
             if lesson_data.get("summary"):
-                doc.add_heading("Summary", level=2)
+                doc.add_heading(self._sanitize_heading("Summary"), level=2)
                 summary = doc.add_paragraph(lesson_data["summary"])
                 summary.paragraph_format.space_after = Inches(0.1)
             
             # Add learning objectives with bullet points
             if lesson_data.get("learning_objectives"):
-                doc.add_heading("Learning Objectives", level=2)
+                doc.add_heading(self._sanitize_heading("Learning Objectives"), level=2)
                 for objective in lesson_data["learning_objectives"]:
                     p = doc.add_paragraph(style='ListBullet')
                     p.add_run(str(objective))
@@ -859,14 +848,14 @@ IMPORTANT:
             # Add sections with proper spacing
             if lesson_data.get("sections"):
                 for section in lesson_data["sections"]:
-                    doc.add_heading(section.get("heading", "Section"), level=2)
+                    doc.add_heading(self._sanitize_heading(section.get("heading", "Section")), level=2)
                     content = doc.add_paragraph(section.get("content", ""))
                     content.paragraph_format.space_after = Inches(0.1)
                     doc.add_paragraph()
             
             # Add key concepts
             if lesson_data.get("key_concepts"):
-                doc.add_heading("Key Concepts", level=2)
+                doc.add_heading(self._sanitize_heading("Key Concepts"), level=2)
                 for concept in lesson_data["key_concepts"]:
                     p = doc.add_paragraph(style='ListBullet')
                     p.add_run(str(concept))
@@ -874,10 +863,10 @@ IMPORTANT:
             
             # Add activities with clear formatting
             if lesson_data.get("activities"):
-                doc.add_heading("Activities", level=2)
+                doc.add_heading(self._sanitize_heading("Activities"), level=2)
                 for i, activity in enumerate(lesson_data["activities"], 1):
                     activity_title = doc.add_heading(level=3)
-                    activity_title.add_run(f"Activity {i}: {activity.get('name', 'Unnamed Activity')}").bold = True
+                    activity_title.add_run(self._sanitize_heading(f"Activity {i}: {activity.get('name', 'Unnamed Activity')}")) .bold = True
                     
                     desc = doc.add_paragraph()
                     desc.add_run("Description: ").bold = True
@@ -892,7 +881,7 @@ IMPORTANT:
             
             # Add quiz with clear question/answer formatting
             if lesson_data.get("quiz"):
-                doc.add_heading("Quiz", level=2)
+                doc.add_heading(self._sanitize_heading("Quiz"), level=2)
                 for i, question in enumerate(lesson_data["quiz"], 1):
                     q = doc.add_paragraph()
                     q.add_run(f"Question {i}: ").bold = True
@@ -927,9 +916,166 @@ IMPORTANT:
             logger.error(f"Error creating DOCX: {str(e)}")
             # Return a simple DOCX with error message
             doc = DocxDocument()
-            doc.add_heading("Lesson Generation", level=1)
+            doc.add_heading(self._sanitize_heading("Lesson Generation"), level=1)
             doc.add_paragraph("A lesson has been generated from your content.")
             buffer = BytesIO()
             doc.save(buffer)
             buffer.seek(0)
             return buffer.getvalue()
+
+    def edit_lesson_with_prompt(self, lesson_text: str, user_prompt: str) -> str:
+        """
+        Use a FAISS vector database for semantic chunk retrieval and editing.
+        Chunks the lesson, stores in FAISS, retrieves relevant chunks for the prompt, edits them, and reconstructs the lesson.
+        """
+        try:
+            from langchain_community.vectorstores import FAISS
+            from langchain_community.embeddings import HuggingFaceEmbeddings
+            import tempfile
+            import os
+
+            # 1. Chunk the lesson (by paragraph)
+            chunks = [p.strip() for p in lesson_text.split('\n\n') if p.strip()]
+            if not chunks:
+                return lesson_text
+
+            # 2. Embed and store in FAISS
+            # embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+            #nomic embeddings
+          
+
+            embeddings = NomicEmbeddings(
+                model="nomic-embed-text-v1.5",
+                # api_key="nk-7Ad201NonNkEv_pYdRwb-EkNjf84mVLW205ihoE7RyU"
+       
+            )
+            with tempfile.TemporaryDirectory() as tmpdir:
+                faiss_path = os.path.join(tmpdir, "faiss_index")
+                vector_db = FAISS.from_texts(chunks, embeddings)
+                vector_db.save_local(faiss_path)
+
+                # 3. Retrieve relevant chunks for the user prompt
+                vector_db = FAISS.load_local(faiss_path, embeddings, allow_dangerous_deserialization=True)
+                relevant_docs = vector_db.similarity_search(user_prompt, k=min(5, len(chunks)))
+                relevant_texts = [doc.page_content for doc in relevant_docs]
+
+                # 4. Edit relevant chunks with LLM
+                edited_chunks = {}
+                for text in relevant_texts:
+                    edit_prompt = (
+                        f"You are an expert teacher assistant. Here is a lesson chunk in markdown:\n\n"
+                        f"{text}\n\n"
+                        f"User request: {user_prompt}\n\n"
+                        f"Please return the revised lesson chunk in markdown only."
+                    )
+                    response = self.llm.invoke(edit_prompt)
+                    edited = response.content if hasattr(response, 'content') else str(response)
+                    edited_chunks[text] = edited
+
+                # 5. Replace original chunks with edited ones
+                new_chunks = [edited_chunks.get(chunk, chunk) for chunk in chunks]
+
+                # 6. (FAISS index is deleted automatically with TemporaryDirectory)
+
+            # 7. Reconstruct and return the lesson
+            return '\n\n'.join(new_chunks)
+        except Exception as e:
+            logger.error(f"Error editing lesson with prompt: {str(e)}", exc_info=True)
+            return lesson_text
+
+    def create_ppt(self, lesson_data: dict) -> bytes:
+        """
+        Generate a basic PPTX file from the lesson structure using python-pptx.
+        """
+        try:
+            from pptx import Presentation
+            from pptx.util import Inches, Pt
+            prs = Presentation()
+            # Title slide
+            slide_layout = prs.slide_layouts[0]
+            slide = prs.slides.add_slide(slide_layout)
+            slide.shapes.title.text = lesson_data.get('title', 'Lesson')
+            slide.placeholders[1].text = lesson_data.get('summary', '')
+            # Learning Objectives
+            if lesson_data.get('learning_objectives'):
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = 'Learning Objectives'
+                body = slide.shapes.placeholders[1].text_frame
+                for obj in lesson_data['learning_objectives']:
+                    body.add_paragraph().text = str(obj)
+            # Sections
+            for section in lesson_data.get('sections', []):
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = section.get('heading', 'Section')
+                body = slide.shapes.placeholders[1].text_frame
+                body.text = section.get('content', '')[:1000]
+            # Key Concepts
+            if lesson_data.get('key_concepts'):
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = 'Key Concepts'
+                body = slide.shapes.placeholders[1].text_frame
+                for kc in lesson_data['key_concepts']:
+                    body.add_paragraph().text = str(kc)
+            # Activities
+            if lesson_data.get('activities'):
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = 'Activities'
+                body = slide.shapes.placeholders[1].text_frame
+                for act in lesson_data['activities']:
+                    body.add_paragraph().text = f"{act.get('name', '')}: {act.get('description', '')} ({act.get('duration', '')})"
+            # Quiz
+            if lesson_data.get('quiz'):
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = 'Quiz'
+                body = slide.shapes.placeholders[1].text_frame
+                for q in lesson_data['quiz']:
+                    body.add_paragraph().text = f"Q: {q.get('question', '')}"
+                    for i, opt in enumerate(q.get('options', [])):
+                        body.add_paragraph().text = f"{chr(65+i)}. {opt}"
+                    body.add_paragraph().text = f"Answer: {q.get('answer', '')}"
+            from io import BytesIO
+            buffer = BytesIO()
+            prs.save(buffer)
+            buffer.seek(0)
+            return buffer.getvalue()
+        except Exception as e:
+            logger.error(f"Error creating PPTX: {str(e)}", exc_info=True)
+            return b''
+
+    def answer_lesson_question(self, lesson_id, question, api_key=None):
+        # Get lesson content
+        lesson = LessonModel.get_lesson_by_id(lesson_id)
+        if not lesson:
+            return {'error': 'Lesson not found'}
+        content = lesson.get('content') or lesson.get('summary')
+        if not content:
+            return {'error': 'No lesson content available'}
+        # Use LLM to answer
+        # (Replace with your actual LLM call)
+        answer = self.llm_answer(content, question, api_key)
+        # Log the question
+        LessonFAQ.log_question(lesson_id, question)
+        return {'answer': answer}
+
+    def llm_answer(self, lesson_content, question, api_key=None):
+        # Use Groq LLM (already implemented in the project)
+        prompt = f"""
+You are a helpful teacher. Use the following lesson content to answer the student's question concisely and clearly.
+
+Lesson Content:
+{lesson_content}
+
+Question: {question}
+Answer as a helpful teacher:
+"""
+        try:
+            response = self.llm.invoke(prompt)
+            if hasattr(response, 'content'):
+                return response.content.strip()
+            else:
+                return str(response).strip()
+        except Exception as e:
+            return f"[Error from LLM: {e}]"
+
+    def get_lesson_faqs(self, lesson_id, limit=5):
+        return LessonFAQ.get_top_faqs(lesson_id, limit)
