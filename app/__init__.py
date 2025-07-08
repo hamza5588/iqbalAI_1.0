@@ -178,7 +178,7 @@ def create_app():
     # Create Flask app with correct template folder
     base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     template_dir = os.path.join(base_dir, 'templates')
-    static_dir = os.path.join(base_dir, 'app', 'static')
+    static_dir = os.path.join(base_dir, 'static')
     
     app = Flask(__name__, 
                 template_folder=template_dir,
@@ -235,6 +235,7 @@ def create_app():
     from app.routes.files import bp as file_bp
     from app.routes.chatbot_routes import bp as chatbot_bp
     from app.routes.survey import bp as survey_bp
+    from app.routes.lesson_routes import bp as lesson_bp
 
     # Register blueprints with appropriate prefixes
     app.register_blueprint(auth_bp, url_prefix='/auth')
@@ -243,6 +244,7 @@ def create_app():
     app.register_blueprint(file_bp)
     app.register_blueprint(chatbot_bp, url_prefix='/api')
     app.register_blueprint(survey_bp, url_prefix='/api')
+    app.register_blueprint(lesson_bp, url_prefix='/api/lessons')
     
     print(f"Flask app template folder: {app.template_folder}")
     

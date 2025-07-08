@@ -110,18 +110,38 @@ def init_db(app):
         with app.app_context():
             db = get_db()
             
-            # Create users table
+            # Create users table with role column
             db.execute('''
                 CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     username TEXT NOT NULL UNIQUE,
                     useremail TEXT NOT NULL UNIQUE,
                     password TEXT NOT NULL,
+                    role TEXT NOT NULL DEFAULT 'student' CHECK(role IN ('student', 'teacher')),
                     class_standard TEXT NOT NULL,
                     medium TEXT NOT NULL,
                     groq_api_key TEXT NOT NULL,
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     last_login DATETIME
+                )
+            ''')
+            
+            # Create lessons table to store lessons created by teachers
+            db.execute('''
+                CREATE TABLE IF NOT EXISTS lessons (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    teacher_id INTEGER NOT NULL,
+                    title TEXT NOT NULL,
+                    summary TEXT,
+                    learning_objectives TEXT,
+                    focus_area TEXT,
+                    grade_level TEXT,
+                    content TEXT NOT NULL,
+                    file_name TEXT,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    is_public BOOLEAN DEFAULT TRUE,
+                    FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE
                 )
             ''')
             
@@ -219,6 +239,11 @@ def init_db(app):
             db.execute('CREATE INDEX IF NOT EXISTS idx_user_token_usage_user_id ON user_token_usage(user_id)')
             db.execute('CREATE INDEX IF NOT EXISTS idx_user_token_usage_date ON user_token_usage(date)')
 
+            # Create indexes for lessons table
+            db.execute('CREATE INDEX IF NOT EXISTS idx_lessons_teacher_id ON lessons(teacher_id)')
+            db.execute('CREATE INDEX IF NOT EXISTS idx_lessons_grade_level ON lessons(grade_level)')
+            db.execute('CREATE INDEX IF NOT EXISTS idx_lessons_focus_area ON lessons(focus_area)')
+            db.execute('CREATE INDEX IF NOT EXISTS idx_lessons_is_public ON lessons(is_public)')
 
             db.execute('CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id)')
             db.execute('CREATE INDEX IF NOT EXISTS idx_chat_history_conversation_id ON chat_history(conversation_id)')
