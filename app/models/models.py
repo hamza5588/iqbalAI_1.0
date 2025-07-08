@@ -48,14 +48,14 @@ class UserModel:
     
     @staticmethod
     def create_user(username: str, useremail: str, password: str, 
-                   class_standard: str, medium: str, groq_api_key: str) -> int:
+                   class_standard: str, medium: str, groq_api_key: str, role: str = 'student') -> int:
         """Create a new user in the database"""
         try:
             db = get_db()
             cursor = db.execute(
-                'INSERT INTO users (username, useremail, password, class_standard, medium, groq_api_key) '
-                'VALUES (?, ?, ?, ?, ?, ?)',
-                (username, useremail, password, class_standard, medium, groq_api_key)
+                'INSERT INTO users (username, useremail, password, class_standard, medium, groq_api_key, role) '
+                'VALUES (?, ?, ?, ?, ?, ?, ?)',
+                (username, useremail, password, class_standard, medium, groq_api_key, role)
             )
             db.commit()
             return cursor.lastrowid
@@ -80,12 +80,23 @@ class UserModel:
             logger.error(f"Error retrieving user by email: {str(e)}")
             raise
 
-    def update_api_key(self, new_api_key: str) -> bool:
-        """Update user's Groq API key"""
+    @staticmethod
+    def get_user_by_id(user_id: int) -> Dict[str, Any]:
+        """Retrieve user details by ID"""
         try:
-            if not self.user_id:
-                raise ValueError("User ID is required")
-            
+            db = get_db()
+            user = db.execute(
+                'SELECT * FROM users WHERE id = ?', 
+                (user_id,)
+            ).fetchone()
+            return dict(user) if user else None
+        except Exception as e:
+            logger.error(f"Error retrieving user by ID: {str(e)}")
+            raise
+
+    def update_api_key(self, new_api_key: str) -> bool:
+        """Update the user's API key"""
+        try:
             db = get_db()
             db.execute(
                 'UPDATE users SET groq_api_key = ? WHERE id = ?',
@@ -94,34 +105,193 @@ class UserModel:
             db.commit()
             return True
         except Exception as e:
-            logger.error(f"API key update failed: {str(e)}")
-            raise
+            logger.error(f"Error updating API key: {str(e)}")
+            return False
 
-    def get_api_key(self) -> Optional[str]:
-        """Get user's Groq API key from database"""
+    def get_role(self) -> str:
+        """Get the user's role"""
         try:
-            if not self.user_id:
-                raise ValueError("User ID is required")
-            
-            print(f"Retrieving API key for user ID: {self.user_id}")  # Debug log
-            
             db = get_db()
-            user = db.execute(
-                'SELECT groq_api_key FROM users WHERE id = ?',
+            result = db.execute(
+                'SELECT role FROM users WHERE id = ?',
                 (self.user_id,)
             ).fetchone()
-            
-            if user:
-                api_key = user['groq_api_key']
-                print(f"Found API key: {api_key[:10]}..." if api_key else "No API key found")  # Debug log
-                return api_key
-            else:
-                print(f"No user found with ID: {self.user_id}")  # Debug log
-                return None
+            return result['role'] if result else 'student'
         except Exception as e:
-            logger.error(f"Error retrieving API key: {str(e)}")
-            print(f"Exception in get_api_key: {str(e)}")  # Debug log
+            logger.error(f"Error getting user role: {str(e)}")
+            return 'student'
+
+    def is_teacher(self) -> bool:
+        """Check if user is a teacher"""
+        return self.get_role() == 'teacher'
+
+    def is_student(self) -> bool:
+        """Check if user is a student"""
+        return self.get_role() == 'student'
+
+
+class LessonModel:
+    """Lesson model for handling lesson-related database operations"""
+    
+    def __init__(self, lesson_id: Optional[int] = None):
+        self.lesson_id = lesson_id
+    
+    @staticmethod
+    def create_lesson(teacher_id: int, title: str, summary: str, learning_objectives: str,
+                     focus_area: str, grade_level: str, content: str, file_name: str = None,
+                     is_public: bool = True) -> int:
+        """Create a new lesson in the database"""
+        try:
+            db = get_db()
+            cursor = db.execute(
+                '''INSERT INTO lessons 
+                   (teacher_id, title, summary, learning_objectives, focus_area, grade_level, content, file_name, is_public)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                (teacher_id, title, summary, learning_objectives, focus_area, grade_level, content, file_name, is_public)
+            )
+            db.commit()
+            return cursor.lastrowid
+        except Exception as e:
+            logger.error(f"Lesson creation failed: {str(e)}")
             raise
+
+    @staticmethod
+    def get_lesson_by_id(lesson_id: int) -> Dict[str, Any]:
+        """Retrieve lesson details by ID"""
+        try:
+            db = get_db()
+            lesson = db.execute(
+                '''SELECT l.*, u.username as teacher_name 
+                   FROM lessons l 
+                   JOIN users u ON l.teacher_id = u.id 
+                   WHERE l.id = ?''',
+                (lesson_id,)
+            ).fetchone()
+            return dict(lesson) if lesson else None
+        except Exception as e:
+            logger.error(f"Error retrieving lesson by ID: {str(e)}")
+            raise
+
+    @staticmethod
+    def get_lessons_by_teacher(teacher_id: int) -> List[Dict[str, Any]]:
+        """Get all lessons created by a specific teacher"""
+        try:
+            db = get_db()
+            lessons = db.execute(
+                'SELECT * FROM lessons WHERE teacher_id = ? ORDER BY created_at DESC',
+                (teacher_id,)
+            ).fetchall()
+            return [dict(lesson) for lesson in lessons]
+        except Exception as e:
+            logger.error(f"Error retrieving lessons by teacher: {str(e)}")
+            raise
+
+    @staticmethod
+    def get_public_lessons(grade_level: str = None, focus_area: str = None) -> List[Dict[str, Any]]:
+        """Get all public lessons with optional filtering"""
+        try:
+            db = get_db()
+            query = '''SELECT l.*, u.username as teacher_name 
+                      FROM lessons l 
+                      JOIN users u ON l.teacher_id = u.id 
+                      WHERE l.is_public = TRUE'''
+            params = []
+            
+            if grade_level:
+                query += ' AND l.grade_level = ?'
+                params.append(grade_level)
+            
+            if focus_area:
+                query += ' AND l.focus_area = ?'
+                params.append(focus_area)
+            
+            query += ' ORDER BY l.created_at DESC'
+            
+            lessons = db.execute(query, params).fetchall()
+            return [dict(lesson) for lesson in lessons]
+        except Exception as e:
+            logger.error(f"Error retrieving public lessons: {str(e)}")
+            raise
+
+    @staticmethod
+    def search_lessons(search_term: str, grade_level: str = None) -> List[Dict[str, Any]]:
+        """Search lessons by title, content, or focus area"""
+        try:
+            db = get_db()
+            query = '''SELECT l.*, u.username as teacher_name 
+                      FROM lessons l 
+                      JOIN users u ON l.teacher_id = u.id 
+                      WHERE l.is_public = TRUE 
+                      AND (l.title LIKE ? OR l.content LIKE ? OR l.focus_area LIKE ?)'''
+            params = [f'%{search_term}%', f'%{search_term}%', f'%{search_term}%']
+            
+            if grade_level:
+                query += ' AND l.grade_level = ?'
+                params.append(grade_level)
+            
+            query += ' ORDER BY l.created_at DESC'
+            
+            lessons = db.execute(query, params).fetchall()
+            return [dict(lesson) for lesson in lessons]
+        except Exception as e:
+            logger.error(f"Error searching lessons: {str(e)}")
+            raise
+
+    def update_lesson(self, title: str = None, summary: str = None, learning_objectives: str = None,
+                     focus_area: str = None, grade_level: str = None, content: str = None,
+                     is_public: bool = None) -> bool:
+        """Update lesson details"""
+        try:
+            db = get_db()
+            updates = []
+            params = []
+            
+            if title is not None:
+                updates.append('title = ?')
+                params.append(title)
+            if summary is not None:
+                updates.append('summary = ?')
+                params.append(summary)
+            if learning_objectives is not None:
+                updates.append('learning_objectives = ?')
+                params.append(learning_objectives)
+            if focus_area is not None:
+                updates.append('focus_area = ?')
+                params.append(focus_area)
+            if grade_level is not None:
+                updates.append('grade_level = ?')
+                params.append(grade_level)
+            if content is not None:
+                updates.append('content = ?')
+                params.append(content)
+            if is_public is not None:
+                updates.append('is_public = ?')
+                params.append(is_public)
+            
+            if not updates:
+                return True
+            
+            updates.append('updated_at = CURRENT_TIMESTAMP')
+            params.append(self.lesson_id)
+            
+            query = f'UPDATE lessons SET {", ".join(updates)} WHERE id = ?'
+            db.execute(query, params)
+            db.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Error updating lesson: {str(e)}")
+            return False
+
+    def delete_lesson(self) -> bool:
+        """Delete a lesson"""
+        try:
+            db = get_db()
+            db.execute('DELETE FROM lessons WHERE id = ?', (self.lesson_id,))
+            db.commit()
+            return True
+        except Exception as e:
+            logger.error(f"Error deleting lesson: {str(e)}")
+            return False
 
 # app/models/models.py (ChatModel part)
 from langchain_groq import ChatGroq
@@ -1025,3 +1195,41 @@ class SurveyModel:
         except Exception as e:
             logger.error(f"Error checking survey submission for user {self.user_id}: {str(e)}")
             raise
+
+import sqlite3
+
+class LessonFAQ:
+    @staticmethod
+    def log_question(lesson_id, question):
+        conn = sqlite3.connect('instance/chatbot.db')
+        c = conn.cursor()
+        c.execute('''CREATE TABLE IF NOT EXISTS lesson_faq (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            lesson_id INTEGER,
+            question TEXT,
+            count INTEGER DEFAULT 1
+        )''')
+        # Check if question already exists for this lesson
+        c.execute('SELECT id, count FROM lesson_faq WHERE lesson_id=? AND question=?', (lesson_id, question))
+        row = c.fetchone()
+        if row:
+            c.execute('UPDATE lesson_faq SET count = count + 1 WHERE id=?', (row[0],))
+        else:
+            c.execute('INSERT INTO lesson_faq (lesson_id, question, count) VALUES (?, ?, 1)', (lesson_id, question))
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def get_top_faqs(lesson_id, limit=5):
+        conn = sqlite3.connect('instance/chatbot.db')
+        c = conn.cursor()
+        c.execute('''CREATE TABLE IF NOT EXISTS lesson_faq (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            lesson_id INTEGER,
+            question TEXT,
+            count INTEGER DEFAULT 1
+        )''')
+        c.execute('SELECT question, count FROM lesson_faq WHERE lesson_id=? ORDER BY count DESC LIMIT ?', (lesson_id, limit))
+        faqs = [{'question': row[0], 'count': row[1]} for row in c.fetchall()]
+        conn.close()
+        return faqs
