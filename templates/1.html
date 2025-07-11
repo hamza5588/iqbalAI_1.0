@@ -46,8 +46,8 @@
           <span>New Chat</span>
         </button>
 
-        <!-- Action Buttons -->
-        <button onclick="openLessonGenerator()" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors" id="generateLessonBtn">
+        <!-- Action Buttomsns -->
+        <button onclick="changeTab(document.querySelectorAll('.tab-btn')[2], 'lesson')" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors" id="generateLessonBtn">
           <img src="./lesson.png" alt="">
           <span>Generate Lessons</span>
         </button>
@@ -79,7 +79,26 @@
 
         <!-- Dropdown Chat History -->
         <div id="dropdownContent" class="mt-2 hidden flex-col gap-3 w-[240px] max-h-48 overflow-y-auto">
-          <!-- Chat history items will be populated here -->
+          <div class="flex items-center justify-between px-3 py-2 hover:bg-gray-100 rounded cursor-pointer">
+            <div class="text-sm text-gray-700 flex-1">
+              <span class="block font-medium">Sample Chat 1</span>
+              <span class="text-xs text-gray-500">Today</span>
+            </div>
+            <div class="flex items-center space-x-3 text-gray-500">
+              <i class="fas fa-download hover:text-black cursor-pointer"></i>
+              <i class="fas fa-trash hover:text-red-600 cursor-pointer"></i>
+            </div>
+          </div>
+          <div class="flex items-center justify-between px-3 py-2 hover:bg-gray-100 rounded cursor-pointer">
+            <div class="text-sm text-gray-700 flex-1">
+              <span class="block font-medium">Sample Chat 2</span>
+              <span class="text-xs text-gray-500">Yesterday</span>
+            </div>
+            <div class="flex items-center space-x-3 text-gray-500">
+              <i class="fas fa-download hover:text-black cursor-pointer"></i>
+              <i class="fas fa-trash hover:text-red-600 cursor-pointer"></i>
+            </div>
+          </div>
         </div>
 
         <!-- Logout Button -->
@@ -157,26 +176,7 @@
         </div>
 
         <!-- Chat Header Section -->
-        <div class="flex items-center justify-between px-6 py-4 border-t border-gray-100">
-            <div class="flex items-center gap-3">
-                <div class="w-11 h-11 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                    AI
-                </div>
-                <div>
-                    <h3 class="text-gray-900 font-semibold text-lg" id="chatTitle">New Chat</h3>
-                    <p class="text-gray-500 text-sm" id="chatStatus">Online</p>
-                </div>
-            </div>
-            
-            <div class="flex items-center gap-2">
-                <button onclick="downloadCurrentChat()" class="w-10 h-10 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-colors">
-                    <i class="fas fa-download text-gray-500 text-sm"></i>
-                </button>
-                <button class="w-10 h-10 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-colors">
-                    <i class="fas fa-ellipsis-h text-gray-500 text-sm"></i>
-                </button>
-            </div>
-        </div>
+        
 
         <!-- Chat Messages Area -->
         <div class="flex-1 px-6 py-8 overflow-y-auto" id="chatMessages">
@@ -314,6 +314,7 @@
             <!-- Step 2: Lesson Configuration -->
             <div id="configStep" class="hidden w-[436px] mx-auto text-slate-500 border border-blue-500 rounded-lg ">
                 <div class="text-center mb-8 bg-[#05B0FC] text-white w-full py-4  ">
+    
                     <span class=" font-medium text-xl">Lesson Details</span>
                 </div>
 
@@ -422,7 +423,7 @@
                 </div>
             </div>
 
-            <!-- Step 3: Generated Lesson Display -->
+            <!-- Step 3: Generated Lesson Display - UPDATED -->
             <div id="lessonDisplay" class="hidden  w-[616px] mx-auto  p-5">
                 <div class="text-center mb-8 text-[#05B0FC] justify-center ">
                     <div class="flex gap-2 justify-center text-center">
@@ -439,8 +440,8 @@
                     <div class="">
                         <div class="mb-2">
                             <div class=" p-2 rounded-lg border border-blue-500 rounded-lg shadow-lg">
-                                <div id="lessonSummary" class="text-gray-700 leading-relaxed max-h-[436px] overflow-y-auto">
-                                    <!-- Generated lesson content will be inserted here -->
+                                <div id="lessonSummary" class="text-gray-700 leading-relaxed max-h-[436px]">
+                                    <p>Lorem, ipsum dolor sit amet consectetur adipisicing elit. Iusto dolorem velit fuga nemo atque excepturi consectetur, delectus voluptatum veniam exercitationem repellat facilis dolorum animi! Voluptate natus quia porro, nemo beatae mollitia, pariatur voluptas autem illum illo suscipit corrupti nobis perferendis ipsum necessitatibus fugit modi fuga unde nisi molestiae. Dolore dicta blanditiis quod doloribus iste veritatis illo, dolorum ab corporis sint expedita molestias quo maxime debitis assumenda aut odit similique vero error placeat pariatur. Laborum, enim unde omnis cumque non consequatur, facere tempore blanditiis dolor ea commodi recusandae tempora aliquid dolorum eaque nostrum exercitationem pariatur explicabo nesciunt laudantium soluta sunt magnam!</p>
                                 </div>
                             </div>
                         </div>
@@ -454,154 +455,167 @@
                     </div>
 
                     <!-- Action Buttons -->
-                    <div class="p-3">
-                        <div class="flex flex-row sm:flex-row justify-center items-center gap-4">
-                            <button onclick="reviewWithHuman()" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-blue-600 transition-colors font-medium flex items-center gap-2">
-                                Review with Human
-                            </button>
-                            <button onclick="reviewWithAI()" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-blue-600 transition-colors font-medium flex items-center gap-2">
-                                Review with AI
-                            </button>
-                        </div>
-                        <div class="flex justify-center mt-4">
-                            <button onclick="proceedToCompletion()" class="border border-[#05B0FC] px-8 py-3 bg-white  text-[#05B0FC] hover:text-white hover:bg-[#05B0FC] rounded-lg transition-colors font-medium flex items-center gap-2">
-                                <i class="fas fa-check"></i>
-                                Finalize and Download
-                            </button>
-                        </div>
-                    </div>
+                    <!-- Action Buttons -->
+<div class="p-3">
+    <div class="flex flex-row sm:flex-row justify-center items-center gap-4">
+        <button onclick="reviewWithHuman()" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-blue-600 transition-colors font-medium flex items-center gap-2">
+            Review with Human
+        </button>
+        <button onclick="reviewWithAI()" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-blue-600 transition-colors font-medium flex items-center gap-2">
+            Review with AI
+        </button>
+    </div>
+    <div class="flex justify-center mt-4">
+        <button onclick="proceedToCompletion()" class="border border-[#05B0FC] px-8 py-3 bg-white  text-[#05B0FC] hover:text-white hover:bg-[#05B0FC] rounded-lg transition-colors font-medium flex items-center gap-2">
+            <i class="fas fa-check"></i>
+            Finalize and Download
+        </button>
+    </div>
+</div>
                 </div>
             </div>
+<!-- Lesson Completion Page -->
+<div id="lessonCompletionPage" class="hidden max-w-2xl mx-auto text-center p-8">
+    <div class="mb-8">
+        <div class="flex items-center justify-center mb-4">
+            <i class="fas fa-check-circle text-[#05B0FC] text-4xl mr-3"></i>
+            <h2 class="text-3xl font-bold text-[#05B0FC]">Your lesson is ready!</h2>
+        </div>
+        <p class="text-gray-600 text-lg">Download and share your lesson</p>
+    </div>
 
-            <!-- Lesson Completion Page -->
-            <div id="lessonCompletionPage" class="hidden max-w-2xl mx-auto text-center p-8">
-                <div class="mb-8">
-                    <div class="flex items-center justify-center mb-4">
-                        <i class="fas fa-check-circle text-[#05B0FC] text-4xl mr-3"></i>
-                        <h2 class="text-3xl font-bold text-[#05B0FC]">Your lesson is ready!</h2>
-                    </div>
-                    <p class="text-gray-600 text-lg">Download and share your lesson</p>
-                </div>
+    <!-- Lesson File Display -->
+    <div class="mb-8">
+        <div class="bg-[#05B0FC] text-white rounded-lg px-6 py-4 text-lg font-medium">
+            <i class="fas fa-file mr-2"></i>
+            <span id="completedLessonTitle">Sample Lesson from document.pdf</span>
+        </div>
+    </div>
 
-                <!-- Lesson File Display -->
-                <div class="mb-8">
-                    <div class="bg-[#05B0FC] text-white rounded-lg px-6 py-4 text-lg font-medium">
-                        <i class="fas fa-file mr-2"></i>
-                        <span id="completedLessonTitle">Sample Lesson from document.pdf</span>
-                    </div>
-                </div>
+    <!-- Download Buttons -->
+    <div class="flex justify-center gap-4 mb-8">
+        <button onclick="downloadLesson('pdf')" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg  transition-colors font-medium flex items-center gap-2">
+            <i class="fas fa-download"></i>
+            Download PDF
+        </button>
+        <button onclick="downloadLesson('docx')" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg  transition-colors font-medium flex items-center gap-2">
+            <i class="fas fa-download"></i>
+            Download DOCX
+        </button>
+    </div>
 
-                <!-- Download Buttons -->
-                <div class="flex justify-center gap-4 mb-8">
-                    <button onclick="downloadLesson('pdf')" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg  transition-colors font-medium flex items-center gap-2">
-                        <i class="fas fa-download"></i>
-                        Download PDF
-                    </button>
-                    <button onclick="downloadLesson('docx')" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg  transition-colors font-medium flex items-center gap-2">
-                        <i class="fas fa-download"></i>
-                        Download DOCX
-                    </button>
-                </div>
-
-                <!-- Start New Lesson Button -->
-                <div>
-                    <button onclick="startNewLesson()" class="px-12 py-4 text-[#05B0FC] hover:text-white bg-white hover:bg-[#05B0FC] border border-[#05B0FC] rounded-lg  transition-colors font-medium text-lg">
-                        Start New Lesson
-                    </button>
-                </div>
-            </div>
+    <!-- Start New Lesson Button -->
+    <div>
+        <button onclick="startNewLesson()" class="px-12 py-4 text-[#05B0FC] hover:text-white bg-white hover:bg-[#05B0FC] border border-[#05B0FC] rounded-lg  transition-colors font-medium text-lg">
+            Start New Lesson
+        </button>
+    </div>
+</div>
             
         </div>
 
-        <!-- Human Review Interface -->
-        <div class="max-h-[80vh] overflow-y-auto ">
-            <div id="humanReviewInterface" class="hidden w-[616px] mx-auto px-6 pt-8 border border-[#05B0FC] shadow-3xl rounded-xl">
-                <div class="text-center mb-8">
-                    <div class="flex gap-2 justify-center items-center">
-                        <img src="./manual.png" alt="Manual Edit Icon" class="h-8 w-8">
-                        <h2 class="text-3xl font-bold text-[#05B0FC] mb-2">Manual Edit</h2>
-                    </div>
-                    <p class="text-gray-600">Manually edit the content below</p>
-                </div>
 
-                <div class=" p-4">
-                    <!-- Single Editable Content Area -->
-                    <div class="mb-6">
-                        <textarea
-                            id="humanReviewContent"
-                            class="w-full px-4 py-3 border border-[#05B0FC] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[24rem] max-h-[32rem] overflow-y-auto resize-none text-sm font-mono"
-                            placeholder="Edit your lesson content here..."
-                        ></textarea>
-                    </div>
 
-                    <!-- Action Buttons -->
-                    <div class="flex justify-end gap-2">
-                        <button
-                            onclick="cancelHumanReview()"
-                            class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onclick="saveHumanReview()"
-                            class="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
-                        >
-                            Apply Changes
-                        </button>
-                    </div>
-                </div>
+
+       <!-- Human Review Interface -->
+<!-- Human Review Interface -->
+<div class="max-h-[80vh] overflow-y-auto ">
+    <div id="humanReviewInterface" class="hidden w-[616px] mx-auto px-6 pt-8 border border-[#05B0FC] shadow-3xl rounded-xl">
+<div class="text-center mb-8">
+    <div class="flex gap-2 justify-center items-center">
+        <img src="./manual.png" alt="Manual Edit Icon" class="h-8 w-8">
+        <h2 class="text-3xl font-bold text-[#05B0FC] mb-2">Manual Edit</h2>
+    </div>
+    <p class="text-gray-600">Manually edit the content below</p>
+</div>
+
+
+        <div class=" p-4">
+            <!-- Remove the Current Lesson Preview section entirely -->
+            
+            <!-- Single Editable Content Area -->
+            <div class="mb-6">
+                <textarea
+                    id="humanReviewContent"
+                    class="w-full px-4 py-3 border border-[#05B0FC] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[24rem] max-h-[32rem] overflow-y-auto resize-none text-sm font-mono"
+                    placeholder="Edit your lesson content here..."
+                ></textarea>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex justify-end gap-2">
+                <button
+                    onclick="cancelHumanReview()"
+                    class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                    Cancel
+                </button>
+                <button
+                    onclick="saveHumanReview()"
+                    class="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
+                >
+                    Apply Changes
+                </button>
             </div>
         </div>
+    </div>
+</div>
 
-        <!-- AI Review Interface -->
-        <div class="max-h-[80vh] overflow-y-auto">
-            <div id="aiReviewInterface" class="hidden max-w-4xl mx-auto px-6 pt-8">
-                <div class="text-center mb-8">
-                    <div class="flex justify-center items-center gap-2">
-                        <img src="./manual.png" alt="Manual Edit Icon" class="h-8 w-8">
-                        <h2 class="text-3xl font-bold text-[#05B0FC] mb-2">Edit With AI</h2>
-                    </div>
-                    <p class="">Provide Instruction to AI to modify your lesson </p>
-                </div>
-              
-                <div class="bg-white rounded-xl shadow-lg p-8 border border-[#05B0FC]">
-                    <div class="mb-6">
-                        <label class="block text-[#05B0FC] text-sm font-bold mb-2" for="aiReviewPrompt">
-                            Add Your Prompt Here
-                        </label>
-                        <textarea 
-                            id="aiReviewPrompt"
-                            placeholder="Describe what changes you want AI to make..."
-                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 min-h-[8rem] max-h-[16rem] overflow-y-auto resize-none"
-                        ></textarea>
-                    </div>
-                    <div class="mb-6 border border-[#05B0FC] rounded-lg p-4 bg-blue-50">
-                        <label class="block  text-sm text-[#05B0FC] font-bold mb-2 ">
-                            Current Lesson Preview
-                        </label>
-                        <div id="currentLessonPreview" class="bg-blue-80 p-4 rounded-lg min-h-[8rem] max-h-[12rem] overflow-y-auto text-sm">
-                            <!-- This area will scroll if content is long -->
-                        </div>
-                    </div>
-                    <div class="flex justify-end gap-2">
-                        <button onclick="cancelAIReview()" class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">
-                            <i class="fas fa-times mr-2"></i>Cancel
-                        </button>
-                        <button onclick="applyAIReview()" id="applyAIReviewBtn" class="px-6 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-[#05B0FC]-600 transition-colors font-medium">
-                            <span id="applyAIReviewText">Apply AI Changes</span>
-                            <i id="applyAIReviewLoader" class="fas fa-spinner fa-spin ml-2 hidden"></i>
-                        </button>
-                    </div>
+
+
+
+
+<div class="max-h-[80vh] overflow-y-auto">
+    <div id="aiReviewInterface" class="hidden max-w-4xl mx-auto px-6 pt-8">
+      <div class="text-center mb-8">
+    <div class="flex justify-center items-center gap-2">
+        <img src="./manual.png" alt="Manual Edit Icon" class="h-8 w-8">
+        <h2 class="text-3xl font-bold text-[#05B0FC] mb-2">Edit With AI</h2>
+    </div>
+    <p class="">Provide Instruction to AI to modify your lesson </p>
+</div>
+
+      
+        <div class="bg-white rounded-xl shadow-lg p-8 border border-[#05B0FC]">
+            <div class="mb-6">
+                <label class="block text-[#05B0FC] text-sm font-bold mb-2" for="aiReviewPrompt">
+                    Add Your Prompt Here
+                </label>
+                <textarea 
+                    id="aiReviewPrompt"
+                    placeholder="Describe what changes you want AI to make..."
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 min-h-[8rem] max-h-[16rem] overflow-y-auto resize-none"
+                ></textarea>
+            </div>
+            <div class="mb-6 border border-[#05B0FC] rounded-lg p-4 bg-blue-50">
+                <label class="block  text-sm text-[#05B0FC] font-bold mb-2 ">
+                    Current Lesson Preview
+                </label>
+                <div id="currentLessonPreview" class="bg-blue-80 p-4 rounded-lg min-h-[8rem] max-h-[12rem] overflow-y-auto text-sm">
+                    <!-- This area will scroll if content is long -->
                 </div>
             </div>
+            <div class="flex justify-end gap-2">
+                <button onclick="cancelAIReview()" class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">
+                    <i class="fas fa-times mr-2"></i>Cancel
+                </button>
+                <button onclick="applyAIReview()" id="applyAIReviewBtn" class="px-6 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-[#05B0FC]-600 transition-colors font-medium">
+                    <span id="applyAIReviewText">Apply AI Changes</span>
+                    <i id="applyAIReviewLoader" class="fas fa-spinner fa-spin ml-2 hidden"></i>
+                </button>
+            </div>
         </div>
+    </div>
+</div>
+
+
 
         <!-- Browse Lessons Content -->
         <div id="browseLessonsContent" class="hidden flex-1 px-6 py-8 overflow-y-auto w-full">
             <div class="w-full mx-auto">
                 <div class=" mb-2">
-                    <h2 class="text-3xl font-semibold text-[#05B0FC] mb-2" id="browseLessonsTitle">My Lessons</h2>
-                    <p class="text-gray-600" id="browseLessonsSubtitle">Explore Your Ai Powered lessons</p>
+                    <h2 class="text-3xl font-semibold text-[#05B0FC] mb-2">My Lesson</h2>
+                    <p class="text-gray-600">Explore Your AI Powered Lessons</p>
                 </div>
 
                 <!-- Search and Filter Section -->
@@ -616,6 +630,7 @@
                                 onkeypress="handleLessonSearchKeyPress(event)"
                             />
                         </div>
+                        
                     </div>
                     <div class="mt-4 flex justify-center">
                         <button onclick="searchLessons()" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg transition-colors font-medium">
@@ -626,16 +641,15 @@
 
                 <!-- Lessons Display -->
                 <div id="lessonsDisplay" class="space-y-6">
-                    <div class="text-center text-gray-500 py-16">
-                        <i class="fas fa-book-open text-6xl mb-6"></i>
-                        <p class="text-xl">Use the search and filters above to find lessons</p>
-                    </div>
+                    <!-- Sample lessons will be displayed here -->
                 </div>
             </div>
         </div>
 
         <!-- Settings Content -->
          <div id="settingsContent" class="hidden flex-1 px-6 py-8 overflow-y-auto">
+            
+
             <div class="max-w-2xl mx-auto">
                 <div class="bg-white rounded-xl p-8 shadow-lg">
                     <h3 class="text-2xl text-center font-bold text-sky-500 mb-6">Update API Key</h3>
@@ -735,23 +749,48 @@
     let currentLessonFile = null;
     let currentLessonData = null;
     let isCollapsed = false;
-    let recognition = null;
-    let synthesis = null;
-    let voiceChatConnection = null;
-    let voiceChatTimer = null;
-    let voiceChatSeconds = 0;
-    let isVoiceChatActive = false;
-    let userRole = 'student'; // Default role
-    let userInfo = null;
+
+    // Mock data for demo
+    const mockLessons = [
+        {
+            id: 1,
+            title: "Introduction to Fractions",
+            focus_area: "Mathematics",
+            grade_level: "4-5",
+            summary: "A comprehensive lesson on understanding fractions with visual aids and practical examples.",
+            teacher_name: "Ms. Johnson",
+            created_at: "2024-01-15T10:00:00Z",
+            learning_objectives: "Students will understand what fractions represent and how to identify numerators and denominators.",
+            content: "This lesson introduces students to the concept of fractions using pizza slices and pie charts. Students will learn to identify the numerator and denominator, and understand what each part represents.\n\nActivity 1: Pizza Party Fractions\nStudents will work with paper pizza slices to understand how fractions work in real life.\n\nActivity 2: Fraction Art\nStudents will create colorful fraction wheels to visualize different fraction values."
+        },
+        {
+            id: 2,
+            title: "The Solar System",
+            focus_area: "Science",
+            grade_level: "6-8",
+            summary: "Explore the planets, moons, and other celestial bodies in our solar system.",
+            teacher_name: "Mr. Smith",
+            created_at: "2024-01-10T14:30:00Z",
+            learning_objectives: "Students will be able to identify and describe the characteristics of each planet.",
+            content: "In this lesson, we will journey through space to learn about the eight planets in our solar system. Students will discover the unique characteristics of each planet, including size, composition, and distance from the sun.\n\nActivity 1: Planet Parade\nStudents will create a scale model of the solar system.\n\nActivity 2: Space Facts\nStudents will research and present interesting facts about their assigned planet."
+        },
+        {
+            id: 3,
+            title: "Creative Writing: Character Development",
+            focus_area: "Language Arts",
+            grade_level: "9-12",
+            summary: "Learn how to create compelling characters for your stories.",
+            teacher_name: "Ms. Davis",
+            created_at: "2024-01-08T09:00:00Z",
+            learning_objectives: "Students will be able to develop three-dimensional characters with clear motivations and personality traits.",
+            content: "This lesson focuses on the art of character development in creative writing. Students will learn techniques for creating memorable, believable characters that drive their stories forward.\n\nActivity 1: Character Profiles\nStudents will create detailed character profiles including background, personality, and motivations.\n\nActivity 2: Character Dialogue\nStudents will practice writing dialogue that reveals character traits and advances the plot."
+        }
+    ];
 
     // Initialize
     window.onload = function() {
-        loadUserInfo();
-        loadChatHistory();
-        startNewChat();
-        updateTokenMeter();
-        checkApiKeyStatus();
         setupSidebarListeners();
+        startNewChat();
         
         // Initialize mobile state
         if (window.innerWidth < 768) {
@@ -759,71 +798,8 @@
         }
     };
 
-    // Load user information and set up role-based UI
-    async function loadUserInfo() {
-        try {
-            const response = await fetch('/user_info');
-            if (response.ok) {
-                const data = await response.json();
-                userInfo = data.user;
-                userRole = data.user.role;
-                
-                // Set up role-based UI
-                setupRoleBasedUI();
-            } else {
-                console.error('Failed to load user info');
-            }
-        } catch (error) {
-            console.error('Error loading user info:', error);
-        }
-    }
-
-    // Set up role-based UI elements
-    function setupRoleBasedUI() {
-        const browseLessonLabel = document.getElementById('browseLessonLabel');
-        const browseTabBtn = document.getElementById('browseTabBtn');
-        const lessonGeneratorContent = document.getElementById('lessonGeneratorContent');
-        const lessonTabBtn = document.querySelectorAll('.tab-btn')[2]; // The 'Generate Lesson' tab
-        const browseLessonsTitle = document.getElementById('browseLessonsTitle');
-        const browseLessonsSubtitle = document.getElementById('browseLessonsSubtitle');
-        
-        if (userRole === 'teacher') {
-            if (browseLessonLabel) browseLessonLabel.textContent = 'My Lessons';
-            if (browseTabBtn) browseTabBtn.textContent = 'My Lessons';
-            if (lessonGeneratorContent) lessonGeneratorContent.style.display = '';
-            if (lessonTabBtn) lessonTabBtn.style.display = '';
-            if (browseLessonsTitle) browseLessonsTitle.textContent = 'My Lessons';
-            if (browseLessonsSubtitle) browseLessonsSubtitle.textContent = 'Explore Your AI Powered Lessons';
-        } else if (userRole === 'student') {
-            if (browseLessonLabel) browseLessonLabel.textContent = 'View Lessons';
-            if (browseTabBtn) browseTabBtn.textContent = 'View Lessons';
-            if (lessonGeneratorContent) lessonGeneratorContent.style.display = 'none';
-            if (lessonTabBtn) lessonTabBtn.style.display = 'none';
-            if (browseLessonsTitle) browseLessonsTitle.textContent = 'Browse Lessons';
-            if (browseLessonsSubtitle) browseLessonsSubtitle.textContent = 'Explore available lessons';
-        }
-    }
-
-    // Open lesson generator from sidebar
-    function openLessonGenerator() {
-        if (userRole !== 'teacher') {
-            showNotification('Only teachers can create lessons', 'error');
-            return;
-        }
-        
-        // Find the lesson tab button and activate it
-        const lessonTabBtn = document.querySelectorAll('.tab-btn')[2];
-        changeTab(lessonTabBtn, 'lesson');
-    }
-
     // Tab management
     function changeTab(button, tabType) {
-        // Check if user can access lesson generator
-        if (tabType === 'lesson' && userRole !== 'teacher') {
-            showNotification('Only teachers can create lessons', 'error');
-            return;
-        }
-
         // Update tab button styles
         const tabButtons = document.querySelectorAll('.tab-btn');
         tabButtons.forEach(btn => {
@@ -855,51 +831,27 @@
                 document.getElementById('chatStatus').textContent = 'Manage Documents';
                 break;
             case 'lesson':
-                if (userRole === 'teacher') {
-                    document.getElementById('lessonGeneratorContent').classList.remove('hidden');
-                    document.getElementById('chatTitle').textContent = 'Lesson Generator';
-                    document.getElementById('chatStatus').textContent = 'Create Lessons';
-                } else {
-                    showNotification('Only teachers can create lessons', 'error');
-                    return;
-                }
+                document.getElementById('lessonGeneratorContent').classList.remove('hidden');
+                document.getElementById('chatTitle').textContent = 'Lesson Generator';
+                document.getElementById('chatStatus').textContent = 'Create Lessons';
                 break;
             case 'browse':
                 document.getElementById('browseLessonsContent').classList.remove('hidden');
-                document.getElementById('chatTitle').textContent = userRole === 'teacher' ? 'My Lessons' : 'Browse Lessons';
-                document.getElementById('chatStatus').textContent = userRole === 'teacher' ? 'View Your Created Lessons' : 'View Available Lessons';
+                document.getElementById('chatTitle').textContent = 'Browse Lessons';
+                document.getElementById('chatStatus').textContent = 'View Available Lessons';
                 loadAvailableLessons();
                 break;
             case 'settings':
                 document.getElementById('settingsContent').classList.remove('hidden');
                 document.getElementById('chatTitle').textContent = 'Settings';
-                document.getElementById('chatStatus').textContent = 'Configure API';
+                document.getElementById('chatStatus').textContent = 'Configure Application';
                 break;
         }
     }
 
     // Chat Functions
-    async function startNewChat() {
-        try {
-            const response = await fetch('/create_conversation', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ title: 'New Chat' })
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                currentChatId = data.conversation_id;
-            } else {
-                currentChatId = Date.now();
-            }
-        } catch (error) {
-            console.error('Error creating conversation:', error);
-            currentChatId = Date.now();
-        }
-
+    function startNewChat() {
+        currentChatId = Date.now();
         changeTab(document.querySelector('.tab-btn'), 'chat');
         
         const chatMessages = document.getElementById('chatMessages');
@@ -917,10 +869,9 @@
         `;
         
         document.getElementById('messageInput').value = '';
-        loadChatHistory();
     }
 
-    async function sendMessage() {
+    function sendMessage() {
         const input = document.getElementById('messageInput');
         const message = input.value.trim();
         
@@ -935,197 +886,118 @@
             
             showTypingIndicator();
             
-            try {
-                const response = await fetch('/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        input: message,
-                        conversation_id: currentChatId
-                    })
-                });
-
+            // Simulate AI response
+            setTimeout(() => {
                 hideTypingIndicator();
                 
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.error) {
-                        addMessageToChat('ai', `Error: ${data.error}`);
-                    } else {
-                        addMessageToChat('ai', data.response);
-                        
-                        if (isVoiceOutputEnabled) {
-                            speakText(data.response);
-                        }
-                    }
-                } else {
-                    const errorData = await response.json();
-                    addMessageToChat('ai', `Error: ${errorData.error || 'Failed to get response'}`);
+                // Generate contextual response
+                let response = generateAIResponse(message);
+                addMessageToChat('ai', response);
+                
+                if (isVoiceOutputEnabled) {
+                    speakText(response);
                 }
-                
-                updateTokenMeter();
-                
-            } catch (error) {
-                hideTypingIndicator();
-                console.error('Error sending message:', error);
-                addMessageToChat('ai', 'Sorry, there was an error processing your message. Please try again.');
-            }
-            
-            saveChatToHistory();
+            }, 1000 + Math.random() * 2000);
         }
     }
 
-    async function loadChatHistory() {
-        try {
-            const response = await fetch('/get_conversations');
-            if (response.ok) {
-                const conversations = await response.json();
-                chatHistory = conversations.map(conv => ({
-                    id: conv.id,
-                    title: conv.title || 'New Chat',
-                    timestamp: conv.created_at || new Date().toISOString(),
-                    messageCount: conv.message_count || 0
-                }));
-            } else {
-                chatHistory = JSON.parse(localStorage.getItem('chatHistory') || '[]');
-            }
-        } catch (error) {
-            console.error('Error loading chat history:', error);
-            chatHistory = JSON.parse(localStorage.getItem('chatHistory') || '[]');
-        }
+    function generateAIResponse(message) {
+        const lowerMessage = message.toLowerCase();
         
-        updateChatHistoryDisplay();
-    }
-
-    async function loadChat(chatId) {
-        try {
-            const response = await fetch(`/get_messages/${chatId}`);
-            if (response.ok) {
-                const messages = await response.json();
-                
-                currentChatId = chatId;
-                const chat = chatHistory.find(c => c.id === chatId);
-                if (chat) {
-                    document.getElementById('chatTitle').textContent = chat.title;
-                }
-                
-                changeTab(document.querySelector('.tab-btn'), 'chat');
-                
-                const chatMessages = document.getElementById('chatMessages');
-                chatMessages.innerHTML = '';
-                
-                messages.forEach(message => {
-                    addMessageToChat(message.role === 'user' ? 'user' : 'ai', message.message);
-                });
-                
-            } else {
-                console.error('Failed to load messages');
-            }
-        } catch (error) {
-            console.error('Error loading chat:', error);
+        if (lowerMessage.includes('lesson') || lowerMessage.includes('teach')) {
+            return "I'd be happy to help you with lesson planning! You can use the Lesson Generator tab to create structured lesson plans from your documents. Simply upload a PDF or document, and I'll help you create engaging educational content.";
+        } else if (lowerMessage.includes('knowledge') || lowerMessage.includes('document')) {
+            return "For document management, check out the Knowledge Base tab. You can upload documents and search through them later. This is perfect for organizing your educational resources.";
+        } else if (lowerMessage.includes('help') || lowerMessage.includes('how')) {
+            return "I can help you with various tasks! You can:\n• Generate lesson plans from documents\n• Search and manage your knowledge base\n• Browse available lessons\n• Use voice commands\n• Download content in various formats\n\nWhat would you like to explore?";
+        } else if (lowerMessage.includes('thank')) {
+            return "You're welcome! I'm here to help with all your educational needs. Feel free to ask me anything or explore the different features available.";
+        } else {
+            return `I understand you're asking about "${message}". I'm here to help with educational content creation, lesson planning, and document management. How can I assist you further?`;
         }
     }
 
-    async function resetChat() {
-        if (confirm('Are you sure you want to reset all chats? This will delete all conversations.')) {
-            try {
-                const response = await fetch('/delete_all_conversations', {
-                    method: 'DELETE'
-                });
-                
-                if (response.ok) {
-                    chatHistory = [];
-                    updateChatHistoryDisplay();
-                    startNewChat();
-                    showNotification('All conversations have been deleted', 'success');
-                } else {
-                    showNotification('Failed to delete conversations', 'error');
-                }
-            } catch (error) {
-                console.error('Error resetting chat:', error);
-                showNotification('Error deleting conversations', 'error');
-            }
+    function addMessageToChat(sender, message) {
+        const chatMessages = document.getElementById('chatMessages');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'flex items-start gap-4 mb-4';
+
+        if (sender === 'user') {
+            messageDiv.innerHTML = `
+                <div class="flex items-start gap-4 flex-row-reverse w-full">
+                    <div class="w-10 h-10 bg-gray-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                        U
+                    </div>
+                    <div class="bg-blue-500 text-white rounded-2xl px-5 py-4 max-w-lg">
+                        <p class="leading-relaxed">${message}</p>
+                    </div>
+                </div>
+            `;
+        } else {
+            messageDiv.innerHTML = `
+                <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                    AI
+                </div>
+                <div class="bg-gray-100 rounded-2xl px-5 py-4 max-w-lg">
+                    <p class="text-gray-700 leading-relaxed">${message.replace(/\n/g, '<br>')}</p>
+                </div>
+            `;
+        }
+
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function showTypingIndicator() {
+        const chatMessages = document.getElementById('chatMessages');
+        const typingDiv = document.createElement('div');
+        typingDiv.id = 'typingIndicator';
+        typingDiv.className = 'flex items-start gap-4 mb-4';
+        typingDiv.innerHTML = `
+            <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                AI
+            </div>
+            <div class="bg-gray-100 rounded-2xl px-5 py-4 max-w-lg">
+                <div class="flex space-x-1">
+                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                </div>
+            </div>
+        `;
+        chatMessages.appendChild(typingDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function hideTypingIndicator() {
+        const typingIndicator = document.getElementById('typingIndicator');
+        if (typingIndicator) {
+            typingIndicator.remove();
         }
     }
 
-    async function downloadCurrentChat() {
-        if (!currentChatId) {
-            showNotification('No active conversation to download', 'error');
-            return;
-        }
-
-        try {
-            const response = await fetch(`/download_chat/${currentChatId}`);
-            
-            if (response.ok) {
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `chat_conversation_${currentChatId}.docx`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                a.remove();
-                showNotification('Chat downloaded successfully', 'success');
-            } else {
-                showNotification('Failed to download chat', 'error');
-            }
-        } catch (error) {
-            console.error('Error downloading chat:', error);
-            showNotification('Error downloading chat', 'error');
+    function resetChat() {
+        if (confirm('Are you sure you want to reset the chat?')) {
+            startNewChat();
+            showNotification('Chat reset successfully!', 'success');
         }
     }
 
-    async function checkApiKeyStatus() {
-        try {
-            const response = await fetch('/check_api_key_status');
-            if (response.ok) {
-                const data = await response.json();
-                if (!data.has_api_key || data.is_expired) {
-                    setTimeout(() => {
-                        changeTab(document.querySelectorAll('.tab-btn')[4], 'settings');
-                    }, 2000);
-                }
-            }
-        } catch (error) {
-            console.error('Error checking API key status:', error);
-        }
-    }
-
-    async function updateTokenMeter() {
-        try {
-            const response = await fetch('/token_status');
-            if (response.ok) {
-                const data = await response.json();
-                
-                if (!data.error) {
-                    const percentUsed = Math.min(100, (data.used / data.limit) * 100);
-                    
-                    const progressBar = document.getElementById('tokenProgressBar');
-                    if (progressBar) {
-                        progressBar.style.width = `${percentUsed}%`;
-                        
-                        if (percentUsed > 90) {
-                            progressBar.className = 'h-full bg-gradient-to-r from-red-400 to-red-600 rounded-full transition-all duration-300';
-                        } else if (percentUsed > 75) {
-                            progressBar.className = 'h-full bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full transition-all duration-300';
-                        } else {
-                            progressBar.className = 'h-full bg-gradient-to-r from-green-400 to-blue-500 rounded-full transition-all duration-300';
-                        }
-                        
-                        const tokenUsed = document.getElementById('tokenUsed');
-                        const tokenLimit = document.getElementById('tokenLimit');
-                        if (tokenUsed) tokenUsed.textContent = data.used.toLocaleString();
-                        if (tokenLimit) tokenLimit.textContent = data.limit.toLocaleString();
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Error updating token meter:', error);
-        }
+    function downloadCurrentChat() {
+        // Create a simple text file with chat content
+        const chatContent = `Chat Conversation\n\nThis is a demo download of the current chat conversation.\n\nTimestamp: ${new Date().toLocaleString()}\n\nNote: This is a frontend demo without backend functionality.`;
+        
+        const blob = new Blob([chatContent], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `chat_${currentChatId}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+        
+        showNotification('Chat downloaded successfully!', 'success');
     }
 
     // Knowledge Base Functions
@@ -1186,16 +1058,11 @@
         }
     }
 
-    async function uploadToKnowledgeBase() {
+    function uploadToKnowledgeBase() {
         if (selectedKnowledgeFiles.length === 0) {
             showNotification('Please select files to upload', 'error');
             return;
         }
-
-        const formData = new FormData();
-        selectedKnowledgeFiles.forEach(file => {
-            formData.append('files', file);
-        });
 
         const uploadBtn = document.getElementById('uploadToKnowledgeBtn');
         const uploadBtnText = document.getElementById('uploadBtnText');
@@ -1205,32 +1072,18 @@
         uploadBtnText.textContent = 'Uploading...';
         uploadBtnLoader.classList.remove('hidden');
 
-        try {
-            const response = await fetch('/upload_knowledge_base', {
-                method: 'POST',
-                body: formData
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                showNotification(`Successfully uploaded ${selectedKnowledgeFiles.length} files to knowledge base`, 'success');
-                
-                selectedKnowledgeFiles = [];
-                document.getElementById('selectedKnowledgeFiles').classList.add('hidden');
-                document.getElementById('knowledgeFileInput').value = '';
-                uploadBtn.disabled = true;
-            } else {
-                const errorData = await response.json();
-                showNotification(`Error uploading files: ${errorData.error || 'Upload failed'}`, 'error');
-            }
-        } catch (error) {
-            console.error('Error uploading to knowledge base:', error);
-            showNotification('Error uploading files to knowledge base', 'error');
-        } finally {
+        // Simulate upload
+        setTimeout(() => {
+            showNotification(`Successfully uploaded ${selectedKnowledgeFiles.length} files to knowledge base`, 'success');
+            
+            selectedKnowledgeFiles = [];
+            document.getElementById('selectedKnowledgeFiles').classList.add('hidden');
+            document.getElementById('knowledgeFileInput').value = '';
+            
             uploadBtn.disabled = false;
             uploadBtnText.textContent = 'Upload to Knowledge Base';
             uploadBtnLoader.classList.add('hidden');
-        }
+        }, 2000);
     }
 
     function handleKnowledgeSearchKeyPress(event) {
@@ -1239,7 +1092,7 @@
         }
     }
 
-    async function searchKnowledgeBase() {
+    function searchKnowledgeBase() {
         const searchTerm = document.getElementById('knowledgeSearchInput').value.trim();
         if (!searchTerm) {
             showNotification('Please enter a search term', 'error');
@@ -1254,36 +1107,27 @@
             </div>
         `;
 
-        try {
-            const response = await fetch('/search_knowledge_base', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
+        // Simulate search
+        setTimeout(() => {
+            const mockResults = [
+                {
+                    id: 1,
+                    title: "Search Result 1",
+                    snippet: `This document contains information about "${searchTerm}" and related topics. It includes detailed explanations and examples.`,
+                    source: "document1.pdf",
+                    score: 0.95
                 },
-                body: JSON.stringify({ query: searchTerm })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                displayKnowledgeSearchResults(data.results);
-            } else {
-                const errorData = await response.json();
-                resultsContainer.innerHTML = `
-                    <div class="text-center py-16 text-red-500">
-                        <i class="fas fa-exclamation-triangle text-6xl mb-4"></i>
-                        <p class="text-xl">Error searching knowledge base: ${errorData.error || 'Search failed'}</p>
-                    </div>
-                `;
-            }
-        } catch (error) {
-            console.error('Error searching knowledge base:', error);
-            resultsContainer.innerHTML = `
-                <div class="text-center py-16 text-red-500">
-                    <i class="fas fa-exclamation-triangle text-6xl mb-4"></i>
-                    <p class="text-xl">Error searching knowledge base</p>
-                </div>
-            `;
-        }
+                {
+                    id: 2,
+                    title: "Search Result 2",
+                    snippet: `Another relevant document discussing "${searchTerm}" with practical applications and case studies.`,
+                    source: "document2.docx",
+                    score: 0.87
+                }
+            ];
+            
+            displayKnowledgeSearchResults(mockResults);
+        }, 1500);
     }
 
     function displayKnowledgeSearchResults(results) {
@@ -1303,11 +1147,11 @@
             <div class="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
                 <div class="flex items-start justify-between">
                     <div class="flex-1">
-                        <h4 class="font-semibold text-gray-900 mb-3 text-lg">${result.title || 'Document'}</h4>
-                        <p class="text-gray-600 mb-4">${result.snippet || result.content}</p>
+                        <h4 class="font-semibold text-gray-900 mb-3 text-lg">${result.title}</h4>
+                        <p class="text-gray-600 mb-4">${result.snippet}</p>
                         <div class="flex items-center text-sm text-gray-500">
                             <i class="fas fa-file mr-2"></i>
-                            <span>${result.source || 'Unknown source'}</span>
+                            <span>${result.source}</span>
                             <span class="mx-2">•</span>
                             <span>Relevance: ${Math.round(result.score * 100)}%</span>
                         </div>
@@ -1323,6 +1167,7 @@
     function useKnowledgeResult(resultId) {
         changeTab(document.querySelector('.tab-btn'), 'chat');
         showNotification('Knowledge base result added to chat context', 'success');
+        addMessageToChat('ai', 'I\'ve added the relevant information from your knowledge base to our conversation context. How can I help you with this information?');
     }
 
     // Lesson Generator Functions
@@ -1363,7 +1208,7 @@
         document.getElementById('uploadStep').classList.remove('hidden');
     }
 
-    async function generateLesson(event) {
+    function generateLesson(event) {
         event.preventDefault();
         
         if (!currentLessonFile) {
@@ -1371,16 +1216,8 @@
             return;
         }
 
-        const formData = new FormData();
-        formData.append('file', currentLessonFile);
-        
-        // Add lesson configuration data
         const form = document.getElementById('lessonConfigForm');
-        const formData2 = new FormData(form);
-        
-        for (let [key, value] of formData2.entries()) {
-            formData.append(key, value);
-        }
+        const formData = new FormData(form);
 
         const generateBtn = document.getElementById('generateLessonBtn');
         const generateBtnText = document.getElementById('generateBtnText');
@@ -1390,54 +1227,84 @@
         generateBtnText.textContent = 'Generating...';
         generateBtnLoader.classList.remove('hidden');
 
-        try {
-            const response = await fetch('/api/lessons/create_lesson', {
-                method: 'POST',
-                body: formData
-            });
+        // Simulate lesson generation
+        setTimeout(() => {
+            currentLessonData = {
+                title: formData.get('lessonTitle'),
+                focusArea: formData.get('focusArea'),
+                gradeLevel: formData.get('gradeLevel'),
+                objective: formData.get('learningObjective'),
+                notes: formData.get('additionalNotes'),
+                summary: `This ${formData.get('focusArea')} lesson for ${formData.get('gradeLevel')} students focuses on ${formData.get('learningObjective')}. The lesson includes interactive activities, practical examples, and assessment opportunities to ensure students meet the learning objectives. Students will engage with the material through various teaching methods designed to accommodate different learning styles and promote active participation.`,
+                content: `# ${formData.get('lessonTitle')}
 
-            if (response.ok) {
-                const data = await response.json();
-                
-                if (data.error) {
-                    showNotification(`Error generating lesson: ${data.error}`, 'error');
-                } else {
-                    // Store lesson data from the response
-                    currentLessonData = {
-                        title: data.lesson.title || form.lessonTitle.value,
-                        focusArea: data.lesson.focus_area || form.focusArea.value,
-                        gradeLevel: data.lesson.grade_level || form.gradeLevel.value,
-                        objective: data.lesson.learning_objective || form.learningObjective.value,
-                        notes: data.lesson.additional_notes || form.additionalNotes.value,
-                        content: data.lesson.content || data.lesson.summary || 'Lesson content generated successfully!',
-                        fileName: currentLessonFile.name
-                    };
-                    
-                    displayGeneratedLesson(currentLessonData);
-                    showNotification('Lesson generated successfully!', 'success');
-                }
-            } else {
-                const errorData = await response.json();
-                showNotification(`Error generating lesson: ${errorData.error || 'Failed to generate lesson'}`, 'error');
-            }
-        } catch (error) {
-            console.error('Error generating lesson:', error);
-            showNotification('Error generating lesson. Please try again.', 'error');
-        } finally {
+## Learning Objectives
+Students will be able to:
+- ${formData.get('learningObjective')}
+
+## Materials Needed
+- Uploaded document: ${currentLessonFile.name}
+- Whiteboard/Smart board
+- Student worksheets
+- Interactive materials
+
+## Lesson Structure
+
+### Introduction (10 minutes)
+Welcome students and introduce the topic. Review previous learning and set expectations for today's lesson.
+
+### Main Activity (25 minutes)
+Guide students through the key concepts from the uploaded material. Use interactive discussions and examples to reinforce learning.
+
+### Practice (10 minutes)
+Provide students with guided practice opportunities to apply what they've learned.
+
+### Wrap-up (5 minutes)
+Review key concepts and assign homework or extension activities.
+
+## Assessment
+- Formative assessment through questioning during the lesson
+- Exit ticket to check understanding
+- Homework assignment for practice
+
+## Additional Notes
+${formData.get('additionalNotes') || 'No additional notes provided.'}
+
+## Extension Activities
+- Research project on related topics
+- Creative presentation of key concepts
+- Peer teaching opportunities
+
+---
+Generated lesson plan for ${formData.get('gradeLevel')} students focusing on ${formData.get('focusArea')}.`,
+                fileName: currentLessonFile.name
+            };
+            
+            displayGeneratedLesson(currentLessonData);
+            showNotification('Lesson generated successfully!', 'success');
+            
             generateBtn.disabled = false;
             generateBtnText.textContent = 'Generate Lesson';
             generateBtnLoader.classList.add('hidden');
-        }
+        }, 3000);
     }
 
+    // Updated function to display lesson summary
     function displayGeneratedLesson(lessonData) {
         document.getElementById('configStep').classList.add('hidden');
         document.getElementById('lessonDisplay').classList.remove('hidden');
         
+        // Update lesson header
+        document.getElementById('displayLessonTitle').textContent = lessonData.title;
+        document.getElementById('displayFocusArea').textContent = lessonData.focusArea;
+        document.getElementById('displayGradeLevel').textContent = lessonData.gradeLevel;
+        document.getElementById('displayFileName').textContent = lessonData.fileName;
+        
+        // Update lesson objective
+        document.getElementById('displayLearningObjective').textContent = lessonData.objective;
+        
         // Update lesson summary
-        document.getElementById('lessonSummary').innerHTML = `
-            <div class="whitespace-pre-wrap">${lessonData.content}</div>
-        `;
+        document.getElementById('lessonSummary').textContent = lessonData.summary;
         
         // Handle additional notes
         if (lessonData.notes && lessonData.notes.trim()) {
@@ -1447,26 +1314,147 @@
             document.getElementById('additionalNotesDisplay').classList.add('hidden');
         }
     }
+// Function to proceed to completion page
+function proceedToCompletion() {
+    if (!currentLessonData) {
+        showNotification('No lesson to complete', 'error');
+        return;
+    }
+    
+    // Hide lesson display and show completion page
+    document.getElementById('lessonDisplay').classList.add('hidden');
+    document.getElementById('lessonCompletionPage').classList.remove('hidden');
+    
+    // Update the completed lesson title
+    const completedTitle = `Lesson from ${currentLessonData.fileName}`;
+    document.getElementById('completedLessonTitle').textContent = completedTitle;
+    
+    showNotification('Lesson completed successfully!', 'success');
+}
 
-    function reviewWithHuman() {
-        document.getElementById('lessonDisplay').classList.add('hidden');
-        document.getElementById('humanReviewInterface').classList.remove('hidden');
+// Update the startNewLesson function
+function startNewLesson() {
+    // Reset all steps and hide completion page
+    document.getElementById('lessonDisplay').classList.add('hidden');
+    document.getElementById('lessonCompletionPage').classList.add('hidden');
+    document.getElementById('aiReviewInterface').classList.add('hidden');
+    document.getElementById('humanReviewInterface').classList.add('hidden');
+    document.getElementById('configStep').classList.add('hidden');
+    document.getElementById('uploadStep').classList.remove('hidden');
+    
+    // Clear form and data
+    document.getElementById('lessonConfigForm').reset();
+    document.getElementById('aiReviewPrompt').value = '';
+    document.getElementById('humanReviewContent').value = '';
+    removeSelectedFile();
+    currentLessonFile = null;
+    currentLessonData = null;
+    
+    showNotification('Ready to create a new lesson!', 'info');
+}
+
+// Update saveHumanReview function to go to completion
+function saveHumanReview() {
+    const content = document.getElementById('humanReviewContent').value.trim();
+
+    if (!content) {
+        showNotification('Please add lesson content', 'error');
+        return;
+    }
+
+    // Update the lesson data with edited content
+    currentLessonData.content = content;
+    
+    // Extract title from the content if it starts with #
+    const lines = content.split('\n');
+    const titleLine = lines.find(line => line.startsWith('# '));
+    if (titleLine) {
+        currentLessonData.title = titleLine.replace('# ', '').trim();
+    }
+    
+    // Update summary to reflect manual editing
+    currentLessonData.summary = `This ${currentLessonData.focusArea} lesson for ${currentLessonData.gradeLevel} students has been manually reviewed and edited.`;
+
+    // Go directly to completion page instead of back to display
+    document.getElementById('humanReviewInterface').classList.add('hidden');
+    proceedToCompletion();
+    
+    showNotification('Manual edits saved successfully!', 'success');
+}
+
+// Update applyAIReview function similarly
+function applyAIReview() {
+    const prompt = document.getElementById('aiReviewPrompt').value.trim();
+    if (!prompt) {
+        showNotification('Please enter AI instructions', 'error');
+        return;
+    }
+
+    const applyBtn = document.getElementById('applyAIReviewBtn');
+    const applyText = document.getElementById('applyAIReviewText');
+    const applyLoader = document.getElementById('applyAIReviewLoader');
+
+    applyBtn.disabled = true;
+    applyText.textContent = 'Applying AI Changes...';
+    applyLoader.classList.remove('hidden');
+
+    // Simulate AI editing
+    setTimeout(() => {
+        currentLessonData.content = `${currentLessonData.content}\n\n--- AI Modifications ---\nBased on your request: "${prompt}"\n\nI've enhanced the lesson with additional examples and interactive elements.`;
+        currentLessonData.summary = `This lesson has been enhanced with AI modifications based on your instructions.`;
         
-        if (currentLessonData) {
-            // Populate the textarea with formatted lesson content
-            const formattedContent = `# ${currentLessonData.title}
+        document.getElementById('aiReviewInterface').classList.add('hidden');
+        proceedToCompletion();
+        
+        showNotification('AI review applied successfully!', 'success');
+        
+        applyBtn.disabled = false;
+        applyText.textContent = 'Apply AI Changes';
+        applyLoader.classList.add('hidden');
+    }, 2000);
+}
+    // Updated Review Functions
+function reviewWithHuman() {
+    document.getElementById('lessonDisplay').classList.add('hidden');
+    document.getElementById('humanReviewInterface').classList.remove('hidden');
+    
+    if (currentLessonData) {
+        // Populate the textarea with formatted lesson content
+        const formattedContent = `# ${currentLessonData.title}
 
 ## Learning Objectives
 ${currentLessonData.objective}
 
-## Lesson Content
-${currentLessonData.content}
+## Materials Needed
+- Uploaded document: ${currentLessonData.fileName}
+- Whiteboard/Smart board
+- Student worksheets
+- Interactive materials
+
+## Lesson Structure
+
+### Introduction (10 minutes)
+Welcome students and introduce the topic. Review previous learning and set expectations for today's lesson.
+
+### Main Activity (25 minutes)
+Guide students through the key concepts from the uploaded material. Use interactive discussions and examples to reinforce learning.
+
+### Practice (10 minutes)
+Provide students with guided practice opportunities to apply what they've learned.
+
+### Wrap-up (5 minutes)
+Review key concepts and assign homework or extension activities.
+
+## Assessment
+- Formative assessment through questioning during the lesson
+- Exit ticket to check understanding
+- Homework assignment for practice
 
 ${currentLessonData.notes ? `## Additional Notes\n${currentLessonData.notes}` : ''}`;
 
-            document.getElementById('humanReviewContent').value = formattedContent;
-        }
+        document.getElementById('humanReviewContent').value = formattedContent;
     }
+}
 
     function reviewWithAI() {
         document.getElementById('lessonDisplay').classList.add('hidden');
@@ -1478,7 +1466,7 @@ ${currentLessonData.notes ? `## Additional Notes\n${currentLessonData.notes}` : 
                 <div class="space-y-2">
                     <div><strong>Title:</strong> ${currentLessonData.title}</div>
                     <div><strong>Objective:</strong> ${currentLessonData.objective}</div>
-                    <div><strong>Content:</strong> ${currentLessonData.content.substring(0, 500)}${currentLessonData.content.length > 500 ? '...' : ''}</div>
+                    <div><strong>Summary:</strong> ${currentLessonData.summary}</div>
                 </div>
             `;
         }
@@ -1494,33 +1482,35 @@ ${currentLessonData.notes ? `## Additional Notes\n${currentLessonData.notes}` : 
         document.getElementById('lessonDisplay').classList.remove('hidden');
     }
 
-    function saveHumanReview() {
-        const content = document.getElementById('humanReviewContent').value.trim();
+function saveHumanReview() {
+    const content = document.getElementById('humanReviewContent').value.trim();
 
-        if (!content) {
-            showNotification('Please add lesson content', 'error');
-            return;
-        }
-
-        // Update the lesson data with edited content
-        currentLessonData.content = content;
-        
-        // Extract title from the content if it starts with #
-        const lines = content.split('\n');
-        const titleLine = lines.find(line => line.startsWith('# '));
-        if (titleLine) {
-            currentLessonData.title = titleLine.replace('# ', '').trim();
-        }
-
-        displayGeneratedLesson(currentLessonData);
-
-        document.getElementById('humanReviewInterface').classList.add('hidden');
-        document.getElementById('lessonDisplay').classList.remove('hidden');
-
-        showNotification('Manual edits saved successfully!', 'success');
+    if (!content) {
+        showNotification('Please add lesson content', 'error');
+        return;
     }
 
-    async function applyAIReview() {
+    // Update the lesson data with edited content
+    currentLessonData.content = content;
+    
+    // Extract title from the content if it starts with #
+    const lines = content.split('\n');
+    const titleLine = lines.find(line => line.startsWith('# '));
+    if (titleLine) {
+        currentLessonData.title = titleLine.replace('# ', '').trim();
+    }
+    
+    // Update summary to reflect manual editing
+    currentLessonData.summary = `This ${currentLessonData.focusArea} lesson for ${currentLessonData.gradeLevel} students has been manually reviewed and edited. The content has been customized to meet specific teaching requirements and learning objectives.`;
+
+    displayGeneratedLesson(currentLessonData);
+
+    document.getElementById('humanReviewInterface').classList.add('hidden');
+    document.getElementById('lessonDisplay').classList.remove('hidden');
+
+    showNotification('Manual edits saved successfully!', 'success');
+}
+    function applyAIReview() {
         const prompt = document.getElementById('aiReviewPrompt').value.trim();
         if (!prompt) {
             showNotification('Please enter AI instructions', 'error');
@@ -1535,163 +1525,54 @@ ${currentLessonData.notes ? `## Additional Notes\n${currentLessonData.notes}` : 
         applyText.textContent = 'Applying AI Changes...';
         applyLoader.classList.remove('hidden');
 
-        try {
-            const response = await fetch('/edit_lesson_with_prompt', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    lesson_text: currentLessonData.content,
-                    user_prompt: prompt
-                })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                
-                if (data.error) {
-                    showNotification(`Error applying AI changes: ${data.error}`, 'error');
-                } else {
-                    // Update current lesson data with AI-modified content
-                    currentLessonData.content = data.lesson_markdown;
-                    
-                    // Update lesson display
-                    displayGeneratedLesson(currentLessonData);
-                    
-                    // Hide AI review interface, show updated lesson
-                    document.getElementById('aiReviewInterface').classList.add('hidden');
-                    document.getElementById('lessonDisplay').classList.remove('hidden');
-                    
-                    showNotification('AI changes applied successfully!', 'success');
-                }
-            } else {
-                const errorData = await response.json();
-                showNotification(`Error applying AI changes: ${errorData.error || 'Failed to apply changes'}`, 'error');
-            }
-        } catch (error) {
-            console.error('Error applying AI review:', error);
-            showNotification('Error applying AI changes. Please try again.', 'error');
-        } finally {
+        // Simulate AI editing
+        setTimeout(() => {
+            currentLessonData.content = `${currentLessonData.content}\n\n--- AI Modifications ---\nBased on your request: "${prompt}"\n\nI've enhanced the lesson with additional examples and interactive elements to make it more engaging for students. The content now includes more practical applications and student-centered activities.`;
+            currentLessonData.summary = `This ${currentLessonData.focusArea} lesson for ${currentLessonData.gradeLevel} students has been enhanced with AI modifications based on your instructions: "${prompt}". The lesson now includes improved engagement strategies and practical applications.`;
+            
+            displayGeneratedLesson(currentLessonData);
+            
+            document.getElementById('aiReviewInterface').classList.add('hidden');
+            document.getElementById('lessonDisplay').classList.remove('hidden');
+            
+            showNotification('AI review applied successfully!', 'success');
+            
             applyBtn.disabled = false;
             applyText.textContent = 'Apply AI Changes';
             applyLoader.classList.add('hidden');
-        }
+        }, 2000);
     }
 
-    function proceedToCompletion() {
-        if (!currentLessonData) {
-            showNotification('No lesson to complete', 'error');
-            return;
-        }
-        
-        // Hide lesson display and show completion page
-        document.getElementById('lessonDisplay').classList.add('hidden');
-        document.getElementById('lessonCompletionPage').classList.remove('hidden');
-        
-        // Update the completed lesson title
-        const completedTitle = `${currentLessonData.title} from ${currentLessonData.fileName}`;
-        document.getElementById('completedLessonTitle').textContent = completedTitle;
-        
-        showNotification('Lesson completed successfully!', 'success');
-    }
 
-    async function downloadLesson(format) {
+    function downloadLesson(format) {
         if (!currentLessonData) {
             showNotification('No lesson to download', 'error');
             return;
         }
         
-        try {
-            let response;
-            
-            switch (format) {
-                case 'docx':
-                    // Use the updated download endpoint for DOCX
-                    response = await fetch('/download_lesson', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            lesson_data: currentLessonData
-                        })
-                    });
-                    break;
-                case 'pptx':
-                    // Use the PPTX download endpoint
-                    response = await fetch('/download_lesson_ppt', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            lesson: currentLessonData
-                        })
-                    });
-                    break;
-                default:
-                    // For other formats, use the edited lesson endpoint
-                    response = await fetch('/download_edited_lesson', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            lesson: currentLessonData
-                        })
-                    });
-                    break;
-            }
-
-            if (response.ok) {
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                
-                // Set filename based on format
-                const baseFileName = currentLessonData.title.replace(/[^a-zA-Z0-9]/g, '_');
-                let fileName = '';
-                
-                switch (format) {
-                    case 'pdf':
-                        fileName = `${baseFileName}.pdf`;
-                        break;
-                    case 'docx':
-                        fileName = `${baseFileName}.docx`;
-                        break;
-                    case 'pptx':
-                        fileName = `${baseFileName}.pptx`;
-                        break;
-                    case 'txt':
-                        fileName = `${baseFileName}.txt`;
-                        break;
-                    default:
-                        fileName = `${baseFileName}.${format}`;
-                }
-                
-                a.download = fileName;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                a.remove();
-                
-                showNotification(`Lesson downloaded as ${format.toUpperCase()} successfully!`, 'success');
-            } else {
-                const errorData = await response.json();
-                showNotification(`Error downloading lesson: ${errorData.error || 'Download failed'}`, 'error');
-            }
-        } catch (error) {
-            console.error('Error downloading lesson:', error);
-            showNotification('Error downloading lesson. Please try again.', 'error');
-        }
+        document.getElementById('downloadOptions').classList.add('hidden');
+        
+        // Create download content
+        const content = `${currentLessonData.title}\n\n${currentLessonData.content}\n\nGenerated: ${new Date().toLocaleString()}`;
+        const blob = new Blob([content], { type: 'text/plain' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        
+        const baseFileName = currentLessonData.title.replace(/[^a-zA-Z0-9]/g, '_');
+        a.download = `${baseFileName}.${format}`;
+        
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
+        
+        showNotification(`Lesson downloaded as ${format.toUpperCase()} successfully!`, 'success');
     }
 
     function startNewLesson() {
-        // Reset all steps and hide completion page
+        // Reset all steps
         document.getElementById('lessonDisplay').classList.add('hidden');
-        document.getElementById('lessonCompletionPage').classList.add('hidden');
         document.getElementById('aiReviewInterface').classList.add('hidden');
         document.getElementById('humanReviewInterface').classList.add('hidden');
         document.getElementById('configStep').classList.add('hidden');
@@ -1700,6 +1581,8 @@ ${currentLessonData.notes ? `## Additional Notes\n${currentLessonData.notes}` : 
         // Clear form and data
         document.getElementById('lessonConfigForm').reset();
         document.getElementById('aiReviewPrompt').value = '';
+        document.getElementById('humanReviewTitle').value = '';
+        document.getElementById('humanReviewObjective').value = '';
         document.getElementById('humanReviewContent').value = '';
         removeSelectedFile();
         currentLessonFile = null;
@@ -1709,27 +1592,11 @@ ${currentLessonData.notes ? `## Additional Notes\n${currentLessonData.notes}` : 
     }
 
     // Browse Lessons Functions
-    async function loadAvailableLessons() {
-        try {
-            let endpoint = '/api/lessons/browse_lessons';
-            if (userRole === 'teacher') {
-                endpoint = '/api/lessons/my_lessons';
-            }
-            const response = await fetch(endpoint);
-            if (response.ok) {
-                const data = await response.json();
-                displayLessons(data.lessons);
-            } else {
-                const errorData = await response.json();
-                showNotification(`Error loading lessons: ${errorData.error || 'Failed to load lessons'}`, 'error');
-            }
-        } catch (error) {
-            console.error('Error loading lessons:', error);
-            showNotification('Error loading lessons. Please try again.', 'error');
-        }
+    function loadAvailableLessons() {
+        displayLessons(mockLessons);
     }
 
-    async function searchLessons() {
+    function searchLessons() {
         const searchTerm = document.getElementById('searchLessons').value.trim();
         
         if (!searchTerm) {
@@ -1737,23 +1604,30 @@ ${currentLessonData.notes ? `## Additional Notes\n${currentLessonData.notes}` : 
             return;
         }
         
-        try {
-            const params = new URLSearchParams();
-            params.append('q', searchTerm);
-            
-            const response = await fetch(`/api/lessons/search_lessons?${params}`);
-            
-            if (response.ok) {
-                const data = await response.json();
-                displayLessons(data.lessons);
-            } else {
-                const errorData = await response.json();
-                showNotification(`Error searching lessons: ${errorData.error || 'Failed to search lessons'}`, 'error');
-            }
-        } catch (error) {
-            console.error('Error searching lessons:', error);
-            showNotification('Error searching lessons. Please try again.', 'error');
+        const filteredLessons = mockLessons.filter(lesson => 
+            lesson.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            lesson.summary.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            lesson.focus_area.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+        
+        displayLessons(filteredLessons);
+    }
+
+    function filterLessons() {
+        const gradeLevel = document.getElementById('filterGradeLevel').value;
+        const focusArea = document.getElementById('filterFocusArea').value;
+        
+        let filteredLessons = mockLessons;
+        
+        if (gradeLevel) {
+            filteredLessons = filteredLessons.filter(lesson => lesson.grade_level === gradeLevel);
         }
+        
+        if (focusArea) {
+            filteredLessons = filteredLessons.filter(lesson => lesson.focus_area === focusArea);
+        }
+        
+        displayLessons(filteredLessons);
     }
 
     function handleLessonSearchKeyPress(event) {
@@ -1763,126 +1637,98 @@ ${currentLessonData.notes ? `## Additional Notes\n${currentLessonData.notes}` : 
     }
 
     function displayLessons(lessons) {
-        const lessonsDisplay = document.getElementById('lessonsDisplay');
+    const lessonsDisplay = document.getElementById('lessonsDisplay');
 
-        if (!lessons || lessons.length === 0) {
-            lessonsDisplay.innerHTML = `
-                <div class="text-center text-gray-500 py-16">
-                    <i class="fas fa-search text-6xl mb-6"></i>
-                    <p class="text-xl">No lessons found matching your criteria</p>
-                </div>
-            `;
-            return;
-        }
-
-        // Header Row
-        let html = `
-            <div class="grid grid-cols-6 bg-[#05B0FC] text-white font-semibold py-3 px-4 rounded-t-lg">
-                <div>No</div>
-                <div>Lesson Title</div>
-                <div>Subject</div>
-                <div>Grade</div>
-                <div>Created By</div>
-                <div>Action</div>
+    if (!lessons || lessons.length === 0) {
+        lessonsDisplay.innerHTML = `
+            <div class="text-center text-gray-500 py-16">
+                <i class="fas fa-search text-6xl mb-6"></i>
+                <p class="text-xl">No lessons found matching your criteria</p>
             </div>
         `;
-
-        // Lessons List
-        html += lessons.map((lesson, index) => `
-            <div class="grid grid-cols-6 py-2 px-2 border-b">
-
-                <!-- No -->
-                <div class="flex items-center">${index + 1}</div>
-
-                <!-- Lesson Title -->
-                <div class="flex items-center font-medium text-gray-900">${lesson.title}</div>
-
-                <!-- Subject -->
-                <div class="flex items-center">
-                    <span class="px-2 py-1  text-white bg-blue-300 rounded-xl text-xs rounded-full">
-                        ${lesson.focus_area}
-                    </span>
-                </div>
-
-                <!-- Grade -->
-                <div class="flex items-center">
-                    <span class="px-2 py-1  text-blue-800 text-xs rounded-full">
-                        ${lesson.grade_level}
-                    </span>
-                </div>
-
-                <!-- Created By -->
-                <div class="flex items-center text-gray-700">${lesson.teacher_name}</div>
-
-                <!-- Actions -->
-                <div class="flex flex-row gap-1 ">
-                    <button onclick="downloadLessonFile(${lesson.id})" class="px-4 py-2 text-blue-500 ">
-                        <img src="./Group69.png" alt="">
-                    </button>
-                    ${userRole === 'student' ? `
-                    <button onclick="askQuestion(${lesson.id})" class="px-4 py-2 text-blue-500 rounded ">
-                        <img src="./jam_message-alt.png" alt="">
-                    </button>
-                    ` : ''}
-                </div>
-            </div>
-        `).join('');
-
-        lessonsDisplay.innerHTML = html;
+        return;
     }
 
-    async function askQuestion(lessonId) {
-        const questionInput = document.getElementById('lessonQuestionInput');
-        const question = questionInput ? questionInput.value.trim() : prompt('What would you like to ask about this lesson?');
-        
-        if (!question) return;
+    // Header Row
+    let html = `
+        <div class="grid grid-cols-6 bg-[#05B0FC] text-white font-semibold py-3 px-4 rounded-t-lg">
+            <div>No</div>
+            <div>Lesson Title</div>
+            <div>Subject</div>
+            <div>Grade</div>
+            <div>Created By</div>
+            <div>Action</div>
+        </div>
+    `;
 
-        try {
-            const response = await fetch('/api/lessons/ask_question', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lesson_id: lessonId, question })
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                changeTab(document.querySelector('.tab-btn'), 'chat');
-                addMessageToChat('user', question);
-                setTimeout(() => {
-                    addMessageToChat('ai', data.answer || 'No answer available.');
-                }, 1000);
-            } else {
-                showNotification('Error getting answer to your question', 'error');
-            }
-        } catch (error) {
-            console.error('Error asking question:', error);
-            showNotification('Error asking question', 'error');
+    // Lessons List
+    html += lessons.map((lesson, index) => `
+        <div class="grid grid-cols-6 py-2 px-2 border-b">
+
+            <!-- No -->
+            <div class="flex items-center">${index + 1}</div>
+
+            <!-- Lesson Title -->
+            <div class="flex items-center font-medium text-gray-900">${lesson.title}</div>
+
+            <!-- Subject -->
+            <div class="flex items-center">
+                <span class="px-2 py-1  text-white bg-blue-300 rounded-xl text-xs rounded-full">
+                    ${lesson.focus_area}
+                </span>
+            </div>
+
+            <!-- Grade -->
+            <div class="flex items-center">
+                <span class="px-2 py-1  text-blue-800 text-xs rounded-full">
+                    ${lesson.grade_level}
+                </span>
+            </div>
+
+            <!-- Created By -->
+            <div class="flex items-center text-gray-700">${lesson.created_by}</div>
+
+            <!-- Actions -->
+            <div class="flex flex-row gap-1 ">
+                <button onclick="downloadLessonFile(${lesson.id})" class="px-4 py-2 text-blue-500 ">
+                    <img src="./Group69.png" alt="">
+                </button>
+                <button onclick="askQuestion(${lesson.id})" class="px-4 py-2 text-blue-500 rounded ">
+                    <img src="./jam_message-alt.png" alt="">
+                </button>
+            </div>
+        </div>
+    `).join('');
+
+    lessonsDisplay.innerHTML = html;
+}
+
+    function askQuestion(lessonId) {
+        const lesson = mockLessons.find(l => l.id === lessonId);
+        if (lesson) {
+            changeTab(document.querySelector('.tab-btn'), 'chat');
+            addMessageToChat('user', `I have a question about the lesson: ${lesson.title}`);
+            setTimeout(() => {
+                addMessageToChat('ai', `I'd be happy to help you with questions about "${lesson.title}". This ${lesson.focus_area} lesson for ${lesson.grade_level} students covers ${lesson.learning_objectives}. What specific aspect would you like to know more about?`);
+            }, 1000);
         }
     }
 
-    async function downloadLessonFile(lessonId) {
-        try {
-            const response = await fetch(`/api/lessons/download_lesson/${lessonId}`);
+    function downloadLessonFile(lessonId) {
+        const lesson = mockLessons.find(l => l.id === lessonId);
+        if (lesson) {
+            const content = `${lesson.title}\n\n${lesson.content}\n\nCreated by: ${lesson.teacher_name}\nSubject: ${lesson.focus_area}\nGrade Level: ${lesson.grade_level}\n\nDownloaded: ${new Date().toLocaleString()}`;
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `lesson_${lessonId}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
             
-            if (response.ok) {
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `lesson_${lessonId}.docx`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                a.remove();
-                
-                showNotification('Lesson downloaded successfully!', 'success');
-            } else {
-                const errorData = await response.json();
-                showNotification(`Error downloading lesson: ${errorData.error || 'Download failed'}`, 'error');
-            }
-        } catch (error) {
-            console.error('Error downloading lesson:', error);
-            showNotification('Error downloading lesson. Please try again.', 'error');
+            showNotification('Lesson downloaded successfully!', 'success');
         }
     }
 
@@ -1904,44 +1750,21 @@ ${currentLessonData.notes ? `## Additional Notes\n${currentLessonData.notes}` : 
 
     function clearApiKey() {
         document.getElementById('apiKeyInput').value = '';
-        showNotification('API key field cleared', 'info');
+        showNotification('Settings cleared', 'info');
     }
 
-    async function saveApiKey() {
+    function saveApiKey() {
         const apiKeyInput = document.getElementById('apiKeyInput');
         const newApiKey = apiKeyInput.value.trim();
 
         if (!newApiKey) {
-            showNotification('Please enter an API key', 'error');
+            showNotification('Please enter a configuration value', 'error');
             return;
         }
 
-        try {
-            const response = await fetch('/update_api_key', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ api_key: newApiKey })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                if (data.success) {
-                    showNotification('API key updated successfully', 'success');
-                    apiKeyInput.value = '';
-                    changeTab(document.querySelector('.tab-btn'), 'chat');
-                } else {
-                    showNotification(data.error || 'Failed to update API key', 'error');
-                }
-            } else {
-                const errorData = await response.json();
-                showNotification(errorData.error || 'Failed to update API key', 'error');
-            }
-        } catch (error) {
-            console.error('Error updating API key:', error);
-            showNotification('Error updating API key', 'error');
-        }
+        showNotification('Settings saved successfully! (Demo mode)', 'success');
+        apiKeyInput.value = '';
+        changeTab(document.querySelector('.tab-btn'), 'chat');
     }
 
     // Voice Functions
@@ -1955,7 +1778,7 @@ ${currentLessonData.notes ? `## Additional Notes\n${currentLessonData.notes}` : 
 
     function startVoiceInput() {
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
             recognition.lang = 'en-US';
             recognition.interimResults = false;
             recognition.maxAlternatives = 1;
@@ -1989,9 +1812,6 @@ ${currentLessonData.notes ? `## Additional Notes\n${currentLessonData.notes}` : 
     }
 
     function stopVoiceInput() {
-        if (recognition) {
-            recognition.stop();
-        }
         isRecording = false;
         document.getElementById('voiceRecordingIndicator').classList.add('hidden');
         const micBtn = document.getElementById('micButton');
@@ -2110,84 +1930,7 @@ ${currentLessonData.notes ? `## Additional Notes\n${currentLessonData.notes}` : 
     }
 
     function restoreFullSidebar() {
-        const sidebar = document.getElementById('sidebar');
-        const mainContent = document.querySelector('.flex-1');
-        
-        sidebar.innerHTML = `
-            <div class="flex justify-between items-center">
-                <img src="./logo.png" width="150" height="200" alt="">
-                <button onclick="hideSidebar()" class="mt-4 hover:bg-gray-100 p-1 rounded">
-                    <img src="./slider.png" alt="">
-                </button>
-            </div>
-            
-            <!-- Border Line -->
-            <div class="mt-4 border-t-2 border-gray-300 -mx-4"></div>
-            
-            <div class="flex flex-col space-y-4 justify-center items-center mt-6 mb-2">
-
-                <!-- New Chat -->
-                <button onclick="startNewChat()" class="w-[200px] h-[50px] mt-3 mb-2 px-4 flex items-center justify-center gap-2 bg-[#05B0FC] text-white font-bold rounded transition duration-200 ease-in-out hover:bg-blue-600">
-                    <img src="./msg.png" alt="">
-                    <span>New Chat</span>
-                </button>
-
-                <!-- Action Buttons -->
-                <button onclick="openLessonGenerator()" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors" id="generateLessonBtn">
-                    <img src="./lesson.png" alt="">
-                    <span>Generate Lessons</span>
-                </button>
-
-                <!-- Sidebar Button for View Lessons -->
-                <button onclick="changeTab(document.querySelectorAll('.tab-btn')[3], 'browse')" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-myblue hover:bg-blue-50 rounded transition-colors" id="browseLessonBtn">
-                    <img src="./lesson.png" alt="">
-                    <span id="browseLessonLabel">View Lessons</span>
-                </button>
-
-                <button onclick="changeTab(document.querySelectorAll('.tab-btn')[4], 'settings')" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors">
-                    <img src="./key.png" alt="">
-                    <span>Update API Key</span>
-                </button>
-
-                <button onclick="toggleVoiceRecording()" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors">
-                    <i class="fas fa-microphone w-5 h-5"></i>
-                    <span>Real Time Chat</span>
-                </button>
-
-                <button onclick="resetChat()" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors">
-                    <i class="fas fa-refresh text-[#B7B7B7] w-5 h-5"></i>
-                    <span>Reset Chat</span>
-                </button>
-
-                <!-- Chat History Button -->
-                <button onclick="toggleDropdown()" class="w-[260px] h-[40px] px-4 flex items-center justify-between font-semibold text-[16px] text-gray-700 mt-2 hover:bg-gray-50 rounded transition-colors">
-                    <i class="fas fa-history text-[#B7B7B7]"></i>
-                    <span>Chat History</span>
-                    <i class="fas fa-chevron-down text-[#666]" id="historyArrow"></i>
-                </button>
-
-                <!-- Dropdown Chat History -->
-                <div id="dropdownContent" class="mt-2 hidden flex-col gap-3 w-[240px] max-h-48 overflow-y-auto">
-                    <!-- Chat history items will be populated here -->
-                </div>
-
-                <!-- Logout Button -->
-                <button onclick="logout()" class="fixed bottom-4 w-[230px] h-[40px] px-4 flex items-center justify-center gap-3 font-semibold text-[16px] text-gray-700 bg-white shadow rounded hover:bg-gray-50 transition-colors">
-                    <i class="fas fa-sign-out-alt text-[#F50D0D]"></i>
-                    <span class="text-[#F50D0D]">Log out</span>
-                </button>
-
-            </div>
-        `;
-        
-        sidebar.className = "w-[275px] md:w-[275px] bg-white shadow-md p-4 fixed md:static top-0 left-0 h-full md:h-auto transform -translate-x-full md:translate-x-0 transition-transform duration-300 z-40";
-        
-        if (mainContent) mainContent.style.marginLeft = "0";
-        
-        // Re-apply role-based UI after restoring sidebar
-        setupRoleBasedUI();
-        updateChatHistoryDisplay();
-        isCollapsed = false;
+        location.reload(); // Simple approach for demo
     }
 
     function toggleDropdown() {
@@ -2207,26 +1950,12 @@ ${currentLessonData.notes ? `## Additional Notes\n${currentLessonData.notes}` : 
         }
     }
 
-    async function logout() {
-        try {
-            const response = await fetch('/auth/logout', {
-                method: 'POST',
-                credentials: 'include'
-            });
-            
-            if (response.ok) {
-                const data = await response.json();
-                if (data.success && data.redirect_url) {
-                    window.location.href = data.redirect_url;
-                } else {
-                    window.location.href = '/login';
-                }
-            } else {
-                window.location.href = '/logout';
-            }
-        } catch (error) {
-            console.error('Logout error:', error);
-            window.location.href = '/logout';
+    function logout() {
+        if (confirm('Are you sure you want to log out?')) {
+            showNotification('Logging out... (Demo mode)', 'info');
+            setTimeout(() => {
+                alert('This is a demo. In a real application, you would be redirected to the login page.');
+            }, 1000);
         }
     }
 
@@ -2266,65 +1995,6 @@ ${currentLessonData.notes ? `## Additional Notes\n${currentLessonData.notes}` : 
         }, 3000);
     }
 
-    function showTypingIndicator() {
-        const chatMessages = document.getElementById('chatMessages');
-        const typingDiv = document.createElement('div');
-        typingDiv.id = 'typingIndicator';
-        typingDiv.className = 'flex items-start gap-4 mb-4';
-        typingDiv.innerHTML = `
-            <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                AI
-            </div>
-            <div class="bg-gray-100 rounded-2xl px-5 py-4 max-w-lg">
-                <div class="flex space-x-1">
-                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
-                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
-                </div>
-            </div>
-        `;
-        chatMessages.appendChild(typingDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
-    function hideTypingIndicator() {
-        const typingIndicator = document.getElementById('typingIndicator');
-        if (typingIndicator) {
-            typingIndicator.remove();
-        }
-    }
-
-    function addMessageToChat(sender, message) {
-        const chatMessages = document.getElementById('chatMessages');
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'flex items-start gap-4 mb-4';
-
-        if (sender === 'user') {
-            messageDiv.innerHTML = `
-                <div class="flex items-start gap-4 flex-row-reverse w-full">
-                    <div class="w-10 h-10 bg-gray-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                        U
-                    </div>
-                    <div class="bg-blue-500 text-white rounded-2xl px-5 py-4 max-w-lg">
-                        <p class="leading-relaxed">${message}</p>
-                    </div>
-                </div>
-            `;
-        } else {
-            messageDiv.innerHTML = `
-                <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                    AI
-                </div>
-                <div class="bg-gray-100 rounded-2xl px-5 py-4 max-w-lg">
-                    <p class="text-gray-700 leading-relaxed">${message.replace(/\n/g, '<br>')}</p>
-                </div>
-            `;
-        }
-
-        chatMessages.appendChild(messageDiv);
-        chatMessages.scrollTop = chatMessages.scrollHeight;
-    }
-
     function handleKeyPress(event) {
         if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
@@ -2339,89 +2009,8 @@ ${currentLessonData.notes ? `## Additional Notes\n${currentLessonData.notes}` : 
                 changeTab(document.querySelector('.tab-btn'), 'chat');
                 addMessageToChat('user', `Search: ${searchTerm}`);
                 setTimeout(() => {
-                    addMessageToChat('ai', `I found several results related to "${searchTerm}". Here are the most relevant items from our knowledge base and conversation history.`);
-                    saveChatToHistory();
+                    addMessageToChat('ai', `I found several results related to "${searchTerm}". Here are the most relevant items from our knowledge base and conversation history. (Demo mode - no actual search performed)`);
                 }, 1000);
-            }
-        }
-    }
-
-    function saveChatToHistory() {
-        localStorage.setItem('chatHistory', JSON.stringify(chatHistory));
-    }
-
-    function updateChatHistoryDisplay() {
-        const dropdown = document.getElementById('dropdownContent');
-        if (!dropdown) return;
-        
-        dropdown.innerHTML = '';
-        
-        chatHistory.forEach(chat => {
-            const chatItem = document.createElement('div');
-            chatItem.className = 'flex items-center justify-between px-3 py-2 hover:bg-gray-100 rounded cursor-pointer';
-            chatItem.innerHTML = `
-                <div class="text-sm text-gray-700 flex-1" onclick="loadChat(${chat.id})">
-                    <span class="block font-medium">${chat.title}</span>
-                    <span class="text-xs text-gray-500">${formatTimestamp(chat.timestamp)}</span>
-                </div>
-                <div class="flex items-center space-x-3 text-gray-500">
-                    <i onclick="downloadChat(${chat.id})" class="fas fa-download hover:text-black cursor-pointer"></i>
-                    <i onclick="deleteChat(${chat.id})" class="fas fa-trash hover:text-red-600 cursor-pointer"></i>
-                </div>
-            `;
-            dropdown.appendChild(chatItem);
-        });
-    }
-
-    function formatTimestamp(timestamp) {
-        const date = new Date(timestamp);
-        const now = new Date();
-        const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
-        
-        if (diffDays === 0) return 'Today';
-        if (diffDays === 1) return 'Yesterday';
-        return `${diffDays} days ago`;
-    }
-
-    async function downloadChat(chatId) {
-        try {
-            const response = await fetch(`/download_chat/${chatId}`);
-            if (response.ok) {
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `chat_${chatId}.docx`;
-                a.click();
-                URL.revokeObjectURL(url);
-                showNotification('Chat downloaded successfully', 'success');
-            } else {
-                showNotification('Failed to download chat', 'error');
-            }
-        } catch (error) {
-            console.error('Error downloading chat:', error);
-            showNotification('Error downloading chat', 'error');
-        }
-    }
-
-    async function deleteChat(chatId) {
-        if (confirm('Are you sure you want to delete this chat?')) {
-            try {
-                const response = await fetch(`/delete_conversation/${chatId}`, {
-                    method: 'DELETE'
-                });
-                
-                if (response.ok) {
-                    chatHistory = chatHistory.filter(chat => chat.id !== chatId);
-                    updateChatHistoryDisplay();
-                    saveChatToHistory();
-                    showNotification('Chat deleted successfully', 'success');
-                } else {
-                    showNotification('Failed to delete chat', 'error');
-                }
-            } catch (error) {
-                console.error('Error deleting chat:', error);
-                showNotification('Error deleting chat', 'error');
             }
         }
     }
@@ -2504,13 +2093,6 @@ ${currentLessonData.notes ? `## Additional Notes\n${currentLessonData.notes}` : 
         }
     }
 
-    // Auto-update token meter
-    setInterval(() => {
-        if (currentChatId) {
-            updateTokenMeter();
-        }
-    }, 30000);
-
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
@@ -2535,9 +2117,7 @@ ${currentLessonData.notes ? `## Additional Notes\n${currentLessonData.notes}` : 
 
         if ((e.ctrlKey || e.metaKey) && e.key === 'l') {
             e.preventDefault();
-            if (userRole === 'teacher') {
-                changeTab(document.querySelectorAll('.tab-btn')[2], 'lesson');
-            }
+            changeTab(document.querySelectorAll('.tab-btn')[2], 'lesson');
         }
 
         if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -2545,6 +2125,11 @@ ${currentLessonData.notes ? `## Additional Notes\n${currentLessonData.notes}` : 
             changeTab(document.querySelectorAll('.tab-btn')[4], 'settings');
         }
     });
+
+    // Demo welcome message
+    setTimeout(() => {
+        showNotification('Welcome to the AI Chat Interface Demo!', 'info');
+    }, 1000);
 
   </script>
 
@@ -2826,6 +2411,21 @@ ${currentLessonData.notes ? `## Additional Notes\n${currentLessonData.notes}` : 
         background-color: #f8f9fa !important;
         border: 1px solid #dee2e6 !important;
       }
+    }
+
+    /* Demo styles */
+    .demo-badge {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: linear-gradient(45deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 5px 10px;
+      border-radius: 15px;
+      font-size: 12px;
+      font-weight: bold;
+      z-index: 1000;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
     }
 
     /* Pulsing effect for important buttons */
