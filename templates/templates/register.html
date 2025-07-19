@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register - Complete Profile</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .error-message {
+            color: #dc3545;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+        .form-container {
+            max-width: 500px;
+            margin: 0 auto;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            border-radius: 8px;
+            background-color: white;
+        }
+        body {
+            background-color: #f8f9fa;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+        }
+        .verified-email {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            border-radius: 4px;
+            padding: 10px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .verified-email i {
+            color: #28a745;
+        }
+        .input-group-append {
+            cursor: pointer;
+        }
+        #generateKeyBtn {
+            white-space: nowrap;
+        }
+        .loading-spinner {
+            display: none;
+            margin-right: 5px;
+        }
+        .modal-body iframe {
+            width: 100%;
+            height: 500px;
+            border: none;
+        }
+        #groqModal .modal-dialog {
+            max-width: 600px;
+        }
+        .groq-auth-container {
+            text-align: center;
+            padding: 20px;
+        }
+        .groq-auth-steps {
+            text-align: left;
+            margin: 20px 0;
+        }
+        .groq-auth-steps .step {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            background: #f8f9fa;
+        }
+        .groq-auth-steps .step.active {
+            background: #e7f5ff;
+            border-left: 3px solid #0d6efd;
+        }
+        .groq-auth-steps .step.completed {
+            background: #d4edda;
+            border-left: 3px solid #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="form-container">
+            <h2 class="text-center mb-4">Complete Registration</h2>
+            
+            {% if error %}
+            <div class="error-message">
+                {{ error }}
+            </div>
+            {% endif %}
+
+            {% if email %}
+            <div class="verified-email">
+                <i class="fas fa-check-circle"></i>
+                <div>
+                    <strong>Verified Email:</strong><br>
+                    {{ email }}
+                </div>
+            </div>
+            {% endif %}
+            
+            <form action="{{ url_for('auth.register') }}" method="POST">
+                <div class="mb-3">
+                    <label for="username" class="form-label">Username</label>
+                    <input type="text" class="form-control" id="username" name="username" required>
+                </div>
+                <input type="hidden" name="useremail" value="{{ email }}">
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" class="form-control" id="password" name="password" required>
+                </div>
+                <div class="mb-3">
+                    <label for="class_standard" class="form-label">Class Standard</label>
+                    <input type="text" class="form-control" id="class_standard" name="class_standard" required>
+                </div>
+                <div class="mb-3">
+                    <label for="medium" class="form-label">Medium (English/Urdu)</label>
+                    <select class="form-control" id="medium" name="medium" required>
+                        <option value="English">English</option>
+                        <option value="Urdu">Urdu</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="role" class="form-label">Role *</label>
+                    <select class="form-control" id="role" name="role" required>
+                        <option value="">Select your role...</option>
+                        <option value="student">Student - I want to view lessons created by teachers</option>
+                        <option value="teacher">Teacher - I want to create and manage lessons</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="groq_api_key" class="form-label">GROQ API Key</label>
+                    <input type="password" class="form-control" id="groq_api_key" name="groq_api_key" required>
+                    <small class="form-text text-muted">Get your API key from <a href="https://console.groq.com/" target="_blank">Groq Console</a></small>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Complete Registration</button>
+            </form>
+            <p class="mt-3 text-center">Already have an account? <a href="{{ url_for('auth.login') }}">Login here</a></p>
+        </div>
+    </div>
+
+    <!-- GROQ Authentication Modal -->
+    <div class="modal fade" id="groqModal" tabindex="-1" aria-labelledby="groqModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="groqModalLabel">Get GROQ API Key</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="groq-auth-container text-center">
+                        <div id="step1" class="auth-step active">
+                            <h6 class="mb-4">Sign in with Google to get your GROQ API key</h6>
+                            <button class="btn btn-primary btn-lg" onclick="openGroqAuth()">
+                                <i class="fab fa-google me-2"></i>Continue with Google
+                            </button>
+                        </div>
+                        <div id="step2" class="auth-step" style="display: none;">
+                            <div class="spinner-border text-primary mb-3" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <h6>Waiting for authentication...</h6>
+                            <p class="text-muted small">A new window has opened. Please complete the sign-in process there.</p>
+                        </div>
+                        <div id="step3" class="auth-step" style="display: none;">
+                            <div class="mb-4">
+                                <i class="fas fa-check-circle text-success" style="font-size: 3rem;"></i>
+                                <h6 class="mt-3">Successfully signed in!</h6>
+                                <p class="text-muted small">Follow these steps:</p>
+                                <ol class="text-start small">
+                                    <li class="mb-2">Click "Create API Key" below</li>
+                                    <li class="mb-2">In the new window, click "Create" to generate the key</li>
+                                    <li class="mb-2">Click "Copy" to copy the key</li>
+                                    <li class="mb-2">Return here and click "Paste API Key"</li>
+                                </ol>
+                            </div>
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-success btn-lg mb-2" onclick="createApiKey()">
+                                    <i class="fas fa-key me-2"></i>Create API Key
+                                </button>
+                                <button class="btn btn-primary btn-lg" onclick="pasteApiKey()">
+                                    <i class="fas fa-paste me-2"></i>Paste API Key
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let groqWindow = null;
+        let checkWindowInterval = null;
+
+        function openGroqAuth() {
+            // Hide step1 and show step2
+            document.getElementById('step1').style.display = 'none';
+            document.getElementById('step2').style.display = 'block';
+
+            // Calculate center position for the popup
+            const width = 600;
+            const height = 700;
+            const left = (window.innerWidth - width) / 2 + window.screenX;
+            const top = (window.innerHeight - height) / 2 + window.screenY;
+
+            // Open GROQ console in a popup
+            groqWindow = window.open(
+                'https://console.groq.com/keys',
+                'GroqAuth',
+                `width=${width},height=${height},left=${left},top=${top},toolbar=0,location=0,menubar=0`
+            );
+
+            // Start checking if the window is still open
+            checkWindowInterval = setInterval(checkAuthWindow, 1000);
+        }
+
+        function checkAuthWindow() {
+            if (groqWindow && groqWindow.closed) {
+                clearInterval(checkWindowInterval);
+                // Show step3 when the window is closed (assuming they completed auth)
+                document.getElementById('step2').style.display = 'none';
+                document.getElementById('step3').style.display = 'block';
+            }
+        }
+
+        function createApiKey() {
+            // Open GROQ console API key page in a popup
+            const width = 600;
+            const height = 700;
+            const left = (window.innerWidth - width) / 2 + window.screenX;
+            const top = (window.innerHeight - height) / 2 + window.screenY;
+
+            window.open(
+                'https://console.groq.com/keys/new',
+                'GroqCreateKey',
+                `width=${width},height=${height},left=${left},top=${top},toolbar=0,location=0,menubar=0`
+            );
+        }
+
+        async function pasteApiKey() {
+            try {
+                const text = await navigator.clipboard.readText();
+                if (text && text.trim()) {
+                    // Check if it looks like a GROQ API key (starts with 'gsk_' and is long enough)
+                    if (text.trim().startsWith('gsk_') && text.length > 20) {
+                        document.getElementById('groq_api_key').value = text.trim();
+                        // Close the modal
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('groqModal'));
+                        modal.hide();
+                    } else {
+                        alert('The copied text doesn\'t appear to be a valid GROQ API key. Please make sure you\'ve copied the key correctly.');
+                    }
+                } else {
+                    alert('No text found in clipboard. Please copy your API key first.');
+                }
+            } catch (err) {
+                alert('Unable to read from clipboard. Please paste your API key manually.');
+                console.error('Clipboard error:', err);
+            }
+        }
+
+        // Reset steps when modal is closed
+        document.getElementById('groqModal').addEventListener('hidden.bs.modal', function () {
+            document.getElementById('step1').style.display = 'block';
+            document.getElementById('step2').style.display = 'none';
+            document.getElementById('step3').style.display = 'none';
+            if (checkWindowInterval) {
+                clearInterval(checkWindowInterval);
+            }
+        });
+    </script>
+</body>
+</html>

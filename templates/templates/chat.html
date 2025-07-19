@@ -1,0 +1,2981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            myblue: '#05B0FC',
+          },
+          fontFamily: {
+            inter: ['Inter', 'sans-serif'],
+          },
+        }
+      }
+    }
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Google Fonts & Font Awesome -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <title>AI Chat Interface</title>
+</head>
+<body class="h-screen bg-gray-100 font-inter">
+  <div class="flex h-full">
+
+    <!-- Sidebar -->
+    <div id="sidebar" class="w-[275px] md:w-[275px] bg-white shadow-md p-4 fixed md:static top-0 left-0 h-full md:h-auto transform -translate-x-full md:translate-x-0 transition-transform duration-300 z-40">
+      <div class="flex justify-between items-center">
+        <img src="./logo.png" width="150" height="200" alt="">
+        <button onclick="hideSidebar()" class="mt-4 hover:bg-gray-100 p-1 rounded">
+          <img src="./slider.png" alt="">
+        </button>
+      </div>
+      
+      <!-- Border Line -->
+      <div class="mt-4 border-t-2 border-gray-300 -mx-4"></div>
+      
+      <div class="flex flex-col space-y-4 justify-center items-center mt-6 mb-2">
+
+        <!-- New Chat -->
+        <button onclick="startNewChat()" class="w-[200px] h-[50px] mt-3 mb-2 px-4 flex items-center justify-center gap-2 bg-[#05B0FC] text-white font-bold rounded transition duration-200 ease-in-out hover:bg-blue-600">
+          <img src="./msg.png" alt="">
+          <span>New Chat</span>
+        </button>
+
+        <!-- Action Buttons -->
+        <button onclick="openLessonGenerator()" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors" id="generateLessonBtn">
+          <img src="./lesson.png" alt="">
+          <span>Generate Lessons</span>
+        </button>
+
+        <!-- View Lessons Button in Sidebar -->
+        <button onclick="openViewLessons()" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors" id="viewLessonsBtn">
+          <img src="./lesson.png" alt="">
+          <span id="viewLessonsLabel">View Lessons</span>
+        </button>
+
+        <!-- FAQ Dashboard Button (for teachers only) -->
+        <button onclick="showFrequentlyAskedQuestions()" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors" id="faqDashboardBtn" style="display: none;">
+          <i class="fas fa-chart-line text-[#B7B7B7] w-5 h-5"></i>
+          <span>FAQ Dashboard</span>
+        </button>
+
+        <button onclick="changeTab(document.querySelectorAll('.tab-btn')[1], 'settings')" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors">
+         <img src="./key.png" alt="">
+          <span>Update API Key</span>
+        </button>
+
+        <button onclick="toggleVoiceRecording()" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors">
+         <i class="fas fa-microphone w-5 h-5"></i>
+          <span>Real Time Chat</span>
+        </button>
+
+        <button onclick="resetChat()" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors">
+          <i class="fas fa-refresh text-[#B7B7B7] w-5 h-5"></i>
+          <span>Reset Chat</span>
+        </button>
+
+        <!-- Chat History Button -->
+        <button onclick="toggleDropdown()" class="w-[260px] h-[40px] px-4 flex items-center justify-between font-semibold text-[16px] text-gray-700 mt-2 hover:bg-gray-50 rounded transition-colors">
+          <i class="fas fa-history text-[#B7B7B7]"></i>
+          <span>Chat History</span>
+          <i class="fas fa-chevron-down text-[#666]" id="historyArrow"></i>
+        </button>
+
+        <!-- Dropdown Chat History -->
+        <div id="dropdownContent" class="mt-2 hidden flex-col gap-3 w-[240px] max-h-48 overflow-y-auto">
+          <!-- Chat history items will be populated here -->
+        </div>
+
+        <!-- Voice Recording Indicator -->
+        <div id="voiceRecordingIndicator" class="hidden px-6 py-2 bg-red-50 border-l-4 border-red-500">
+            <div class="flex items-center gap-2">
+                <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                <span class="text-red-700 font-medium">Recording... Click to stop</span>
+                <button onclick="stopRecording()" class="ml-auto text-red-700 hover:text-red-900">
+                    <i class="fas fa-stop-circle text-xl"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Logout Button -->
+        <button onclick="logout()" class="fixed bottom-4 w-[230px] h-[40px] px-4 flex items-center justify-center gap-3 font-semibold text-[16px] text-gray-700 bg-white shadow rounded hover:bg-gray-50 transition-colors">
+          <i class="fas fa-sign-out-alt text-[#F50D0D]"></i>
+          <span class="text-[#F50D0D]">Log out</span>
+        </button>
+
+      </div>
+    </div>
+    <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden md:hidden"></div>
+
+    <!-- Main Content -->
+    <div class="flex-1 bg-white min-h-screen flex flex-col md:ml-0">
+        
+        <!-- Search Section -->
+        <div class="px-6 py-4">
+            <div class="relative flex gap-2">
+                <button id="mobileMenuBtn" class="md:hidden w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors">
+                  <i class="fas fa-bars w-6 h-6"></i>
+                </button>
+                <div class="relative flex-1">
+                    <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm"></i>
+                    <input
+                        type="text"
+                        placeholder="Search Conversations and Knowledge base..."
+                        class="w-full pl-12 pr-4 py-3 border-0 rounded-xl bg-gray-100 focus:outline-none text-gray-600 placeholder-gray-500"
+                        onkeypress="handleSearchKeyPress(event)"
+                    />
+                </div>
+                <button class="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors">
+                    <i class="fas fa-bell text-gray-500"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Tabs Section - Only Chat and Knowledge Base -->
+        <div class="flex items-center justify-between px-6 py-4">
+            <div class="bg-gray-100 rounded-2xl p-1 flex overflow-x-auto">
+                <button
+                    onclick="changeTab(this, 'chat')"
+                    class="tab-btn px-6 py-3 text-blue-500 font-semibold bg-white rounded-xl shadow-sm whitespace-nowrap"
+                >
+                    Chat
+                </button>
+                <button
+                    onclick="changeTab(this, 'knowledge')"
+                    class="tab-btn px-6 py-3 text-gray-500 font-semibold rounded-xl whitespace-nowrap hover:bg-gray-50"
+                >
+                    Knowledge Base
+                </button>
+            </div>
+            <div class="w-11 h-11 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                AI
+            </div>
+        </div>
+
+        <!-- Chat Header Section -->
+        <div class="flex items-center justify-between px-6 py-4 border-t border-gray-100">
+            <div class="flex items-center gap-3">
+                <div class="w-11 h-11 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                    AI
+                </div>
+                <div>
+                    <h3 class="text-gray-900 font-semibold text-lg" id="chatTitle">New Chat</h3>
+                    <p class="text-gray-500 text-sm" id="chatStatus">Online</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <button onclick="downloadCurrentChat()" class="w-10 h-10 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-download text-gray-500 text-sm"></i>
+                </button>
+                <button class="w-10 h-10 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-ellipsis-h text-gray-500 text-sm"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Chat Messages Area -->
+        <div class="flex-1 px-6 py-8 overflow-y-auto" id="chatMessages">
+            <div class="flex items-start gap-4">
+                <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                    AI
+                </div>
+                <div class="bg-gray-100 rounded-2xl px-5 py-4 max-w-lg">
+                    <p class="text-gray-700 leading-relaxed">
+                        Hello! I'm your AI assistant. How can I help you today?
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Knowledge Base Content -->
+        <div id="knowledgeBaseContent" class="hidden flex-1 px-6 py-8 overflow-y-auto">
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-bold text-blue-500 mb-2">Knowledge Base</h2>
+                <p class="text-gray-600">Manage your documents and search through your knowledge base</p>
+            </div>
+
+            <div class="mb-8">
+                <div class="bg-gray-100 rounded-2xl p-1 flex max-w-md mx-auto">
+                    <button onclick="switchKnowledgeTab('upload')" id="uploadTab" class="kb-tab-btn px-6 py-3 text-blue-500 font-semibold bg-white rounded-xl shadow-sm flex-1">
+                        Upload Documents
+                    </button>
+                    <button onclick="switchKnowledgeTab('search')" id="searchTab" class="kb-tab-btn px-6 py-3 text-gray-500 font-semibold hover:text-gray-700 flex-1">
+                        Search Knowledge
+                    </button>
+                </div>
+            </div>
+
+            <div id="uploadTabContent" class="max-w-4xl mx-auto">
+                <div class="text-center mb-6">
+                    <i class="fas fa-database text-blue-600 text-2xl mr-2"></i>
+                    <span class="text-gray-700 font-medium text-lg">Add Documents to Knowledge Base</span>
+                </div>
+                
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center mb-6 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors min-h-64 flex flex-col items-center justify-center" onclick="document.getElementById('knowledgeFileInput').click()">
+                    <i class="fas fa-cloud-upload-alt text-6xl text-gray-400 mb-4"></i>
+                    <p class="text-gray-600 text-xl mb-2">Drop your documents here or click to browse</p>
+                    <p class="text-gray-500">Support PDF, DOCX, TXT, and PPT files up to 10 MB</p>
+                    
+                    <input type="file" id="knowledgeFileInput" class="hidden" accept=".pdf,.doc,.docx,.txt,.ppt,.pptx" multiple onchange="handleKnowledgeFileSelect(event)">
+                </div>
+                
+                <div id="selectedKnowledgeFiles" class="hidden mb-6 space-y-3">
+                </div>
+                
+                <div class="text-center">
+                    <button onclick="uploadToKnowledgeBase()" id="uploadToKnowledgeBtn" class="px-8 py-3 border-2 border-blue-600 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-colors text-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        <span id="uploadBtnText">Upload to Knowledge Base</span>
+                        <i id="uploadBtnLoader" class="fas fa-spinner fa-spin ml-2 hidden"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div id="searchTabContent" class="hidden max-w-4xl mx-auto">
+                <div class="text-center mb-6">
+                    <i class="fas fa-search text-blue-600 text-2xl mr-2"></i>
+                    <span class="text-gray-700 font-medium text-lg">Search Your Knowledge Base</span>
+                </div>
+                
+                <div class="mb-8">
+                    <div class="relative max-w-2xl mx-auto">
+                        <i class="fas fa-search absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                        <input
+                            type="text"
+                            id="knowledgeSearchInput"
+                            placeholder="Search documents, topics, or keywords..."
+                            class="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-500 text-gray-700 text-lg"
+                            onkeypress="handleKnowledgeSearchKeyPress(event)"
+                        />
+                        <button onclick="searchKnowledgeBase()" class="absolute right-2 top-1/2 transform -translate-y-1/2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                            Search
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="knowledgeSearchResults" class="space-y-4">
+                    <div class="text-center text-gray-500 py-16">
+                        <i class="fas fa-search text-6xl mb-6"></i>
+                        <p class="text-xl">Enter a search term to find relevant documents and information</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- View Lessons Content -->
+        <div id="viewLessonsContent" class="hidden flex-1 px-6 py-8 overflow-y-auto w-full">
+            <div class="w-full mx-auto">
+                <div class="mb-6 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-3xl font-semibold text-[#05B0FC] mb-2" id="viewLessonsTitle">My Lessons</h2>
+                        <p class="text-gray-600" id="viewLessonsSubtitle">Access available lessons and ask questions</p>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <button onclick="generateLessonButton()" class="px-6 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-blue-600 transition-colors font-medium" id="generateLessonTopBtn" style="display: none;">
+                            <i class="fas fa-plus mr-2"></i>Generate Lesson
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Search and Filter Section -->
+                <div class="bg-white p-6 mb-8 w-full rounded-lg shadow-sm">
+                    <div class="flex items-center gap-4">
+                        <div class="flex-1">
+                            <input 
+                                type="text" 
+                                id="searchLessons" 
+                                placeholder="Search by title, content, or subject..."
+                                class="w-full px-4 py-3 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                onkeypress="handleLessonSearchKeyPress(event)"
+                            />
+                        </div>
+                        <button onclick="searchLessons()" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg transition-colors font-medium">
+                            <i class="fas fa-search mr-2"></i>Search Lessons
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Lessons Display -->
+                <div id="lessonsDisplay" class="space-y-6">
+                    <!-- Lessons will be loaded here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Most Frequent Questions View -->
+        <div id="mostFrequentQuestionsView" class="hidden flex-1 px-6 py-8 overflow-y-auto">
+            <div class="max-w-6xl mx-auto">
+                <div class="flex items-center mb-8">
+                    <button onclick="backToLessons()" class="mr-4 p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                        <i class="fas fa-arrow-left text-[#05B0FC] text-xl"></i>
+                    </button>
+                    <div class="text-center flex-1">
+                        <h2 class="text-3xl font-bold text-[#05B0FC] mb-2">Most Frequent Questions</h2>
+                        <p class="text-gray-600 text-center px-[200px]">View the most commonly asked questions by students in your lessons. This helps you identify knowledge gaps and improve engagement.</p>
+                    </div>
+                </div>
+
+                <!-- FAQ Table -->
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <!-- Table Header -->
+                    <div class="grid grid-cols-4 bg-[#05B0FC] text-white font-semibold py-4 px-6">
+                        <div class="flex items-center">
+                            <i class="fas fa-book mr-2"></i>
+                            Lesson Title
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-question-circle mr-2"></i>
+                            Question Asked
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-clock mr-2"></i>
+                            Time Asked
+                        </div>
+                        <div class="flex items-center">
+                            Subject & Grade
+                        </div>
+                    </div>
+
+                    <!-- Table Rows -->
+                    <div id="mostFrequentQuestionsTable" class="divide-y divide-gray-200">
+                        <!-- Content will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="text-center mt-8">
+                    <button onclick="backToLessons()" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-blue-600 transition-colors font-medium mr-4">
+                        <i class="fas fa-arrow-left mr-2"></i>
+                        Back to Lessons
+                    </button>
+                    <button onclick="exportAllFAQReport()" class="px-8 py-3 border border-[#05B0FC] text-[#05B0FC] rounded-lg hover:bg-blue-50 transition-colors font-medium">
+                        <i class="fas fa-download mr-2"></i>
+                        Export Report
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Frequently Asked Questions Dashboard for Teachers -->
+        <div id="faqDashboard" class="hidden flex-1 px-6 py-8 overflow-y-auto">
+            <div class="max-w-4xl mx-auto">
+                <div class="text-center mb-8">
+                    <h2 class="text-3xl font-bold text-[#05B0FC] mb-2">
+                        <i class="fas fa-chart-line mr-3"></i>
+                        Frequently Asked Questions Dashboard
+                    </h2>
+                    <p class="text-gray-600">Monitor the most common questions from your students</p>
+                </div>
+
+                <!-- FAQ Content will be populated here -->
+                <div id="faqDashboardContent">
+                    <div class="text-center py-16">
+                        <div class="loading mx-auto mb-4"></div>
+                        <p class="text-gray-500 text-lg">Loading FAQ data...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Enhanced Lesson Generator Content -->
+        <div id="lessonGeneratorContent" class="hidden flex-1 px-6 pt-8 overflow-y-auto">
+            <!-- Step 1: File Upload -->
+            <div id="uploadStep" class="max-w-4xl mx-auto">
+               <div class="text-center mb-8">
+                <h2 class="text-3xl font-bold text-[#05B0FC] mb-2">Generate Lesson from Document</h2>
+                <p class="text-gray-600">Upload your educational materials and create structured lesson plans</p>
+            </div>
+              
+                <div class="text-center mb-6">
+                    <i class="fas fa-upload text-[#05B0FC] text-2xl mr-2"></i>
+                    <span class="text-gray-700 font-medium text-lg">Upload Your PDF (Textbook or Handout)</span>
+                </div>
+                
+                <div class="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center mb-6 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors min-h-64 flex flex-col items-center justify-center" onclick="document.getElementById('lessonFileInput').click()">
+                    <div class="flex gap-2 mb-5">
+                        <img src="./excel.png" alt="">
+                        <img src="./ppt.png" alt="">
+                        <img src="./word.png" alt="">
+                    </div>
+                    <p class="text-gray-600 text-xl mb-2">Drop your file here or click to browse</p>
+                    <p class="text-gray-500">Support PDF, DOCX, and PPT files up to 10 MB</p>
+                    
+                    <input type="file" id="lessonFileInput" class="hidden" accept=".pdf,.doc,.docx,.txt,.ppt,.pptx" onchange="handleFileSelect(event)">
+                </div>
+                
+                <div id="selectedFileName" class="hidden mb-6 p-4 bg-sky-100 rounded-lg">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <i class="fas fa-file text-blue-500 mr-3"></i>
+                            <span class="text-lg text-blue-500 font-medium"></span>
+                        </div>
+                        <button onclick="removeSelectedFile()" class="text-blue-500 hover:text-red-600 p-2">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="text-center">
+                    <button onclick="proceedToLessonConfig()" id="proceedBtn" class="px-8 py-3 border-2 border-[#05B0FC] text-[#05B0FC] rounded-lg hover:bg-[#05B0FC] hover:text-white transition-colors text-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                        Generate Lesson
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 2: Lesson Configuration -->
+            <div id="configStep" class="hidden w-[436px] mx-auto text-slate-500 border border-blue-500 rounded-lg">
+                <div class="text-center mb-8 bg-[#05B0FC] text-white w-full py-4">
+                    <span class="font-medium text-xl">Lesson Details</span>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-lg p-4">
+                    <form id="lessonConfigForm" onsubmit="generateLesson(event)">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <!-- Lesson Title -->
+                            <div class="md:col-span-2">
+                                <label class="block text-gray-400 text-sm font-bold mb-2" for="lessonTitle">
+                                    Lesson Title *
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="lessonTitle" 
+                                    name="lessonTitle"
+                                    placeholder="Enter lesson title..."
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400"
+                                    required
+                                />
+                            </div>
+
+                            <!-- Learning Objective -->
+                            <div class="md:col-span-2 border-b">
+                                <label class="block text-gray-400 text-sm font-bold mb-2" for="learningObjective">
+                                    Learning Objective *
+                                </label>
+                                <textarea 
+                                    id="learningObjective" 
+                                    name="learningObjective"
+                                    placeholder="What should students learn from this lesson?"
+                                    class="w-full px-4 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400 h-10 resize-none"
+                                    required
+                                ></textarea>
+                            </div>
+
+                            <!-- Focus Area -->
+                            <div>
+                                <label class="block text-gray-400 text-sm font-bold mb-2" for="focusArea">
+                                    Focus Area *
+                                </label>
+                                <select 
+                                    id="focusArea" 
+                                    name="focusArea"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400"
+                                    required
+                                >
+                                    <option value="">Select focus area...</option>
+                                    <option value="Reading Comprehension">Reading Comprehension</option>
+                                    <option value="Mathematics">Mathematics</option>
+                                    <option value="Science">Science</option>
+                                    <option value="Social Studies">Social Studies</option>
+                                    <option value="Language Arts">Language Arts</option>
+                                    <option value="History">History</option>
+                                    <option value="Geography">Geography</option>
+                                    <option value="Literature">Literature</option>
+                                    <option value="Writing">Writing</option>
+                                    <option value="Critical Thinking">Critical Thinking</option>
+                                    <option value="Problem Solving">Problem Solving</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+
+                            <!-- Grade Level -->
+                            <div>
+                                <label class="block text-gray-400 text-sm font-bold mb-2" for="gradeLevel">
+                                    Grade Level *
+                                </label>
+                                <select 
+                                    id="gradeLevel" 
+                                    name="gradeLevel"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400"
+                                    required
+                                >
+                                    <option value="">Select grade level...</option>
+                                    <option value="K-1">Kindergarten - 1st Grade</option>
+                                    <option value="2-3">2nd - 3rd Grade</option>
+                                    <option value="4-5">4th - 5th Grade</option>
+                                    <option value="6-8">6th - 8th Grade (Middle School)</option>
+                                    <option value="9-12">9th - 12th Grade (High School)</option>
+                                    <option value="College">College/University</option>
+                                    <option value="Adult">Adult Education</option>
+                                </select>
+                            </div>
+
+                            <!-- Additional Notes -->
+                            <div class="md:col-span-2">
+                                <label class="block text-gray-400 text-sm font-bold mb-2" for="additionalNotes">
+                                    Additional Notes (Optional)
+                                </label>
+                                <textarea 
+                                    id="additionalNotes" 
+                                    name="additionalNotes"
+                                    placeholder="Any specific requirements, teaching methods, or notes..."
+                                    class="w-full px-4 py-3 border flex border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400 h-10 resize-none"
+                                ></textarea>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-center mt-4">
+                            <button type="submit" id="generateLessonFormBtn" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-[#05B0FC] transition-colors text-lg font-medium">
+                                <span id="generateBtnText">Generate Lesson</span>
+                                <i id="generateBtnLoader" class="fas fa-spinner fa-spin ml-2 hidden"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Step 3: Generated Lesson Display -->
+            <div id="lessonDisplay" class="hidden w-[616px] mx-auto p-5">
+                <div class="text-center mb-8 text-[#05B0FC] justify-center">
+                    <div class="flex gap-2 justify-center text-center">
+                        <img src="./f7_book.png" alt="">
+                        <span class="font-medium text-2xl">Initial Lesson Generated</span>
+                    </div>
+                    <p class="text-center mt-3 mb-3">Review the AI-Generated Content</p>
+                    <button class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-blue-600 transition-colors font-medium">Generated based on your Document</button>
+                </div>
+
+                <div class="bg-white">
+                    <!-- Lesson Header -->
+                    <div class="">
+                        <div class="mb-2">
+                            <div class="p-2 rounded-lg border border-blue-500 rounded-lg shadow-lg">
+                                <div id="lessonSummary" class="text-gray-700 leading-relaxed max-h-[436px] overflow-y-auto">
+                                    <p>Your generated lesson content will appear here...</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="additionalNotesDisplay" class="mb-6 hidden">
+                            <h4 class="text-lg font-semibold text-gray-800 mb-3">Additional Notes</h4>
+                            <div class="p-4 rounded-lg">
+                                <p class="text-yellow-800" id="displayAdditionalNotes"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="p-3">
+                        <div class="flex flex-row sm:flex-row justify-center items-center gap-4">
+                            <button onclick="reviewWithHuman()" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-blue-600 transition-colors font-medium flex items-center gap-2">
+                                Review with Human
+                            </button>
+                            <button onclick="reviewWithAI()" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-blue-600 transition-colors font-medium flex items-center gap-2">
+                                Review with AI
+                            </button>
+                        </div>
+                        <div class="flex justify-center mt-4">
+                            <button onclick="proceedToCompletion()" class="border border-[#05B0FC] px-8 py-3 bg-white text-[#05B0FC] hover:text-white hover:bg-[#05B0FC] rounded-lg transition-colors font-medium flex items-center gap-2">
+                                <i class="fas fa-check"></i>
+                                Finalize and Download
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lesson Completion Page -->
+            <div id="lessonCompletionPage" class="hidden max-w-2xl mx-auto text-center p-8">
+                <div class="mb-8">
+                    <div class="flex items-center justify-center mb-4">
+                        <i class="fas fa-check-circle text-[#05B0FC] text-4xl mr-3"></i>
+                        <h2 class="text-3xl font-bold text-[#05B0FC]">Your lesson is ready!</h2>
+                    </div>
+                    <p class="text-gray-600 text-lg">Download and share your lesson</p>
+                </div>
+
+                <!-- Lesson File Display -->
+                <div class="mb-8">
+                    <div class="bg-[#05B0FC] text-white rounded-lg px-6 py-4 text-lg font-medium">
+                        <i class="fas fa-file mr-2"></i>
+                        <span id="completedLessonTitle">Sample Lesson from document.pdf</span>
+                    </div>
+                </div>
+
+                <!-- Download Buttons -->
+                <div class="flex justify-center gap-4 mb-8">
+                    <button onclick="downloadLesson('pdf')" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg transition-colors font-medium flex items-center gap-2">
+                        <i class="fas fa-download"></i>
+                        Download PDF
+                    </button>
+                    <button onclick="downloadLesson('docx')" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg transition-colors font-medium flex items-center gap-2">
+                        <i class="fas fa-download"></i>
+                        Download DOCX
+                    </button>
+                </div>
+
+                <!-- Start New Lesson Button -->
+                <div>
+                    <button onclick="startNewLesson()" class="px-12 py-4 text-[#05B0FC] hover:text-white bg-white hover:bg-[#05B0FC] border border-[#05B0FC] rounded-lg transition-colors font-medium text-lg">
+                        Start New Lesson
+                    </button>
+                </div>
+            </div>
+
+            <!-- Human Review Interface -->
+            <div class="max-h-[80vh] overflow-y-auto">
+                <div id="humanReviewInterface" class="hidden w-[616px] mx-auto px-6 pt-8 border border-[#05B0FC] shadow-3xl rounded-xl">
+                    <div class="text-center mb-8">
+                        <div class="flex gap-2 justify-center items-center">
+                            <img src="./manual.png" alt="Manual Edit Icon" class="h-8 w-8">
+                            <h2 class="text-3xl font-bold text-[#05B0FC] mb-2">Manual Edit</h2>
+                        </div>
+                        <p class="text-gray-600">Manually edit the content below</p>
+                    </div>
+
+                    <div class="p-4">
+                        <!-- Single Editable Content Area -->
+                        <div class="mb-6">
+                            <textarea
+                                id="humanReviewContent"
+                                class="w-full px-4 py-3 border border-[#05B0FC] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[24rem] max-h-[32rem] overflow-y-auto resize-none text-sm font-mono"
+                                placeholder="Edit your lesson content here..."
+                            ></textarea>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="flex justify-end gap-2">
+                            <button
+                                onclick="cancelHumanReview()"
+                                class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onclick="saveHumanReview()"
+                                class="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
+                            >
+                                Apply Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Review Interface -->
+            <div class="max-h-[80vh] overflow-y-auto">
+                <div id="aiReviewInterface" class="hidden max-w-4xl mx-auto px-6 pt-8">
+                    <div class="text-center mb-8">
+                        <div class="flex justify-center items-center gap-2">
+                            <img src="./manual.png" alt="Manual Edit Icon" class="h-8 w-8">
+                            <h2 class="text-3xl font-bold text-[#05B0FC] mb-2">Edit With AI</h2>
+                        </div>
+                        <p class="">Provide Instruction to AI to modify your lesson </p>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-lg p-8 border border-[#05B0FC]">
+                        <div class="mb-6">
+                            <label class="block text-[#05B0FC] text-sm font-bold mb-2" for="aiReviewPrompt">
+                                Add Your Prompt Here
+                            </label>
+                            <textarea 
+                                id="aiReviewPrompt"
+                                placeholder="Describe what changes you want AI to make..."
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 min-h-[8rem] max-h-[16rem] overflow-y-auto resize-none"
+                            ></textarea>
+                        </div>
+                        <div class="mb-6 border border-[#05B0FC] rounded-lg p-4 bg-blue-50">
+                            <label class="block  text-sm text-[#05B0FC] font-bold mb-2 ">
+                                Current Lesson Preview
+                            </label>
+                            <div id="currentLessonPreview" class="bg-blue-80 p-4 rounded-lg min-h-[8rem] max-h-[12rem] overflow-y-auto text-sm">
+                                <!-- This area will scroll if content is long -->
+                            </div>
+                        </div>
+                        <div class="flex justify-end gap-2">
+                            <button onclick="cancelAIReview()" class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-times mr-2"></i>Cancel
+                            </button>
+                            <button onclick="applyAIReview()" id="applyAIReviewBtn" class="px-6 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-[#05B0FC]-600 transition-colors font-medium">
+                                <span id="applyAIReviewText">Apply AI Changes</span>
+                                <i id="applyAIReviewLoader" class="fas fa-spinner fa-spin ml-2 hidden"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Content -->
+         <div id="settingsContent" class="hidden flex-1 px-6 py-8 overflow-y-auto">
+            <div class="max-w-2xl mx-auto">
+                <div class="bg-white rounded-xl p-8 shadow-lg">
+                    <h3 class="text-2xl text-center font-bold text-sky-500 mb-6">Update API Key</h3>
+                    
+                    <div class="text-gray-600 space-y-3 mb-6">
+                        <p class="font-bold text-sky-500 text-lg">How to get your GROQ API Key:</p>
+                        <p>1. Visit <span class="text-red-500 font-semibold">Groq Console</span></p>
+                        <p>2. Sign up or log in to your account</p>
+                        <p>3. Go to the API Keys section</p>
+                        <p>4. Click "Create API Key"</p>
+                        <p>5. Copy your API key and paste it below</p>
+                        <p class="text-sm text-gray-500">Your API key should start with "gsk_"</p>
+                    </div>
+                    
+                    <div class="mb-6">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="apiKeyInput">
+                            API Key
+                        </label>
+                        <div class="relative">
+                            <input 
+                                type="password" 
+                                id="apiKeyInput" 
+                                placeholder="Enter your GROQ API key..." 
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 pr-12"
+                            />
+                            <button onclick="toggleApiKeyVisibility()" class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-eye" id="toggleApiKeyIcon"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-4">
+                        <button onclick="clearApiKey()" class="flex-1 px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors">
+                            Clear
+                        </button>
+                        <button onclick="saveApiKey()" class="flex-1 px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                            Save API Key
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="voiceRecordingIndicator" class="hidden px-6 py-2 bg-red-50 border-l-4 border-red-500">
+            <div class="flex items-center gap-2">
+                <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                <span class="text-red-700 font-medium">Recording... Click to stop</span>
+                <button onclick="stopRecording()" class="ml-auto text-red-700 hover:text-red-900">
+                    <i class="fas fa-stop-circle text-xl"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Input Area -->
+        <div class="px-6 py-4 border-t border-gray-100 mt-[40px]">
+            <div class="flex items-center gap-3">
+                <button onclick="toggleVoiceRecording()" id="micButton" class="w-12 h-12 border border-gray-200 rounded-xl flex items-center justify-center hover:bg-gray-50 transition-colors">
+                  <img src="./recorder.png" alt="">
+                </button>
+                <button onclick="toggleVoiceOutput()" id="voiceOutputBtn" class="w-12 h-12 border border-gray-200 rounded-xl flex items-center justify-center hover:bg-gray-50 transition-colors">
+                  <img src="./voice.png" alt="">
+                </button>
+                
+                <div class="flex-1 relative">
+                    <input
+                        type="text"
+                        id="messageInput"
+                        placeholder="Type your message"
+                        class="w-full px-6 py-4 bg-gray-100 rounded-full border-0 focus:outline-none text-gray-700 placeholder-gray-500"
+                        onkeypress="handleKeyPress(event)"
+                    />
+                    <button class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                        <i class="far fa-smile text-xl"></i>
+                    </button>
+                </div>
+                
+                <button onclick="sendMessage()" class="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center hover:bg-blue-600 transition-colors">
+                    <img src="./sender.png" alt="">
+                </button>
+            </div>
+        </div>
+    </div>
+
+  </div>
+
+  <!-- Ask Question Modal -->
+  <div id="askQuestionModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-lg p-6 w-96 max-w-md mx-4">
+      <!-- Modal Header -->
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <h3 class="text-lg font-semibold text-[#05B0FC]">Ask Question</h3>
+          <p class="text-sm text-gray-600" id="modalLessonTitle">Loading...</p>
+        </div>
+        <button onclick="closeAskQuestionModal()" class="text-gray-400 hover:text-gray-600">
+          <i class="fas fa-times text-xl"></i>
+        </button>
+      </div>
+
+      <!-- Modal Content -->
+      <div class="mb-4">
+        <p class="text-sm text-gray-600 mb-4" id="modalLessonHelper">Tell me how to help you understand this lesson...</p>
+      </div>
+
+      <!-- Question Input -->
+      <div class="mb-4">
+        <div class="relative">
+          <input
+            type="text"
+            id="questionInput"
+            placeholder="Type your Question about this Lesson"
+            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 pr-12"
+          />
+          <button onclick="submitQuestion()" class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-[#05B0FC] text-white p-2 rounded-lg hover:bg-blue-600 transition-colors">
+            <i class="fas fa-paper-plane"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- JS -->
+  <script>
+    // Global variables
+    let chatHistory = [];
+    let currentChatId = null;
+    let isRecording = false;
+    let isVoiceOutputEnabled = false;
+    let mediaRecorder = null;
+    let selectedKnowledgeFiles = [];
+    let currentView = 'chat';
+    let currentLessonFile = null;
+    let currentLessonData = null;
+    let isCollapsed = false;
+    let recognition = null;
+    let synthesis = null;
+    let voiceChatConnection = null;
+    let voiceChatTimer = null;
+    let voiceChatSeconds = 0;
+    let isVoiceChatActive = false;
+    let userRole = 'student'; // Will be set from API
+    let userInfo = null;
+    let currentQuestionLessonId = null;
+    let generatedLessonContent = '';
+    let currentLessonForFAQ = null;
+    let availableLessons = [];
+    let lessonFAQs = {};
+
+    // Initialize
+    window.onload = function() {
+        loadUserInfo();
+        loadChatHistory();
+        startNewChat();
+        updateTokenMeter();
+        checkApiKeyStatus();
+        setupSidebarListeners();
+        
+        // Initialize mobile state
+        if (window.innerWidth < 768) {
+            document.getElementById('sidebar').classList.add('-translate-x-full');
+        }
+    };
+
+    // Load user information and set up role-based UI
+    async function loadUserInfo() {
+        try {
+            const response = await fetch('/user_info', {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                userInfo = data.user;
+                userRole = data.user.role;
+                
+                // Set up role-based UI
+                setupRoleBasedUI();
+            } else {
+                console.error('Failed to load user info');
+                // Redirect to login if not authenticated
+                window.location.href = '/login';
+            }
+        } catch (error) {
+            console.error('Error loading user info:', error);
+            // Redirect to login on error
+            window.location.href = '/login';
+        }
+    }
+
+    // Set up role-based UI elements
+    function setupRoleBasedUI() {
+        const viewLessonsLabel = document.getElementById('viewLessonsLabel');
+        const lessonGeneratorContent = document.getElementById('lessonGeneratorContent');
+        const generateLessonBtn = document.getElementById('generateLessonBtn');
+        const generateLessonTopBtn = document.getElementById('generateLessonTopBtn');
+        const viewLessonsTitle = document.getElementById('viewLessonsTitle');
+        const viewLessonsSubtitle = document.getElementById('viewLessonsSubtitle');
+        const faqDashboardBtn = document.getElementById('faqDashboardBtn');
+        
+        if (userRole === 'teacher') {
+            if (viewLessonsLabel) viewLessonsLabel.textContent = 'My Lessons';
+            if (lessonGeneratorContent) lessonGeneratorContent.style.display = '';
+            if (generateLessonBtn) generateLessonBtn.style.display = '';
+            if (generateLessonTopBtn) generateLessonTopBtn.style.display = '';
+            if (viewLessonsTitle) viewLessonsTitle.textContent = 'My Lessons';
+            if (viewLessonsSubtitle) viewLessonsSubtitle.textContent = 'Explore Your AI Powered Lessons';
+            if (faqDashboardBtn) faqDashboardBtn.style.display = '';
+            
+        } else if (userRole === 'student') {
+            if (viewLessonsLabel) viewLessonsLabel.textContent = 'View Lessons';
+            if (lessonGeneratorContent) lessonGeneratorContent.style.display = 'none';
+            if (generateLessonBtn) generateLessonBtn.style.display = 'none';
+            if (generateLessonTopBtn) generateLessonTopBtn.style.display = 'none';
+            if (viewLessonsTitle) viewLessonsTitle.textContent = 'Browse Lessons';
+            if (viewLessonsSubtitle) viewLessonsSubtitle.textContent = 'Explore available lessons';
+            if (faqDashboardBtn) faqDashboardBtn.style.display = 'none';
+        }
+        
+        // Update lessons display based on role
+        if (currentView === 'viewLessons') {
+            loadAvailableLessons();
+        }
+    }
+
+    // Load available lessons based on user role
+    async function loadAvailableLessons() {
+        try {
+            let endpoint = userRole === 'teacher' ? '/api/lessons/my_lessons' : '/api/lessons/browse_lessons';
+            
+            const response = await fetch(endpoint, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                availableLessons = data.lessons || [];
+                displayLessonsBasedOnRole();
+            } else {
+                console.error('Failed to load lessons');
+                showNotification('Failed to load lessons', 'error');
+            }
+        } catch (error) {
+            console.error('Error loading lessons:', error);
+            showNotification('Error loading lessons', 'error');
+        }
+    }
+
+    // Display lessons based on user role
+    function displayLessonsBasedOnRole() {
+        const lessonsDisplay = document.getElementById('lessonsDisplay');
+        
+        if (availableLessons.length === 0) {
+            lessonsDisplay.innerHTML = `
+                <div class="text-center py-16 text-gray-500">
+                    <i class="fas fa-book text-6xl mb-4"></i>
+                    <p class="text-xl">No lessons found</p>
+                    <p class="text-gray-400">${userRole === 'teacher' ? 'Create your first lesson' : 'No lessons available yet'}</p>
+                </div>
+            `;
+            return;
+        }
+        
+        if (userRole === 'teacher') {
+            // Teacher view with edit, delete, download, view FAQs actions
+            lessonsDisplay.innerHTML = `
+                <!-- Header -->
+                <div class="grid grid-cols-6 bg-[#05B0FC] text-white font-semibold py-3 px-4 rounded-t-lg">
+                    <div>No</div>
+                    <div>Lesson Title</div>
+                    <div>Subject</div>
+                    <div>Grade</div>
+                    <div>Created By</div>
+                    <div>Actions</div>
+                </div>
+                
+                ${availableLessons.map((lesson, index) => `
+                    <div class="grid grid-cols-6 py-3 px-4 border-b hover:bg-gray-50">
+                        <div class="flex items-center">${index + 1}</div>
+                        <div class="flex items-center font-medium text-gray-900">${lesson.title}</div>
+                        <div class="flex items-center">
+                            <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${lesson.subject}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="px-2 py-1 text-blue-800 text-xs">${lesson.grade}</span>
+                        </div>
+                        <div class="flex items-center text-gray-700">${lesson.created_by}</div>
+                        <div class="flex flex-row gap-1">
+                            <button onclick="editLesson(${lesson.id})" class="px-2 py-2 text-green-600 hover:bg-green-50 rounded transition-colors" title="Edit">
+                                <img src="edit.png" alt="">
+                            </button>
+                            <button onclick="deleteLesson(${lesson.id})" class="px-2 py-2 text-red-600 hover:bg-red-50 rounded transition-colors" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            <button onclick="downloadLessonFile(${lesson.id})" class="px-2 py-2 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Download">
+                                <img src="Group69.png" alt="">
+                            </button>
+                            <button onclick="viewLessonFAQs(${lesson.id}, '${lesson.title}')" class="px-2 py-2 text-purple-600 hover:bg-purple-50 rounded transition-colors" title="View FAQs">
+                                <img src="faqs.png" alt="">
+                            </button>
+                        </div>
+                    </div>
+                `).join('')}
+            `;
+            
+        } else {
+            // Student view with ask question action only
+            lessonsDisplay.innerHTML = `
+                <!-- Header -->
+                <div class="grid grid-cols-6 bg-[#05B0FC] text-white font-semibold py-3 px-4 rounded-t-lg">
+                    <div>No</div>
+                    <div>Lesson Title</div>
+                    <div>Subject</div>
+                    <div>Grade</div>
+                    <div>Created By</div>
+                    <div>Actions</div>
+                </div>
+                
+                ${availableLessons.map((lesson, index) => `
+                    <div class="grid grid-cols-6 py-3 px-4 border-b hover:bg-gray-50">
+                        <div class="flex items-center">${index + 1}</div>
+                        <div class="flex items-center font-medium text-gray-900">${lesson.title}</div>
+                        <div class="flex items-center">
+                            <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${lesson.subject}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="px-2 py-1 text-blue-800 text-xs">${lesson.grade}</span>
+                        </div>
+                        <div class="flex items-center text-gray-700">${lesson.created_by}</div>
+                        <div class="flex flex-row gap-1">
+                            <button onclick="downloadLessonFile(${lesson.id})" class="px-2 py-2 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Download">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            <button onclick="openAskQuestionModal(${lesson.id}, '${lesson.title}')" class="px-2 py-2 text-green-600 hover:bg-green-50 rounded transition-colors" title="Ask Question">
+                                <i class="fas fa-question"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('')}
+            `;
+        }
+    }
+
+    // Teacher-specific lesson management functions
+    function editLesson(lessonId) {
+        const lesson = availableLessons.find(l => l.id === lessonId);
+        if (lesson) {
+            showNotification(`Edit functionality for "${lesson.title}" would open lesson editor`, 'info');
+            // TODO: Implement lesson editor interface
+        }
+    }
+
+    async function deleteLesson(lessonId) {
+        const lesson = availableLessons.find(l => l.id === lessonId);
+        if (lesson && confirm(`Are you sure you want to delete "${lesson.title}"?`)) {
+            try {
+                const response = await fetch(`/api/lessons/delete_lesson/${lessonId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    showNotification(`"${lesson.title}" deleted successfully`, 'success');
+                    loadAvailableLessons(); // Refresh the lessons list
+                } else {
+                    showNotification('Failed to delete lesson', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting lesson:', error);
+                showNotification('Error deleting lesson', 'error');
+            }
+        }
+    }
+
+    async function viewLessonFAQs(lessonId, lessonTitle) {
+        try {
+            const response = await fetch(`/api/lessons/faqs/${lessonId}`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                lessonFAQs[lessonId] = data.faqs || [];
+                
+                // Show Most Frequent Questions view
+                hideAllContentAreas();
+                document.getElementById('mostFrequentQuestionsView').classList.remove('hidden');
+                currentView = 'mostFrequentQuestions';
+                
+                // Update header
+                document.getElementById('chatTitle').textContent = 'Most Frequent Questions';
+                document.getElementById('chatStatus').textContent = 'View Student Questions';
+                
+                // Load questions for this specific lesson
+                loadMostFrequentQuestions();
+            } else {
+                showNotification('Failed to load lesson FAQs', 'error');
+            }
+        } catch (error) {
+            console.error('Error loading lesson FAQs:', error);
+            showNotification('Error loading lesson FAQs', 'error');
+        }
+    }
+
+    function loadMostFrequentQuestions() {
+        const tableContainer = document.getElementById('mostFrequentQuestionsTable');
+        
+        if (Object.keys(lessonFAQs).length === 0) {
+            tableContainer.innerHTML = `
+                <div class="text-center py-16 text-gray-500">
+                    <i class="fas fa-question-circle text-6xl mb-4"></i>
+                    <p class="text-xl">No questions found</p>
+                    <p class="text-gray-400">Students haven't asked questions yet</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Generate table rows from API data
+        let allQuestions = [];
+        Object.entries(lessonFAQs).forEach(([lessonId, faqs]) => {
+            const lesson = availableLessons.find(l => l.id == lessonId);
+            if (lesson && faqs.length > 0) {
+                faqs.forEach(faq => {
+                    allQuestions.push({
+                        ...faq,
+                        lessonTitle: lesson.title,
+                        lessonSubject: lesson.subject,
+                        lessonGrade: lesson.grade
+                    });
+                });
+            }
+        });
+
+        if (allQuestions.length === 0) {
+            tableContainer.innerHTML = `
+                <div class="text-center py-16 text-gray-500">
+                    <i class="fas fa-question-circle text-6xl mb-4"></i>
+                    <p class="text-xl">No questions found</p>
+                    <p class="text-gray-400">Students haven't asked questions yet</p>
+                </div>
+            `;
+            return;
+        }
+
+        tableContainer.innerHTML = allQuestions.map(question => `
+            <div class="grid grid-cols-4 py-4 px-6 hover:bg-gray-50 transition-colors">
+                <div class="flex items-center">
+                    <span class="font-medium text-gray-900">${question.lessonTitle}</span>
+                </div>
+                <div class="flex items-center">
+                    <span class="text-gray-700">${question.question}</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-[#05B0FC] text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">
+                            ${question.times_asked || 1}
+                        </div>
+                        <span class="text-gray-600">${question.time_ago || 'Recently'}</span>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm mr-2">${question.lessonSubject}</span>
+                    <span class="text-gray-600">${question.lessonGrade}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function backToLessons() {
+        openViewLessons();
+    }
+
+    function exportAllFAQReport() {
+        showNotification('Complete FAQ report export functionality would be implemented here', 'info');
+    }
+
+    // Show frequently asked questions dashboard to teachers
+    async function showFrequentlyAskedQuestions() {
+        hideAllContentAreas();
+        document.getElementById('faqDashboard').classList.remove('hidden');
+        currentView = 'faqDashboard';
+        
+        // Update chat header
+        document.getElementById('chatTitle').textContent = 'FAQ Dashboard';
+        document.getElementById('chatStatus').textContent = 'Monitor Student Questions';
+        
+        // Load FAQ dashboard data
+        await loadFAQDashboard();
+    }
+
+    async function loadFAQDashboard() {
+        const dashboardContent = document.getElementById('faqDashboardContent');
+        
+        try {
+            // This would call a real API endpoint for FAQ dashboard data
+            const response = await fetch('/api/lessons/faq_dashboard', {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                displayFAQDashboard(data);
+            } else {
+                throw new Error('Failed to load FAQ dashboard');
+            }
+        } catch (error) {
+            console.error('Error loading FAQ dashboard:', error);
+            // Display error message
+            dashboardContent.innerHTML = `
+                <div class="text-center py-16 text-gray-500">
+                    <i class="fas fa-exclamation-triangle text-6xl mb-4"></i>
+                    <p class="text-xl">Error loading FAQ dashboard</p>
+                    <p class="text-gray-400">Please try again later</p>
+                </div>
+            `;
+        }
+    }
+
+    function displayFAQDashboard(data) {
+        const dashboardContent = document.getElementById('faqDashboardContent');
+        
+        dashboardContent.innerHTML = `
+            <!-- Quick Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-blue-100 text-sm">Total Questions</p>
+                            <p class="text-3xl font-bold">${data.total_questions || 0}</p>
+                        </div>
+                        <i class="fas fa-question-circle text-4xl text-blue-200"></i>
+                    </div>
+                </div>
+                
+                <div class="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-green-100 text-sm">This Week</p>
+                            <p class="text-3xl font-bold">${data.weekly_questions || 0}</p>
+                        </div>
+                        <i class="fas fa-calendar-week text-4xl text-green-200"></i>
+                    </div>
+                </div>
+                
+                <div class="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-purple-100 text-sm">Active Students</p>
+                            <p class="text-3xl font-bold">${data.active_students || 0}</p>
+                        </div>
+                        <i class="fas fa-users text-4xl text-purple-200"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Questions by Lesson -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h3 class="text-xl font-semibold text-gray-800 mb-6">
+                    <i class="fas fa-fire text-red-500 mr-2"></i>
+                    Most Asked Questions by Lesson
+                </h3>
+                
+                <div class="space-y-4">
+                    ${(data.top_questions || []).map(lesson => `
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex justify-between items-center mb-3">
+                                <h4 class="font-semibold text-blue-600">${lesson.title}</h4>
+                                <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">${lesson.subject}</span>
+                            </div>
+                            <div class="space-y-2">
+                                ${lesson.questions.map(q => `
+                                    <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                        <span class="text-gray-700">${q.question}</span>
+                                        <span class="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">Asked ${q.count} times</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+
+            <!-- Recent Questions -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-xl font-semibold text-gray-800 mb-6">
+                    <i class="fas fa-clock text-blue-500 mr-2"></i>
+                    Recent Questions (Last 24 hours)
+                </h3>
+                
+                <div class="space-y-3">
+                    ${(data.recent_questions || []).map(q => `
+                        <div class="flex items-center justify-between p-3 border-l-4 border-blue-500 bg-blue-50 rounded-r">
+                            <div>
+                                <p class="font-medium text-gray-800">${q.question}</p>
+                                <p class="text-sm text-gray-600">Student: ${q.student_name} • ${q.lesson_title} • ${q.time_ago}</p>
+                            </div>
+                            <button onclick="respondToQuestion('${q.id}')" class="bg-blue-500 text-white px-3 py-1 rounded-full text-xs hover:bg-blue-600 transition-colors">
+                                Respond
+                            </button>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="text-center mt-8">
+                <button onclick="openViewLessons()" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-blue-600 transition-colors font-medium mr-4">
+                    <i class="fas fa-book-open mr-2"></i>
+                    View All Lessons
+                </button>
+                <button onclick="exportFAQReport()" class="px-8 py-3 border border-[#05B0FC] text-[#05B0FC] rounded-lg hover:bg-blue-50 transition-colors font-medium">
+                    <i class="fas fa-download mr-2"></i>
+                    Export Report
+                </button>
+            </div>
+        `;
+    }
+
+    // Open lesson generator from sidebar
+    function openLessonGenerator() {
+        if (userRole !== 'teacher') {
+            showNotification('Only teachers can create lessons', 'error');
+            return;
+        }
+        
+        // Hide all content areas
+        hideAllContentAreas();
+        
+        // Show lesson generator content
+        document.getElementById('lessonGeneratorContent').classList.remove('hidden');
+        currentView = 'lesson';
+        
+        // Reset to upload step
+        showLessonStep('upload');
+        
+        // Update chat header
+        document.getElementById('chatTitle').textContent = 'Lesson Generator';
+        document.getElementById('chatStatus').textContent = 'Create New Lesson';
+    }
+
+    // Open view lessons from sidebar
+    function openViewLessons() {
+        // Hide all content areas
+        hideAllContentAreas();
+        
+        // Show view lessons content
+        document.getElementById('viewLessonsContent').classList.remove('hidden');
+        currentView = 'viewLessons';
+        
+        // Update chat header
+        document.getElementById('chatTitle').textContent = userRole === 'teacher' ? 'My Lessons' : 'Browse Lessons';
+        document.getElementById('chatStatus').textContent = 'View Available Lessons';
+        
+        // Load lessons
+        loadAvailableLessons();
+    }
+
+    // Hide all content areas
+    function hideAllContentAreas() {
+        document.getElementById('chatMessages').classList.add('hidden');
+        document.getElementById('knowledgeBaseContent').classList.add('hidden');
+        document.getElementById('lessonGeneratorContent').classList.add('hidden');
+        document.getElementById('viewLessonsContent').classList.add('hidden');
+        document.getElementById('settingsContent').classList.add('hidden');
+        document.getElementById('faqDashboard').classList.add('hidden');
+        document.getElementById('mostFrequentQuestionsView').classList.add('hidden');
+    }
+
+    // Show specific lesson generation step
+    function showLessonStep(step) {
+        // Hide all lesson steps
+        document.getElementById('uploadStep').classList.add('hidden');
+        document.getElementById('configStep').classList.add('hidden');
+        document.getElementById('lessonDisplay').classList.add('hidden');
+        document.getElementById('lessonCompletionPage').classList.add('hidden');
+        document.getElementById('humanReviewInterface').classList.add('hidden');
+        document.getElementById('aiReviewInterface').classList.add('hidden');
+        
+        // Show the requested step
+        switch(step) {
+            case 'upload':
+                document.getElementById('uploadStep').classList.remove('hidden');
+                break;
+            case 'config':
+                document.getElementById('configStep').classList.remove('hidden');
+                break;
+            case 'display':
+                document.getElementById('lessonDisplay').classList.remove('hidden');
+                break;
+            case 'completion':
+                document.getElementById('lessonCompletionPage').classList.remove('hidden');
+                break;
+            case 'humanReview':
+                document.getElementById('humanReviewInterface').classList.remove('hidden');
+                break;
+            case 'aiReview':
+                document.getElementById('aiReviewInterface').classList.remove('hidden');
+                break;
+        }
+    }
+
+    // Lesson Generator Functions
+    function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (file) {
+            // Check file size (10MB limit)
+            if (file.size > 10 * 1024 * 1024) {
+                showNotification('File size should be less than 10 MB', 'error');
+                return;
+            }
+            
+            currentLessonFile = file;
+            const fileNameDisplay = document.getElementById('selectedFileName');
+            fileNameDisplay.querySelector('span').textContent = file.name;
+            fileNameDisplay.classList.remove('hidden');
+            document.getElementById('proceedBtn').disabled = false;
+        }
+    }
+
+    function removeSelectedFile() {
+        document.getElementById('selectedFileName').classList.add('hidden');
+        document.getElementById('lessonFileInput').value = '';
+        document.getElementById('proceedBtn').disabled = true;
+        currentLessonFile = null;
+    }
+
+    function proceedToLessonConfig() {
+        if (!currentLessonFile) {
+            showNotification('Please select a file first', 'error');
+            return;
+        }
+        
+        showLessonStep('config');
+        showNotification('File uploaded successfully! Please fill in the lesson details.', 'success');
+    }
+
+    async function generateLesson(event) {
+        event.preventDefault();
+        
+        const formData = new FormData();
+        const form = document.getElementById('lessonConfigForm');
+        
+        // Add form fields
+        formData.append('title', form.lessonTitle.value);
+        formData.append('learning_objective', form.learningObjective.value);
+        formData.append('focus_area', form.focusArea.value);
+        formData.append('grade_level', form.gradeLevel.value);
+        formData.append('additional_notes', form.additionalNotes.value);
+        
+        // Add file
+        if (currentLessonFile) {
+            formData.append('file', currentLessonFile);
+        }
+        
+        const generateBtn = document.getElementById('generateLessonFormBtn');
+        const generateBtnText = document.getElementById('generateBtnText');
+        const generateBtnLoader = document.getElementById('generateBtnLoader');
+        
+        // Disable button and show loading
+        generateBtn.disabled = true;
+        generateBtnText.textContent = 'Generating...';
+        generateBtnLoader.classList.remove('hidden');
+        
+        try {
+            const response = await fetch('/api/lessons/create_lesson', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                
+                // Store generated lesson data
+                currentLessonData = {
+                    id: data.lesson_id,
+                    title: form.lessonTitle.value,
+                    objective: form.learningObjective.value,
+                    focusArea: form.focusArea.value,
+                    gradeLevel: form.gradeLevel.value,
+                    additionalNotes: form.additionalNotes.value,
+                    content: data.lesson_content || data.content
+                };
+                
+                generatedLessonContent = currentLessonData.content;
+                
+                // Display the generated lesson
+                displayGeneratedLesson();
+                showLessonStep('display');
+                showNotification('Lesson generated successfully!', 'success');
+                
+            } else {
+                const errorData = await response.json();
+                showNotification(`Error generating lesson: ${errorData.error || 'Generation failed'}`, 'error');
+            }
+            
+        } catch (error) {
+            console.error('Error generating lesson:', error);
+            showNotification('Error generating lesson. Please try again.', 'error');
+            
+        } finally {
+            // Re-enable button and hide loading
+            generateBtn.disabled = false;
+            generateBtnText.textContent = 'Generate Lesson';
+            generateBtnLoader.classList.add('hidden');
+        }
+    }
+
+    function displayGeneratedLesson() {
+        if (currentLessonData) {
+            const lessonSummary = document.getElementById('lessonSummary');
+            lessonSummary.innerHTML = `<pre class="whitespace-pre-wrap font-sans">${currentLessonData.content}</pre>`;
+            
+            // Show additional notes if provided
+            if (currentLessonData.additionalNotes) {
+                const additionalNotesDisplay = document.getElementById('additionalNotesDisplay');
+                const displayAdditionalNotes = document.getElementById('displayAdditionalNotes');
+                displayAdditionalNotes.textContent = currentLessonData.additionalNotes;
+                additionalNotesDisplay.classList.remove('hidden');
+            }
+        }
+    }
+
+    // Review Functions
+    function reviewWithHuman() {
+        document.getElementById('humanReviewContent').value = generatedLessonContent;
+        showLessonStep('humanReview');
+    }
+
+    function reviewWithAI() {
+        document.getElementById('currentLessonPreview').textContent = generatedLessonContent;
+        showLessonStep('aiReview');
+    }
+
+    function cancelHumanReview() {
+        showLessonStep('display');
+    }
+
+    function saveHumanReview() {
+        const editedContent = document.getElementById('humanReviewContent').value;
+        
+        if (editedContent.trim()) {
+            generatedLessonContent = editedContent;
+            currentLessonData.content = editedContent;
+            displayGeneratedLesson();
+            showLessonStep('display');
+            showNotification('Changes applied successfully!', 'success');
+        } else {
+            showNotification('Please enter some content', 'error');
+        }
+    }
+
+    function cancelAIReview() {
+        document.getElementById('aiReviewPrompt').value = '';
+        showLessonStep('display');
+    }
+
+    async function applyAIReview() {
+        const prompt = document.getElementById('aiReviewPrompt').value.trim();
+        
+        if (!prompt) {
+            showNotification('Please enter instructions for AI', 'error');
+            return;
+        }
+        
+        const applyBtn = document.getElementById('applyAIReviewBtn');
+        const applyBtnText = document.getElementById('applyAIReviewText');
+        const applyBtnLoader = document.getElementById('applyAIReviewLoader');
+        
+        // Disable button and show loading
+        applyBtn.disabled = true;
+        applyBtnText.textContent = 'Processing...';
+        applyBtnLoader.classList.remove('hidden');
+        
+        try {
+            const response = await fetch('/edit_lesson_with_prompt', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    lesson_content: generatedLessonContent,
+                    prompt: prompt
+                }),
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                generatedLessonContent = data.updated_content || data.content;
+                currentLessonData.content = generatedLessonContent;
+                displayGeneratedLesson();
+                showLessonStep('display');
+                showNotification('AI review applied successfully!', 'success');
+            } else {
+                const errorData = await response.json();
+                showNotification(`Error applying AI review: ${errorData.error}`, 'error');
+            }
+            
+        } catch (error) {
+            console.error('Error applying AI review:', error);
+            showNotification('Error applying AI review', 'error');
+            
+        } finally {
+            // Re-enable button and hide loading
+            applyBtn.disabled = false;
+            applyBtnText.textContent = 'Apply AI Changes';
+            applyBtnLoader.classList.add('hidden');
+            document.getElementById('aiReviewPrompt').value = '';
+        }
+    }
+
+    // Completion Functions
+    function proceedToCompletion() {
+        if (currentLessonData) {
+            const completedTitle = document.getElementById('completedLessonTitle');
+            completedTitle.textContent = `${currentLessonData.title}.docx`;
+            showLessonStep('completion');
+            showNotification('Lesson finalized! Ready for download.', 'success');
+        }
+    }
+
+    async function downloadLesson(format) {
+        if (!currentLessonData) {
+            showNotification('No lesson to download', 'error');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/lessons/download_lesson/${currentLessonData.id}`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${currentLessonData.title}.${format}`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+                
+                showNotification(`Lesson downloaded as ${format.toUpperCase()}!`, 'success');
+            } else {
+                showNotification('Error downloading lesson', 'error');
+            }
+            
+        } catch (error) {
+            console.error('Error downloading lesson:', error);
+            showNotification('Error downloading lesson', 'error');
+        }
+    }
+
+    function startNewLesson() {
+        // Reset lesson state
+        currentLessonFile = null;
+        currentLessonData = null;
+        generatedLessonContent = '';
+        
+        // Clear form
+        document.getElementById('lessonConfigForm').reset();
+        document.getElementById('selectedFileName').classList.add('hidden');
+        document.getElementById('lessonFileInput').value = '';
+        document.getElementById('proceedBtn').disabled = true;
+        document.getElementById('additionalNotesDisplay').classList.add('hidden');
+        
+        // Go back to upload step
+        showLessonStep('upload');
+        showNotification('Ready to create a new lesson!', 'info');
+    }
+
+    // Respond to student question
+    function respondToQuestion(questionId) {
+        // Switch to chat and prepare response
+        changeTab(document.querySelector('.tab-btn'), 'chat');
+        
+        // You could fetch specific question details here
+        addMessageToChat('ai', `I'll help you prepare a comprehensive response for the student question. What would you like to include in your response?`);
+        showNotification('Response prepared in chat area', 'success');
+    }
+
+    // Export FAQ report
+    function exportFAQReport() {
+        showNotification('FAQ report export functionality would generate a detailed report of all questions and analytics.', 'info');
+    }
+
+    // Tab management (now only for Chat and Knowledge Base)
+    function changeTab(button, tabType) {
+        // Update tab button styles
+        const tabButtons = document.querySelectorAll('.tab-btn');
+        tabButtons.forEach(btn => {
+            btn.classList.remove('text-blue-500', 'bg-white', 'shadow-sm');
+            btn.classList.add('text-gray-500');
+        });
+        
+        button.classList.remove('text-gray-500');
+        button.classList.add('text-blue-500', 'bg-white', 'shadow-sm');
+        
+        // Hide all content areas
+        hideAllContentAreas();
+        
+        // Show selected content area
+        currentView = tabType;
+        switch(tabType) {
+            case 'chat':
+                document.getElementById('chatMessages').classList.remove('hidden');
+                document.getElementById('chatTitle').textContent = 'Chat';
+                document.getElementById('chatStatus').textContent = 'Online';
+                break;
+            case 'knowledge':
+                document.getElementById('knowledgeBaseContent').classList.remove('hidden');
+                document.getElementById('chatTitle').textContent = 'Knowledge Base';
+                document.getElementById('chatStatus').textContent = 'Manage Documents';
+                break;
+            case 'settings':
+                document.getElementById('settingsContent').classList.remove('hidden');
+                document.getElementById('chatTitle').textContent = 'Settings';
+                document.getElementById('chatStatus').textContent = 'Update API Key';
+                break;
+        }
+    }
+
+    // Open Ask Question Modal
+    function openAskQuestionModal(lessonId, lessonTitle) {
+        currentQuestionLessonId = lessonId;
+        document.getElementById('modalLessonTitle').textContent = lessonTitle;
+        document.getElementById('modalLessonHelper').textContent = `Tell me how to help you to understand the '${lessonTitle}'...`;
+        document.getElementById('askQuestionModal').classList.remove('hidden');
+        document.getElementById('questionInput').focus();
+    }
+
+    // Close Ask Question Modal
+    function closeAskQuestionModal() {
+        document.getElementById('askQuestionModal').classList.add('hidden');
+        document.getElementById('questionInput').value = '';
+        currentQuestionLessonId = null;
+    }
+
+    // Submit Question
+    async function submitQuestion() {
+        const question = document.getElementById('questionInput').value.trim();
+        
+        if (!question) {
+            showNotification('Please enter a question', 'error');
+            return;
+        }
+
+        if (!currentQuestionLessonId) {
+            showNotification('No lesson selected', 'error');
+            return;
+        }
+
+        try {
+            // Close modal first
+            closeAskQuestionModal();
+            
+            // Switch to chat tab
+            changeTab(document.querySelector('.tab-btn'), 'chat');
+            
+            // Add user question to chat
+            addMessageToChat('user', question);
+            
+            // Show typing indicator
+            showTypingIndicator();
+            
+            // Call API to get answer about the lesson
+            const response = await fetch('/api/lessons/ask_question', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    lesson_id: currentQuestionLessonId, 
+                    question: question 
+                }),
+                credentials: 'include'
+            });
+            
+            hideTypingIndicator();
+            
+            if (response.ok) {
+                const data = await response.json();
+                addMessageToChat('ai', data.answer);
+            } else {
+                const errorData = await response.json();
+                addMessageToChat('ai', `I'm sorry, there was an error processing your question: ${errorData.error}`);
+            }
+            
+            saveChatToHistory();
+            
+        } catch (error) {
+            hideTypingIndicator();
+            console.error('Error asking question:', error);
+            addMessageToChat('ai', 'I\'m sorry, there was an error processing your question. Please try again.');
+        }
+    }
+
+    // Allow Enter key to submit question
+    document.addEventListener('DOMContentLoaded', function() {
+        const questionInput = document.getElementById('questionInput');
+        if (questionInput) {
+            questionInput.addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    submitQuestion();
+                }
+            });
+        }
+    });
+
+    // Chat Functions
+    async function startNewChat() {
+        try {
+            const response = await fetch('/create_conversation', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ title: 'New Chat' }),
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                currentChatId = data.conversation_id;
+            } else {
+                currentChatId = Date.now();
+            }
+        } catch (error) {
+            console.error('Error creating conversation:', error);
+            currentChatId = Date.now();
+        }
+
+        changeTab(document.querySelector('.tab-btn'), 'chat');
+        
+        const chatMessages = document.getElementById('chatMessages');
+        chatMessages.innerHTML = `
+            <div class="flex items-start gap-4">
+                <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                    AI
+                </div>
+                <div class="bg-gray-100 rounded-2xl px-5 py-4 max-w-lg">
+                    <p class="text-gray-700 leading-relaxed">
+                        Hello! I'm your AI assistant. How can I help you today?
+                    </p>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('messageInput').value = '';
+        loadChatHistory();
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById('messageInput');
+        const message = input.value.trim();
+        
+        if (message) {
+            // Switch to chat if not already there
+            if (currentView !== 'chat') {
+                changeTab(document.querySelector('.tab-btn'), 'chat');
+            }
+            
+            addMessageToChat('user', message);
+            input.value = '';
+            
+            showTypingIndicator();
+            
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        input: message,
+                        conversation_id: currentChatId
+                    }),
+                    credentials: 'include'
+                });
+
+                hideTypingIndicator();
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.error) {
+                        addMessageToChat('ai', `Error: ${data.error}`);
+                    } else {
+                        addMessageToChat('ai', data.response);
+                        
+                        if (isVoiceOutputEnabled) {
+                            speakText(data.response);
+                        }
+                    }
+                } else {
+                    const errorData = await response.json();
+                    addMessageToChat('ai', `Error: ${errorData.error || 'Failed to get response'}`);
+                }
+                
+                updateTokenMeter();
+                
+            } catch (error) {
+                hideTypingIndicator();
+                console.error('Error sending message:', error);
+                addMessageToChat('ai', 'Sorry, there was an error processing your message. Please try again.');
+            }
+            
+            saveChatToHistory();
+        }
+    }
+
+    // Search lessons
+    async function searchLessons() {
+        const searchTerm = document.getElementById('searchLessons').value.trim();
+        
+        if (!searchTerm) {
+            loadAvailableLessons();
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/lessons/search_lessons', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    query: searchTerm,
+                    user_role: userRole
+                }),
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                availableLessons = data.lessons || [];
+                displayLessonsBasedOnRole();
+                showNotification(`Found ${availableLessons.length} lessons matching "${searchTerm}"`, 'info');
+            } else {
+                showNotification('Error searching lessons', 'error');
+            }
+        } catch (error) {
+            console.error('Error searching lessons:', error);
+            showNotification('Error searching lessons', 'error');
+        }
+    }
+
+    function handleLessonSearchKeyPress(event) {
+        if (event.key === 'Enter') {
+            searchLessons();
+        }
+    }
+
+    // Download lesson file
+    async function downloadLessonFile(lessonId) {
+        try {
+            const response = await fetch(`/api/lessons/download_lesson/${lessonId}`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `lesson_${lessonId}.docx`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+                
+                showNotification('Lesson downloaded successfully!', 'success');
+            } else {
+                showNotification('Error downloading lesson', 'error');
+            }
+        } catch (error) {
+            console.error('Error downloading lesson:', error);
+            showNotification('Error downloading lesson. Please try again.', 'error');
+        }
+    }
+
+    // Knowledge Base Functions
+    function switchKnowledgeTab(tabName) {
+        const tabButtons = document.querySelectorAll('.kb-tab-btn');
+        tabButtons.forEach(btn => {
+            btn.classList.remove('text-blue-500', 'bg-white', 'shadow-sm');
+            btn.classList.add('text-gray-500');
+        });
+        
+        document.getElementById('uploadTabContent').classList.toggle('hidden', tabName !== 'upload');
+        document.getElementById('searchTabContent').classList.toggle('hidden', tabName !== 'search');
+        
+        const activeTab = document.getElementById(tabName + 'Tab');
+        activeTab.classList.remove('text-gray-500');
+        activeTab.classList.add('text-blue-500', 'bg-white', 'shadow-sm');
+    }
+
+    function handleKnowledgeFileSelect(event) {
+        const files = Array.from(event.target.files);
+        selectedKnowledgeFiles = files;
+        
+        if (files.length > 0) {
+            const container = document.getElementById('selectedKnowledgeFiles');
+            container.innerHTML = '';
+            
+            files.forEach((file, index) => {
+                const fileDiv = document.createElement('div');
+                fileDiv.className = 'p-4 bg-blue-100 rounded-lg';
+                fileDiv.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <i class="fas fa-file text-blue-600 mr-3"></i>
+                            <span class="text-lg text-blue-800 font-medium">${file.name}</span>
+                            <span class="text-sm text-blue-600 ml-2">(${(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                        </div>
+                        <button onclick="removeKnowledgeFile(${index})" class="text-blue-600 hover:text-red-600 p-2">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(fileDiv);
+            });
+            
+            container.classList.remove('hidden');
+            document.getElementById('uploadToKnowledgeBtn').disabled = false;
+        }
+    }
+
+    async function uploadToKnowledgeBase() {
+        if (selectedKnowledgeFiles.length === 0) {
+            showNotification('Please select files to upload', 'error');
+            return;
+        }
+
+        const formData = new FormData();
+        selectedKnowledgeFiles.forEach(file => {
+            formData.append('files', file);
+        });
+
+        const uploadBtn = document.getElementById('uploadToKnowledgeBtn');
+        const uploadBtnText = document.getElementById('uploadBtnText');
+        const uploadBtnLoader = document.getElementById('uploadBtnLoader');
+
+        uploadBtn.disabled = true;
+        uploadBtnText.textContent = 'Uploading...';
+        uploadBtnLoader.classList.remove('hidden');
+
+        try {
+            const response = await fetch('/upload_knowledge_base', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                showNotification(`Successfully uploaded ${selectedKnowledgeFiles.length} files to knowledge base`, 'success');
+                
+                selectedKnowledgeFiles = [];
+                document.getElementById('selectedKnowledgeFiles').classList.add('hidden');
+                document.getElementById('knowledgeFileInput').value = '';
+                uploadBtn.disabled = true;
+            } else {
+                const errorData = await response.json();
+                showNotification(`Error uploading files: ${errorData.error || 'Upload failed'}`, 'error');
+            }
+        } catch (error) {
+            console.error('Error uploading to knowledge base:', error);
+            showNotification('Error uploading files to knowledge base', 'error');
+        } finally {
+            uploadBtn.disabled = false;
+            uploadBtnText.textContent = 'Upload to Knowledge Base';
+            uploadBtnLoader.classList.add('hidden');
+        }
+    }
+
+    function handleKnowledgeSearchKeyPress(event) {
+        if (event.key === 'Enter') {
+            searchKnowledgeBase();
+        }
+    }
+
+    async function searchKnowledgeBase() {
+        const searchTerm = document.getElementById('knowledgeSearchInput').value.trim();
+        if (!searchTerm) {
+            showNotification('Please enter a search term', 'error');
+            return;
+        }
+
+        const resultsContainer = document.getElementById('knowledgeSearchResults');
+        resultsContainer.innerHTML = `
+            <div class="text-center py-16">
+                <div class="loading mx-auto mb-4"></div>
+                <p class="text-gray-500 text-lg">Searching knowledge base...</p>
+            </div>
+        `;
+
+        try {
+            const response = await fetch('/search_knowledge_base', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ query: searchTerm }),
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                displayKnowledgeSearchResults(data.results);
+            } else {
+                const errorData = await response.json();
+                resultsContainer.innerHTML = `
+                    <div class="text-center py-16 text-red-500">
+                        <i class="fas fa-exclamation-triangle text-6xl mb-4"></i>
+                        <p class="text-xl">Error searching knowledge base: ${errorData.error || 'Search failed'}</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            console.error('Error searching knowledge base:', error);
+            resultsContainer.innerHTML = `
+                <div class="text-center py-16 text-red-500">
+                    <i class="fas fa-exclamation-triangle text-6xl mb-4"></i>
+                    <p class="text-xl">Error searching knowledge base</p>
+                </div>
+            `;
+        }
+    }
+
+    function displayKnowledgeSearchResults(results) {
+        const resultsContainer = document.getElementById('knowledgeSearchResults');
+        
+        if (results.length === 0) {
+            resultsContainer.innerHTML = `
+                <div class="text-center py-16 text-gray-500">
+                    <i class="fas fa-search text-6xl mb-4"></i>
+                    <p class="text-xl">No results found for your search term</p>
+                </div>
+            `;
+            return;
+        }
+
+        resultsContainer.innerHTML = results.map(result => `
+            <div class="bg-white border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
+                <div class="flex items-start justify-between">
+                    <div class="flex-1">
+                        <h4 class="font-semibold text-gray-900 mb-3 text-lg">${result.title || 'Document'}</h4>
+                        <p class="text-gray-600 mb-4">${result.snippet || result.content}</p>
+                        <div class="flex items-center text-sm text-gray-500">
+                            <i class="fas fa-file mr-2"></i>
+                            <span>${result.source || 'Unknown source'}</span>
+                            <span class="mx-2">•</span>
+                            <span>Relevance: ${Math.round(result.score * 100)}%</span>
+                        </div>
+                    </div>
+                    <button onclick="useKnowledgeResult('${result.id}')" class="ml-4 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
+                        Use in Chat
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function useKnowledgeResult(resultId) {
+        changeTab(document.querySelector('.tab-btn'), 'chat');
+        showNotification('Knowledge base result added to chat context', 'success');
+    }
+
+    // Remove knowledge file
+    function removeKnowledgeFile(index) {
+        selectedKnowledgeFiles.splice(index, 1);
+        if (selectedKnowledgeFiles.length === 0) {
+            document.getElementById('selectedKnowledgeFiles').classList.add('hidden');
+            document.getElementById('uploadToKnowledgeBtn').disabled = true;
+        } else {
+            const event = { target: { files: selectedKnowledgeFiles } };
+            handleKnowledgeFileSelect(event);
+        }
+    }
+
+    // Settings Functions
+    function toggleApiKeyVisibility() {
+        const input = document.getElementById('apiKeyInput');
+        const icon = document.getElementById('toggleApiKeyIcon');
+        
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    }
+
+    function clearApiKey() {
+        document.getElementById('apiKeyInput').value = '';
+        showNotification('API key field cleared', 'info');
+    }
+
+    async function saveApiKey() {
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const newApiKey = apiKeyInput.value.trim();
+
+        if (!newApiKey) {
+            showNotification('Please enter an API key', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/update_api_key', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ api_key: newApiKey }),
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    showNotification('API key updated successfully', 'success');
+                    apiKeyInput.value = '';
+                    changeTab(document.querySelector('.tab-btn'), 'chat');
+                } else {
+                    showNotification(data.error || 'Failed to update API key', 'error');
+                }
+            } else {
+                const errorData = await response.json();
+                showNotification(errorData.error || 'Failed to update API key', 'error');
+            }
+        } catch (error) {
+            console.error('Error updating API key:', error);
+            showNotification('Error updating API key', 'error');
+        }
+    }
+
+    // Voice Functions
+    function toggleVoiceRecording() {
+        if (!isRecording) {
+            startVoiceInput();
+        } else {
+            stopVoiceInput();
+        }
+    }
+
+    function startVoiceInput() {
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+            recognition.lang = 'en-US';
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+
+            recognition.start();
+            isRecording = true;
+            
+            document.getElementById('voiceRecordingIndicator').classList.remove('hidden');
+            const micBtn = document.getElementById('micButton');
+            micBtn.classList.add('bg-red-50', 'border-red-300');
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                document.getElementById('messageInput').value = transcript;
+                stopVoiceInput();
+                sendMessage();
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error:', event.error);
+                stopVoiceInput();
+                showNotification('Voice recognition error: ' + event.error, 'error');
+            };
+
+            recognition.onend = () => {
+                stopVoiceInput();
+            };
+        } else {
+            showNotification('Speech recognition not supported in this browser', 'error');
+        }
+    }
+
+    function stopVoiceInput() {
+        if (recognition) {
+            recognition.stop();
+        }
+        isRecording = false;
+        document.getElementById('voiceRecordingIndicator').classList.add('hidden');
+        const micBtn = document.getElementById('micButton');
+        micBtn.classList.remove('bg-red-50', 'border-red-300');
+    }
+
+    function stopRecording() {
+        stopVoiceInput();
+    }
+
+    function toggleVoiceOutput() {
+        isVoiceOutputEnabled = !isVoiceOutputEnabled;
+        const btn = document.getElementById('voiceOutputBtn');
+        
+        if (isVoiceOutputEnabled) {
+            btn.classList.add('bg-blue-50', 'border-blue-300');
+            showNotification('Voice output enabled', 'success');
+        } else {
+            btn.classList.remove('bg-blue-50', 'border-blue-300');
+            showNotification('Voice output disabled', 'info');
+        }
+    }
+
+    function speakText(text) {
+        if ('speechSynthesis' in window && isVoiceOutputEnabled) {
+            window.speechSynthesis.cancel();
+            
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+            
+            const voices = window.speechSynthesis.getVoices();
+            const femaleVoice = voices.find(voice => 
+                voice.name.includes('Female') || 
+                voice.name.includes('Zira') || 
+                voice.name.includes('Emma')
+            );
+            if (femaleVoice) {
+                utterance.voice = femaleVoice;
+            }
+            
+            window.speechSynthesis.speak(utterance);
+        }
+    }
+
+    // Sidebar Functions
+    function setupSidebarListeners() {
+        const overlay = document.getElementById('overlay');
+        
+        if (overlay) {
+            overlay.addEventListener('click', hideSidebar);
+        }
+        
+        window.addEventListener('resize', handleResize);
+        
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        if (mobileMenuBtn) {
+            mobileMenuBtn.addEventListener('click', showSidebar);
+        }
+    }
+
+    function handleResize() {
+        const sidebar = document.getElementById('sidebar');
+        const overlay = document.getElementById('overlay');
+        
+        if (window.innerWidth >= 768) {
+            sidebar.classList.remove('-translate-x-full');
+            if (overlay) overlay.classList.add('hidden');
+            
+            if (isCollapsed) {
+                restoreFullSidebar();
+            }
+        } else {
+            sidebar.classList.add('-translate-x-full');
+            if (overlay) overlay.classList.add('hidden');
+            isCollapsed = false;
+        }
+    }
+
+    function hideSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        
+        if (window.innerWidth < 768) {
+            sidebar.classList.add('-translate-x-full');
+            const overlay = document.getElementById('overlay');
+            if (overlay) overlay.classList.add('hidden');
+        } else {
+            // Create collapsed sidebar content
+            const mainContent = document.querySelector('.flex-1');
+            
+            sidebar.innerHTML = `
+                <div class="flex flex-col h-full justify-between items-center py-4">
+                    <button onclick="showSidebar()" class="w-10 h-10 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg flex items-center justify-center transition-colors">
+                        <i class="fas fa-bars w-6 h-6"></i>
+                    </button>
+                    <button onclick="logout()" class="w-10 h-10 bg-white shadow hover:bg-gray-50 text-red-600 rounded-lg flex items-center justify-center transition-colors">
+                        <i class="fas fa-sign-out-alt text-[#F50D0D]"></i>
+                    </button>
+                </div>
+            `;
+            sidebar.className = "w-16 bg-white shadow-md";
+            if (mainContent) mainContent.style.marginLeft = "8px";
+            isCollapsed = true;
+        }
+    }
+
+    function showSidebar() {
+        if (window.innerWidth < 768) {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.remove('-translate-x-full');
+            const overlay = document.getElementById('overlay');
+            if (overlay) overlay.classList.remove('hidden');
+        } else {
+            restoreFullSidebar();
+        }
+    }
+
+    function restoreFullSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const mainContent = document.querySelector('.flex-1');
+        
+        sidebar.innerHTML = `
+            <div class="flex justify-between items-center">
+                <img src="./logo.png" width="150" height="200" alt="">
+                <button onclick="hideSidebar()" class="mt-4 hover:bg-gray-100 p-1 rounded">
+                    <img src="./slider.png" alt="">
+                </button>
+            </div>
+            
+            <!-- Border Line -->
+            <div class="mt-4 border-t-2 border-gray-300 -mx-4"></div>
+            
+            <div class="flex flex-col space-y-4 justify-center items-center mt-6 mb-2">
+
+                <!-- New Chat -->
+                <button onclick="startNewChat()" class="w-[200px] h-[50px] mt-3 mb-2 px-4 flex items-center justify-center gap-2 bg-[#05B0FC] text-white font-bold rounded transition duration-200 ease-in-out hover:bg-blue-600">
+                    <img src="./msg.png" alt="">
+                    <span>New Chat</span>
+                </button>
+
+                <!-- Action Buttons -->
+                <button onclick="openLessonGenerator()" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors" id="generateLessonBtn">
+                    <img src="./lesson.png" alt="">
+                    <span>Generate Lessons</span>
+                </button>
+
+                <!-- View Lessons Button in Sidebar -->
+                <button onclick="openViewLessons()" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors" id="viewLessonsBtn">
+                    <img src="./lesson.png" alt="">
+                    <span id="viewLessonsLabel">View Lessons</span>
+                </button>
+
+                <!-- FAQ Dashboard Button (for teachers only) -->
+                <button onclick="showFrequentlyAskedQuestions()" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors" id="faqDashboardBtn" style="display: none;">
+                    <i class="fas fa-chart-line text-[#B7B7B7] w-5 h-5"></i>
+                    <span>FAQ Dashboard</span>
+                </button>
+
+                <button onclick="changeTab(document.querySelectorAll('.tab-btn')[1], 'settings')" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors">
+                    <img src="./key.png" alt="">
+                    <span>Update API Key</span>
+                </button>
+
+                <button onclick="toggleVoiceRecording()" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors">
+                    <i class="fas fa-microphone w-5 h-5"></i>
+                    <span>Real Time Chat</span>
+                </button>
+
+                <button onclick="resetChat()" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors">
+                    <i class="fas fa-refresh text-[#B7B7B7] w-5 h-5"></i>
+                    <span>Reset Chat</span>
+                </button>
+
+                <!-- Chat History Button -->
+                <button onclick="toggleDropdown()" class="w-[260px] h-[40px] px-4 flex items-center justify-between font-semibold text-[16px] text-gray-700 mt-2 hover:bg-gray-50 rounded transition-colors">
+                    <i class="fas fa-history text-[#B7B7B7]"></i>
+                    <span>Chat History</span>
+                    <i class="fas fa-chevron-down text-[#666]" id="historyArrow"></i>
+                </button>
+
+                <!-- Dropdown Chat History -->
+                <div id="dropdownContent" class="mt-2 hidden flex-col gap-3 w-[240px] max-h-48 overflow-y-auto">
+                    <!-- Chat history items will be populated here -->
+                </div>
+
+                <!-- Logout Button -->
+                <button onclick="logout()" class="fixed bottom-4 w-[230px] h-[40px] px-4 flex items-center justify-center gap-3 font-semibold text-[16px] text-gray-700 bg-white shadow rounded hover:bg-gray-50 transition-colors">
+                    <i class="fas fa-sign-out-alt text-[#F50D0D]"></i>
+                    <span class="text-[#F50D0D]">Log out</span>
+                </button>
+
+            </div>
+        `;
+        
+        sidebar.className = "w-[275px] md:w-[275px] bg-white shadow-md p-4 fixed md:static top-0 left-0 h-full md:h-auto transform -translate-x-full md:translate-x-0 transition-transform duration-300 z-40";
+        
+        if (mainContent) mainContent.style.marginLeft = "0";
+        
+        // Re-apply role-based UI after restoring sidebar
+        setupRoleBasedUI();
+        updateChatHistoryDisplay();
+        isCollapsed = false;
+    }
+
+    function toggleDropdown() {
+        const dropdown = document.getElementById('dropdownContent');
+        const arrow = document.getElementById('historyArrow');
+        
+        if (dropdown && arrow) {
+            if (dropdown.classList.contains('hidden')) {
+                dropdown.classList.remove('hidden');
+                arrow.classList.add('fa-chevron-up');
+                arrow.classList.remove('fa-chevron-down');
+            } else {
+                dropdown.classList.add('hidden');
+                arrow.classList.remove('fa-chevron-up');
+                arrow.classList.add('fa-chevron-down');
+            }
+        }
+    }
+
+    async function logout() {
+        try {
+            const response = await fetch('/auth/logout', {
+                method: 'POST',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.redirect_url) {
+                    window.location.href = data.redirect_url;
+                } else {
+                    window.location.href = '/login';
+                }
+            } else {
+                window.location.href = '/logout';
+            }
+        } catch (error) {
+            console.error('Logout error:', error);
+            window.location.href = '/logout';
+        }
+    }
+
+    // Utility Functions
+    function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `fixed top-4 right-4 z-50 px-4 py-2 rounded-lg text-white font-medium transform transition-all duration-300 translate-x-full`;
+        
+        switch(type) {
+            case 'success':
+                notification.classList.add('bg-green-500');
+                break;
+            case 'error':
+                notification.classList.add('bg-red-500');
+                break;
+            case 'warning':
+                notification.classList.add('bg-yellow-500');
+                break;
+            default:
+                notification.classList.add('bg-blue-500');
+        }
+        
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.classList.remove('translate-x-full');
+        }, 100);
+        
+        setTimeout(() => {
+            notification.classList.add('translate-x-full');
+            setTimeout(() => {
+                if (notification.parentElement) {
+                    document.body.removeChild(notification);
+                }
+            }, 300);
+        }, 3000);
+    }
+
+    function showTypingIndicator() {
+        const chatMessages = document.getElementById('chatMessages');
+        const typingDiv = document.createElement('div');
+        typingDiv.id = 'typingIndicator';
+        typingDiv.className = 'flex items-start gap-4 mb-4';
+        typingDiv.innerHTML = `
+            <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                AI
+            </div>
+            <div class="bg-gray-100 rounded-2xl px-5 py-4 max-w-lg">
+                <div class="flex space-x-1">
+                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                </div>
+            </div>
+        `;
+        chatMessages.appendChild(typingDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function hideTypingIndicator() {
+        const typingIndicator = document.getElementById('typingIndicator');
+        if (typingIndicator) {
+            typingIndicator.remove();
+        }
+    }
+
+    function addMessageToChat(sender, message) {
+        const chatMessages = document.getElementById('chatMessages');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'flex items-start gap-4 mb-4';
+
+        if (sender === 'user') {
+            messageDiv.innerHTML = `
+                <div class="flex items-start gap-4 flex-row-reverse w-full">
+                    <div class="w-10 h-10 bg-gray-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                        U
+                    </div>
+                    <div class="bg-blue-500 text-white rounded-2xl px-5 py-4 max-w-lg">
+                        <p class="leading-relaxed">${message}</p>
+                    </div>
+                </div>
+            `;
+        } else {
+            messageDiv.innerHTML = `
+                <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                    AI
+                </div>
+                <div class="bg-gray-100 rounded-2xl px-5 py-4 max-w-lg">
+                    <p class="text-gray-700 leading-relaxed">${message.replace(/\n/g, '<br>')}</p>
+                </div>
+            `;
+        }
+
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function handleKeyPress(event) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            sendMessage();
+        }
+    }
+
+    function handleSearchKeyPress(event) {
+        if (event.key === 'Enter') {
+            const searchTerm = event.target.value.trim();
+            if (searchTerm) {
+                changeTab(document.querySelector('.tab-btn'), 'chat');
+                addMessageToChat('user', `Search: ${searchTerm}`);
+                setTimeout(() => {
+                    addMessageToChat('ai', `I found several results related to "${searchTerm}". Here are the most relevant items from our knowledge base and conversation history.`);
+                    saveChatToHistory();
+                }, 1000);
+            }
+        }
+    }
+
+    // Chat history functions
+    async function loadChatHistory() {
+        try {
+            const response = await fetch('/get_conversations', {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                chatHistory = data.conversations || [];
+                updateChatHistoryDisplay();
+            } else {
+                console.error('Failed to load chat history');
+            }
+        } catch (error) {
+            console.error('Error loading chat history:', error);
+        }
+    }
+
+    function saveChatToHistory() {
+        // This would typically be handled by the server
+        // after each message is sent
+    }
+
+    function updateChatHistoryDisplay() {
+        const dropdown = document.getElementById('dropdownContent');
+        if (dropdown && chatHistory.length > 0) {
+            dropdown.innerHTML = chatHistory.slice(0, 10).map(chat => `
+                <div class="flex items-center gap-2 p-2 hover:bg-gray-100 rounded cursor-pointer" onclick="loadChat('${chat.id}')">
+                    <i class="fas fa-comment text-gray-400 text-sm"></i>
+                    <span class="text-sm text-gray-700 truncate">${chat.title || 'Untitled Chat'}</span>
+                </div>
+            `).join('');
+        }
+    }
+
+    async function loadChat(chatId) {
+        try {
+            const response = await fetch(`/get_messages/${chatId}`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                const messages = data.messages || [];
+                
+                // Clear current chat
+                const chatMessages = document.getElementById('chatMessages');
+                chatMessages.innerHTML = '';
+                
+                // Load messages
+                messages.forEach(msg => {
+                    addMessageToChat(msg.sender, msg.content);
+                });
+                
+                currentChatId = chatId;
+                changeTab(document.querySelector('.tab-btn'), 'chat');
+            } else {
+                showNotification('Failed to load chat', 'error');
+            }
+        } catch (error) {
+            console.error('Error loading chat:', error);
+            showNotification('Error loading chat', 'error');
+        }
+    }
+
+    async function downloadCurrentChat() {
+        if (!currentChatId) {
+            showNotification('No active chat to download', 'error');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/download_chat/${currentChatId}`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `chat_${currentChatId}.docx`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+                
+                showNotification('Chat downloaded successfully!', 'success');
+            } else {
+                showNotification('Error downloading chat', 'error');
+            }
+        } catch (error) {
+            console.error('Error downloading chat:', error);
+            showNotification('Error downloading chat', 'error');
+        }
+    }
+
+    async function resetChat() {
+        if (confirm('Are you sure you want to reset the current chat?')) {
+            try {
+                const response = await fetch('/delete_all_conversations', {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    startNewChat();
+                    showNotification('Chat reset successfully!', 'success');
+                } else {
+                    showNotification('Error resetting chat', 'error');
+                }
+            } catch (error) {
+                console.error('Error resetting chat:', error);
+                showNotification('Error resetting chat', 'error');
+            }
+        }
+    }
+
+    async function checkApiKeyStatus() {
+        try {
+            const response = await fetch('/check_api_key_status', {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (!data.has_api_key) {
+                    showNotification('Please set your API key in settings', 'warning');
+                }
+            }
+        } catch (error) {
+            console.error('Error checking API key status:', error);
+        }
+    }
+
+    async function updateTokenMeter() {
+        try {
+            const response = await fetch('/token_status', {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                // Update token meter display if needed
+                // This would be implemented based on your UI requirements
+            }
+        } catch (error) {
+            console.error('Error updating token meter:', error);
+        }
+    }
+
+    // Helper function for lesson generator button
+    function generateLessonButton() {
+        openLessonGenerator();
+    }
+
+  </script>
+
+  <style>
+    .animate-bounce {
+      animation: bounce 1s infinite;
+    }
+    
+    @keyframes bounce {
+      0%, 20%, 53%, 80%, 100% {
+        transform: translate3d(0,0,0);
+      }
+      40%, 43% {
+        transform: translate3d(0,-15px,0);
+      }
+      70% {
+        transform: translate3d(0,-7px,0);
+      }
+      90% {
+        transform: translate3d(0,-2px,0);
+      }
+    }
+    
+    @media (max-width: 768px) {
+      .flex-1 {
+        margin-left: 0 !important;
+      }
+    }
+    
+    /* Custom scrollbar */
+    .overflow-y-auto::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    .overflow-y-auto::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 3px;
+    }
+    
+    .overflow-y-auto::-webkit-scrollbar-thumb {
+      background: #c1c1c1;
+      border-radius: 3px;
+    }
+    
+    .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+      background: #a1a1a1;
+    }
+    
+    /* Focus styles for accessibility */
+    button:focus,
+    input:focus,
+    textarea:focus {
+      outline: 2px solid #3b82f6;
+      outline-offset: 2px;
+    }
+    
+    /* Loading animation */
+    .loading {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #3b82f6;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Knowledge Base specific styles */
+    .kb-tab-btn {
+      transition: all 0.2s ease;
+    }
+
+    .kb-tab-btn:hover {
+      background-color: rgba(59, 130, 246, 0.1);
+    }
+
+    /* Enhanced hover effects */
+    .hover\:shadow-md:hover {
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+
+    .hover\:shadow-xl:hover {
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+
+    /* Smooth transitions */
+    .transition-all {
+      transition-property: all;
+      transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+      transition-duration: 150ms;
+    }
+
+    .transition-colors {
+      transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+      transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+      transition-duration: 150ms;
+    }
+
+    .transition-shadow {
+      transition-property: box-shadow;
+      transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+      transition-duration: 150ms;
+    }
+
+    /* Tab scrolling on mobile */
+    .overflow-x-auto {
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+
+    .overflow-x-auto::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* Responsive tabs */
+    @media (max-width: 768px) {
+      .tab-btn {
+        padding: 0.75rem 1rem;
+        font-size: 0.875rem;
+      }
+    }
+
+    /* Modal overlay */
+    .modal-overlay {
+      backdrop-filter: blur(4px);
+    }
+
+    /* Modal animation */
+    .modal-content {
+      animation: modalSlideIn 0.3s ease-out;
+    }
+
+    @keyframes modalSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-50px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+    
+  </style>
+</body>
+</html>
