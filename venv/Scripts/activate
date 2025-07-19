@@ -40,12 +40,12 @@ case "$(uname)" in
     CYGWIN*|MSYS*)
         # transform D:\path\to\venv to /d/path/to/venv on MSYS
         # and to /cygdrive/d/path/to/venv on Cygwin
-        VIRTUAL_ENV=$(cygpath "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\venv")
+        VIRTUAL_ENV=$(cygpath "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\venv")
         export VIRTUAL_ENV
         ;;
     *)
         # use the path as-is
-        export VIRTUAL_ENV="C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\venv"
+        export VIRTUAL_ENV="C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\venv"
         ;;
 esac
 
