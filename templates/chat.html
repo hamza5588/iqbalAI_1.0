@@ -29,9 +29,9 @@
     <!-- Sidebar -->
     <div id="sidebar" class="w-[275px] md:w-[275px] bg-white shadow-md p-4 fixed md:static top-0 left-0 h-full md:h-auto transform -translate-x-full md:translate-x-0 transition-transform duration-300 z-40">
       <div class="flex justify-between items-center">
-        <img src="./logo.png" width="150" height="200" alt="">
+        <img src="../static/images/logo.png" width="150" height="200" alt="">
         <button onclick="hideSidebar()" class="mt-4 hover:bg-gray-100 p-1 rounded">
-          <img src="./slider.png" alt="">
+          <img src="../static/images/slider.png" alt="">
         </button>
       </div>
       
@@ -42,24 +42,30 @@
 
         <!-- New Chat -->
         <button onclick="startNewChat()" class="w-[200px] h-[50px] mt-3 mb-2 px-4 flex items-center justify-center gap-2 bg-[#05B0FC] text-white font-bold rounded transition duration-200 ease-in-out hover:bg-blue-600">
-          <img src="./msg.png" alt="">
+          <img src="../static/images/msg.png" alt="">
           <span>New Chat</span>
         </button>
 
         <!-- Action Buttons -->
         <button onclick="openLessonGenerator()" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors" id="generateLessonBtn">
-          <img src="./lesson.png" alt="">
+          <img src="../static/images/lesson.png" alt="">
           <span>Generate Lessons</span>
         </button>
 
         <!-- View Lessons Button in Sidebar -->
         <button onclick="openViewLessons()" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors" id="viewLessonsBtn">
-          <img src="./lesson.png" alt="">
+          <img src="../static/images/lesson.png">
           <span id="viewLessonsLabel">View Lessons</span>
         </button>
 
+        <!-- FAQ Dashboard Button (for teachers only) -->
+        <button onclick="showFrequentlyAskedQuestions()" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors" id="faqDashboardBtn" style="display: none;">
+          <i class="fas fa-chart-line text-[#B7B7B7] w-5 h-5"></i>
+          <span>FAQ Dashboard</span>
+        </button>
+
         <button onclick="changeTab(document.querySelectorAll('.tab-btn')[1], 'settings')" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors">
-         <img src="./key.png" alt="">
+         <img src="../static/images/key.png" alt="">
           <span>Update API Key</span>
         </button>
 
@@ -83,6 +89,17 @@
         <!-- Dropdown Chat History -->
         <div id="dropdownContent" class="mt-2 hidden flex-col gap-3 w-[240px] max-h-48 overflow-y-auto">
           <!-- Chat history items will be populated here -->
+        </div>
+
+        <!-- Voice Recording Indicator -->
+        <div id="voiceRecordingIndicator" class="hidden px-6 py-2 bg-red-50 border-l-4 border-red-500">
+            <div class="flex items-center gap-2">
+                <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                <span class="text-red-700 font-medium">Recording... Click to stop</span>
+                <button onclick="stopRecording()" class="ml-auto text-red-700 hover:text-red-900">
+                    <i class="fas fa-stop-circle text-xl"></i>
+                </button>
+            </div>
         </div>
 
         <!-- Logout Button -->
@@ -135,7 +152,7 @@
                     Knowledge Base
                 </button>
             </div>
-            <div class="w-11 h-11 bg-[#05B0FC]  rounded-full flex items-center justify-center text-white font-bold text-sm">
+            <div class="w-11 h-11 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
                 AI
             </div>
         </div>
@@ -143,7 +160,7 @@
         <!-- Chat Header Section -->
         <div class="flex items-center justify-between px-6 py-4 border-t border-gray-100">
             <div class="flex items-center gap-3">
-                <div class="w-11 h-11 bg-[#05B0FC]  rounded-full flex items-center justify-center text-white font-bold text-sm">
+                <div class="w-11 h-11 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
                     AI
                 </div>
                 <div>
@@ -165,7 +182,7 @@
         <!-- Chat Messages Area -->
         <div class="flex-1 px-6 py-8 overflow-y-auto" id="chatMessages">
             <div class="flex items-start gap-4">
-                <div class="w-10 h-10 bg-[#05B0FC]  rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                     AI
                 </div>
                 <div class="bg-gray-100 rounded-2xl px-5 py-4 max-w-lg">
@@ -179,16 +196,16 @@
         <!-- Knowledge Base Content -->
         <div id="knowledgeBaseContent" class="hidden flex-1 px-6 py-8 overflow-y-auto">
             <div class="text-center mb-8">
-                <h2 class="text-3xl font-bold text-[#05B0FC] mb-2">Knowledge Base</h2>
+                <h2 class="text-3xl font-bold text-blue-500 mb-2">Knowledge Base</h2>
                 <p class="text-gray-600">Manage your documents and search through your knowledge base</p>
             </div>
 
             <div class="mb-8">
                 <div class="bg-gray-100 rounded-2xl p-1 flex max-w-md mx-auto">
-                    <button onclick="switchKnowledgeTab('upload')" id="uploadTab" class="kb-tab-btn px-6 py-3 text-[#05B0FC] font-semibold bg-white rounded-xl shadow-sm flex-1">
+                    <button onclick="switchKnowledgeTab('upload')" id="uploadTab" class="kb-tab-btn px-6 py-3 text-blue-500 font-semibold bg-white rounded-xl shadow-sm flex-1">
                         Upload Documents
                     </button>
-                    <button onclick="switchKnowledgeTab('search')" id="searchTab" class="kb-tab-btn px-6 py-3 text-[#05B0FC] font-semibold hover:text-gray-700 flex-1">
+                    <button onclick="switchKnowledgeTab('search')" id="searchTab" class="kb-tab-btn px-6 py-3 text-gray-500 font-semibold hover:text-gray-700 flex-1">
                         Search Knowledge
                     </button>
                 </div>
@@ -196,8 +213,8 @@
 
             <div id="uploadTabContent" class="max-w-4xl mx-auto">
                 <div class="text-center mb-6">
-                    <i class="fas fa-database text-[#05B0FC] text-2xl mr-2"></i>
-                    <span class="text-[#05B0FC] font-medium text-lg">Add Documents to Knowledge Base</span>
+                    <i class="fas fa-database text-blue-600 text-2xl mr-2"></i>
+                    <span class="text-gray-700 font-medium text-lg">Add Documents to Knowledge Base</span>
                 </div>
                 
                 <div class="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center mb-6 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors min-h-64 flex flex-col items-center justify-center" onclick="document.getElementById('knowledgeFileInput').click()">
@@ -221,7 +238,7 @@
 
             <div id="searchTabContent" class="hidden max-w-4xl mx-auto">
                 <div class="text-center mb-6">
-                    <i class="fas fa-search text-[#05B0FC]  text-2xl mr-2"></i>
+                    <i class="fas fa-search text-blue-600 text-2xl mr-2"></i>
                     <span class="text-gray-700 font-medium text-lg">Search Your Knowledge Base</span>
                 </div>
                 
@@ -232,10 +249,10 @@
                             type="text"
                             id="knowledgeSearchInput"
                             placeholder="Search documents, topics, or keywords..."
-                            class="w-full pl-12 pr-4 py-4 border-2 border-[#05B0FC] rounded-lg focus:outline-none focus:border-[#05B0FC] text-gray-700 text-lg"
+                            class="w-full pl-12 pr-4 py-4 border-2 border-gray-200 rounded-lg focus:outline-none focus:border-purple-500 text-gray-700 text-lg"
                             onkeypress="handleKnowledgeSearchKeyPress(event)"
                         />
-                        <button onclick="searchKnowledgeBase()" class="absolute right-2 top-1/2 transform -translate-y-1/2 px-4 py-2 bg-[#05B0FC]  text-white rounded-lg hover:bg-[#05B0FC]  transition-colors">
+                        <button onclick="searchKnowledgeBase()" class="absolute right-2 top-1/2 transform -translate-y-1/2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">
                             Search
                         </button>
                     </div>
@@ -253,25 +270,30 @@
         <!-- View Lessons Content -->
         <div id="viewLessonsContent" class="hidden flex-1 px-6 py-8 overflow-y-auto w-full">
             <div class="w-full mx-auto">
-                <div class="mb-2">
-                    <h2 class="text-3xl font-semibold text-[#05B0FC] mb-2" id="viewLessonsTitle">My Lessons</h2>
-                    <p class="text-gray-600" id="viewLessonsSubtitle">Access available lessons and ask questions</p>
+                <div class="mb-6 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-3xl font-semibold text-[#05B0FC] mb-2" id="viewLessonsTitle">My Lessons</h2>
+                        <p class="text-gray-600" id="viewLessonsSubtitle">Access available lessons and ask questions</p>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <button onclick="generateLessonButton()" class="px-6 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-blue-600 transition-colors font-medium" id="generateLessonTopBtn" style="display: none;">
+                            <i class="fas fa-plus mr-2"></i>Generate Lesson
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Search and Filter Section -->
-                <div class="bg-white p-6 mb-8 w-full">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div>
+                <div class="bg-white p-6 mb-8 w-full rounded-lg shadow-sm">
+                    <div class="flex items-center gap-4">
+                        <div class="flex-1">
                             <input 
                                 type="text" 
                                 id="searchLessons" 
                                 placeholder="Search by title, content, or subject..."
-                                class="w-[1200px] px-4 py-3 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                class="w-full px-4 py-3 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
                                 onkeypress="handleLessonSearchKeyPress(event)"
                             />
                         </div>
-                    </div>
-                    <div class="mt-4 flex justify-center">
                         <button onclick="searchLessons()" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg transition-colors font-medium">
                             <i class="fas fa-search mr-2"></i>Search Lessons
                         </button>
@@ -280,96 +302,87 @@
 
                 <!-- Lessons Display -->
                 <div id="lessonsDisplay" class="space-y-6">
-                    <!-- Sample lessons data for demo -->
-                    <div class="grid grid-cols-6 bg-[#05B0FC] text-white font-semibold py-3 px-4 rounded-t-lg">
-                        <div>No</div>
-                        <div>Lesson Title</div>
-                        <div>Subject</div>
-                        <div>Grade</div>
-                        <div>Created By</div>
-                        <div>Actions</div>
-                    </div>
-                    
-                    <!-- Sample Lesson Rows -->
-                    <div class="grid grid-cols-6 py-2 px-2 border-b">
-                        <div class="flex items-center">1</div>
-                        <div class="flex items-center font-medium text-gray-900">Introduction to Climate</div>
-                        <div class="flex items-center">
-                            <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">Science</span>
-                        </div>
-                        <div class="flex items-center">
-                            <span class="px-2 py-1 text-blue-800 text-xs">6-8</span>
-                        </div>
-                        <div class="flex items-center text-gray-700">Dr Hamza</div>
-                        <div class="flex flex-row gap-1">
-                            <button onclick="downloadLessonFile(1)" class="px-4 py-2 text-blue-500">
-                                <img src="./Group69.png" alt="">
-                            </button>
-                            <button onclick="openAskQuestionModal(1, 'Introduction to Climate')" class="px-4 py-2 text-blue-500 rounded">
-                                <img src="./jam_message-alt.png" alt="">
-                            </button>
-                        </div>
-                    </div>
+                    <!-- Lessons will be loaded here -->
+                </div>
+            </div>
+        </div>
 
-                    <div class="grid grid-cols-6 py-2 px-2 border-b">
-                        <div class="flex items-center">2</div>
-                        <div class="flex items-center font-medium text-gray-900">World History Overview</div>
-                        <div class="flex items-center">
-                            <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">History</span>
-                        </div>
-                        <div class="flex items-center">
-                            <span class="px-2 py-1 text-blue-800 text-xs">9-12</span>
-                        </div>
-                        <div class="flex items-center text-gray-700">Ume Ali</div>
-                        <div class="flex flex-row gap-1">
-                            <button onclick="downloadLessonFile(2)" class="px-4 py-2 text-blue-500">
-                                <img src="./Group69.png" alt="">
-                            </button>
-                            <button onclick="openAskQuestionModal(2, 'World History Overview')" class="px-4 py-2 text-blue-500 rounded">
-                                <img src="./jam_message-alt.png" alt="">
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-6 py-2 px-2 border-b">
-                        <div class="flex items-center">3</div>
-                        <div class="flex items-center font-medium text-gray-900">Physics Fundamentals</div>
-                        <div class="flex items-center">
-                            <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">Physics</span>
-                        </div>
-                        <div class="flex items-center">
-                            <span class="px-2 py-1 text-blue-800 text-xs">9-12</span>
-                        </div>
-                        <div class="flex items-center text-gray-700">Dr Ahmad</div>
-                        <div class="flex flex-row gap-1">
-                            <button onclick="downloadLessonFile(3)" class="px-4 py-2 text-blue-500">
-                                <img src="./Group69.png" alt="">
-                            </button>
-                            <button onclick="openAskQuestionModal(3, 'Physics Fundamentals')" class="px-4 py-2 text-blue-500 rounded">
-                                <img src="./jam_message-alt.png" alt="">
-                            </button>
-                        </div>
+        <!-- Most Frequent Questions View -->
+        <div id="mostFrequentQuestionsView" class="hidden flex-1 px-6 py-8 overflow-y-auto">
+            <div class="max-w-6xl mx-auto">
+                <div class="flex items-center mb-8">
+                    <button onclick="backToLessons()" class="mr-4 p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                        <i class="fas fa-arrow-left text-[#05B0FC] text-xl"></i>
+                    </button>
+                    <div class="text-center flex-1">
+                        <h2 class="text-3xl font-bold text-[#05B0FC] mb-2">Most Frequent Questions</h2>
+                        <p class="text-gray-600 text-center px-[200px]">View the most commonly asked questions by students in your lessons. This helps you identify knowledge gaps and improve engagement.</p>
                     </div>
                 </div>
 
-                <!-- Most Asked Questions Section (for teachers) -->
-                <div id="mostAskedQuestions" class="hidden mt-8 bg-white rounded-lg border border-gray-200 p-6">
-                    <h3 class="text-xl font-semibold text-gray-800 mb-4">Most Asked Questions</h3>
-                    <div class="space-y-3">
-                        <div class="p-3 bg-gray-50 rounded-lg">
-                            <p class="font-medium text-gray-700">What are the main causes of climate change?</p>
-                            <p class="text-sm text-gray-500">Asked 15 times</p>
+                <!-- FAQ Table -->
+                <div class="bg-white rounded-lg shadow-md overflow-hidden">
+                    <!-- Table Header -->
+                    <div class="grid grid-cols-4 bg-[#05B0FC] text-white font-semibold py-4 px-6">
+                        <div class="flex items-center">
+                            <i class="fas fa-book mr-2"></i>
+                            Lesson Title
                         </div>
-                        <div class="p-3 bg-gray-50 rounded-lg">
-                            <p class="font-medium text-gray-700">How do greenhouse gases affect the atmosphere?</p>
-                            <p class="text-sm text-gray-500">Asked 12 times</p>
+                        <div class="flex items-center">
+                            <i class="fas fa-question-circle mr-2"></i>
+                            Question Asked
                         </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-clock mr-2"></i>
+                            Time Asked
+                        </div>
+                        <div class="flex items-center">
+                            Subject & Grade
+                        </div>
+                    </div>
+
+                    <!-- Table Rows -->
+                    <div id="mostFrequentQuestionsTable" class="divide-y divide-gray-200">
+                        <!-- Content will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="text-center mt-8">
+                    <button onclick="backToLessons()" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-blue-600 transition-colors font-medium mr-4">
+                        <i class="fas fa-arrow-left mr-2"></i>
+                        Back to Lessons
+                    </button>
+                    <button onclick="exportAllFAQReport()" class="px-8 py-3 border border-[#05B0FC] text-[#05B0FC] rounded-lg hover:bg-blue-50 transition-colors font-medium">
+                        <i class="fas fa-download mr-2"></i>
+                        Export Report
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Frequently Asked Questions Dashboard for Teachers -->
+        <div id="faqDashboard" class="hidden flex-1 px-6 py-8 overflow-y-auto">
+            <div class="max-w-4xl mx-auto">
+                <div class="text-center mb-8">
+                    <h2 class="text-3xl font-bold text-[#05B0FC] mb-2">
+                        <i class="fas fa-chart-line mr-3"></i>
+                        Frequently Asked Questions Dashboard
+                    </h2>
+                    <p class="text-gray-600">Monitor the most common questions from your students</p>
+                </div>
+
+                <!-- FAQ Content will be populated here -->
+                <div id="faqDashboardContent">
+                    <div class="text-center py-16">
+                        <div class="loading mx-auto mb-4"></div>
+                        <p class="text-gray-500 text-lg">Loading FAQ data...</p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Lesson Generator Content -->
+        <!-- Enhanced Lesson Generator Content -->
         <div id="lessonGeneratorContent" class="hidden flex-1 px-6 pt-8 overflow-y-auto">
             <!-- Step 1: File Upload -->
             <div id="uploadStep" class="max-w-4xl mx-auto">
@@ -385,9 +398,9 @@
                 
                 <div class="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center mb-6 bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors min-h-64 flex flex-col items-center justify-center" onclick="document.getElementById('lessonFileInput').click()">
                     <div class="flex gap-2 mb-5">
-                        <img src="./excel.png" alt="">
-                        <img src="./ppt.png" alt="">
-                        <img src="./word.png" alt="">
+                        <img src="../static/images/excel.png" alt="">
+                        <img src="../static/images/ppt.png" alt="">
+                        <img src="../static/images/word.png" alt="">
                     </div>
                     <p class="text-gray-600 text-xl mb-2">Drop your file here or click to browse</p>
                     <p class="text-gray-500">Support PDF, DOCX, and PPT files up to 10 MB</p>
@@ -414,7 +427,287 @@
                 </div>
             </div>
 
-            <!-- Additional lesson generator steps would continue here... -->
+            <!-- Step 2: Lesson Configuration -->
+            <div id="configStep" class="hidden w-[436px] mx-auto text-slate-500 border border-blue-500 rounded-lg">
+                <div class="text-center mb-8 bg-[#05B0FC] text-white w-full py-4">
+                    <span class="font-medium text-xl">Lesson Details</span>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-lg p-4">
+                    <form id="lessonConfigForm" onsubmit="generateLesson(event)">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <!-- Lesson Title -->
+                            <div class="md:col-span-2">
+                                <label class="block text-gray-400 text-sm font-bold mb-2" for="lessonTitle">
+                                    Lesson Title *
+                                </label>
+                                <input 
+                                    type="text" 
+                                    id="lessonTitle" 
+                                    name="lessonTitle"
+                                    placeholder="Enter lesson title..."
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400"
+                                    required
+                                />
+                            </div>
+
+                            <!-- Learning Objective -->
+                            <div class="md:col-span-2 border-b">
+                                <label class="block text-gray-400 text-sm font-bold mb-2" for="learningObjective">
+                                    Learning Objective *
+                                </label>
+                                <textarea 
+                                    id="learningObjective" 
+                                    name="learningObjective"
+                                    placeholder="What should students learn from this lesson?"
+                                    class="w-full px-4 py-1 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400 h-10 resize-none"
+                                    required
+                                ></textarea>
+                            </div>
+
+                            <!-- Focus Area -->
+                            <div>
+                                <label class="block text-gray-400 text-sm font-bold mb-2" for="focusArea">
+                                    Focus Area *
+                                </label>
+                                <select 
+                                    id="focusArea" 
+                                    name="focusArea"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400"
+                                    required
+                                >
+                                    <option value="">Select focus area...</option>
+                                    <option value="Reading Comprehension">Reading Comprehension</option>
+                                    <option value="Mathematics">Mathematics</option>
+                                    <option value="Science">Science</option>
+                                    <option value="Social Studies">Social Studies</option>
+                                    <option value="Language Arts">Language Arts</option>
+                                    <option value="History">History</option>
+                                    <option value="Geography">Geography</option>
+                                    <option value="Literature">Literature</option>
+                                    <option value="Writing">Writing</option>
+                                    <option value="Critical Thinking">Critical Thinking</option>
+                                    <option value="Problem Solving">Problem Solving</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+
+                            <!-- Grade Level -->
+                            <div>
+                                <label class="block text-gray-400 text-sm font-bold mb-2" for="gradeLevel">
+                                    Grade Level *
+                                </label>
+                                <select 
+                                    id="gradeLevel" 
+                                    name="gradeLevel"
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400"
+                                    required
+                                >
+                                    <option value="">Select grade level...</option>
+                                    <option value="K-1">Kindergarten - 1st Grade</option>
+                                    <option value="2-3">2nd - 3rd Grade</option>
+                                    <option value="4-5">4th - 5th Grade</option>
+                                    <option value="6-8">6th - 8th Grade (Middle School)</option>
+                                    <option value="9-12">9th - 12th Grade (High School)</option>
+                                    <option value="College">College/University</option>
+                                    <option value="Adult">Adult Education</option>
+                                </select>
+                            </div>
+
+                            <!-- Additional Notes -->
+                            <div class="md:col-span-2">
+                                <label class="block text-gray-400 text-sm font-bold mb-2" for="additionalNotes">
+                                    Additional Notes (Optional)
+                                </label>
+                                <textarea 
+                                    id="additionalNotes" 
+                                    name="additionalNotes"
+                                    placeholder="Any specific requirements, teaching methods, or notes..."
+                                    class="w-full px-4 py-3 border flex border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400 h-10 resize-none"
+                                ></textarea>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-center mt-4">
+                            <button type="submit" id="generateLessonFormBtn" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-[#05B0FC] transition-colors text-lg font-medium">
+                                <span id="generateBtnText">Generate Lesson</span>
+                                <i id="generateBtnLoader" class="fas fa-spinner fa-spin ml-2 hidden"></i>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Step 3: Generated Lesson Display -->
+            <div id="lessonDisplay" class="hidden w-[616px] mx-auto p-5">
+                <div class="text-center mb-8 text-[#05B0FC] justify-center">
+                    <div class="flex gap-2 justify-center text-center">
+                        <img src="../static/images/f7_book.png" alt="">
+                        <span class="font-medium text-2xl">Initial Lesson Generated</span>
+                    </div>
+                    <p class="text-center mt-3 mb-3">Review the AI-Generated Content</p>
+                    <button class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-blue-600 transition-colors font-medium">Generated based on your Document</button>
+                </div>
+
+                <div class="bg-white">
+                    <!-- Lesson Header -->
+                    <div class="">
+                        <div class="mb-2">
+                            <div class="p-2 rounded-lg border border-blue-500 rounded-lg shadow-lg">
+                                <div id="lessonSummary" class="text-gray-700 leading-relaxed max-h-[436px] overflow-y-auto">
+                                    <p>Your generated lesson content will appear here...</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="additionalNotesDisplay" class="mb-6 hidden">
+                            <h4 class="text-lg font-semibold text-gray-800 mb-3">Additional Notes</h4>
+                            <div class="p-4 rounded-lg">
+                                <p class="text-yellow-800" id="displayAdditionalNotes"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="p-3">
+                        <div class="flex flex-row sm:flex-row justify-center items-center gap-4">
+                            <button onclick="reviewWithHuman()" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-blue-600 transition-colors font-medium flex items-center gap-2">
+                                Review with Human
+                            </button>
+                            <button onclick="reviewWithAI()" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-blue-600 transition-colors font-medium flex items-center gap-2">
+                                Review with AI
+                            </button>
+                        </div>
+                        <div class="flex justify-center mt-4">
+                            <button onclick="proceedToCompletion()" class="border border-[#05B0FC] px-8 py-3 bg-white text-[#05B0FC] hover:text-white hover:bg-[#05B0FC] rounded-lg transition-colors font-medium flex items-center gap-2">
+                                <i class="fas fa-check"></i>
+                                Finalize and Download
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Lesson Completion Page -->
+            <div id="lessonCompletionPage" class="hidden max-w-2xl mx-auto text-center p-8">
+                <div class="mb-8">
+                    <div class="flex items-center justify-center mb-4">
+                        <i class="fas fa-check-circle text-[#05B0FC] text-4xl mr-3"></i>
+                        <h2 class="text-3xl font-bold text-[#05B0FC]">Your lesson is ready!</h2>
+                    </div>
+                    <p class="text-gray-600 text-lg">Download and share your lesson</p>
+                </div>
+
+                <!-- Lesson File Display -->
+                <div class="mb-8">
+                    <div class="bg-[#05B0FC] text-white rounded-lg px-6 py-4 text-lg font-medium">
+                        <i class="fas fa-file mr-2"></i>
+                        <span id="completedLessonTitle">Sample Lesson from document.pdf</span>
+                    </div>
+                </div>
+
+                <!-- Download Buttons -->
+                <div class="flex justify-center gap-4 mb-8">
+                    <button onclick="downloadLesson('pdf')" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg transition-colors font-medium flex items-center gap-2">
+                        <i class="fas fa-download"></i>
+                        Download PDF
+                    </button>
+                    <button onclick="downloadLesson('docx')" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg transition-colors font-medium flex items-center gap-2">
+                        <i class="fas fa-download"></i>
+                        Download DOCX
+                    </button>
+                </div>
+
+                <!-- Start New Lesson Button -->
+                <div>
+                    <button onclick="startNewLesson()" class="px-12 py-4 text-[#05B0FC] hover:text-white bg-white hover:bg-[#05B0FC] border border-[#05B0FC] rounded-lg transition-colors font-medium text-lg">
+                        Start New Lesson
+                    </button>
+                </div>
+            </div>
+
+            <!-- Human Review Interface -->
+            <div class="max-h-[80vh] overflow-y-auto">
+                <div id="humanReviewInterface" class="hidden w-[616px] mx-auto px-6 pt-8 border border-[#05B0FC] shadow-3xl rounded-xl">
+                    <div class="text-center mb-8">
+                        <div class="flex gap-2 justify-center items-center">
+                            <img src="../static/images/manual.png" alt="Manual Edit Icon" class="h-8 w-8">
+                            <h2 class="text-3xl font-bold text-[#05B0FC] mb-2">Manual Edit</h2>
+                        </div>
+                        <p class="text-gray-600">Manually edit the content below</p>
+                    </div>
+
+                    <div class="p-4">
+                        <!-- Single Editable Content Area -->
+                        <div class="mb-6">
+                            <textarea
+                                id="humanReviewContent"
+                                class="w-full px-4 py-3 border border-[#05B0FC] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-[24rem] max-h-[32rem] overflow-y-auto resize-none text-sm font-mono"
+                                placeholder="Edit your lesson content here..."
+                            ></textarea>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="flex justify-end gap-2">
+                            <button
+                                onclick="cancelHumanReview()"
+                                class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onclick="saveHumanReview()"
+                                class="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
+                            >
+                                Apply Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI Review Interface -->
+            <div class="max-h-[80vh] overflow-y-auto">
+                <div id="aiReviewInterface" class="hidden max-w-4xl mx-auto px-6 pt-8">
+                    <div class="text-center mb-8">
+                        <div class="flex justify-center items-center gap-2">
+                            <img src="../static/images/manual.png" alt="Manual Edit Icon" class="h-8 w-8">
+                            <h2 class="text-3xl font-bold text-[#05B0FC] mb-2">Edit With AI</h2>
+                        </div>
+                        <p class="">Provide Instruction to AI to modify your lesson </p>
+                    </div>
+
+                    <div class="bg-white rounded-xl shadow-lg p-8 border border-[#05B0FC]">
+                        <div class="mb-6">
+                            <label class="block text-[#05B0FC] text-sm font-bold mb-2" for="aiReviewPrompt">
+                                Add Your Prompt Here
+                            </label>
+                            <textarea 
+                                id="aiReviewPrompt"
+                                placeholder="Describe what changes you want AI to make..."
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 min-h-[8rem] max-h-[16rem] overflow-y-auto resize-none"
+                            ></textarea>
+                        </div>
+                        <div class="mb-6 border border-[#05B0FC] rounded-lg p-4 bg-blue-50">
+                            <label class="block  text-sm text-[#05B0FC] font-bold mb-2 ">
+                                Current Lesson Preview
+                            </label>
+                            <div id="currentLessonPreview" class="bg-blue-80 p-4 rounded-lg min-h-[8rem] max-h-[12rem] overflow-y-auto text-sm">
+                                <!-- This area will scroll if content is long -->
+                            </div>
+                        </div>
+                        <div class="flex justify-end gap-2">
+                            <button onclick="cancelAIReview()" class="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-100">
+                                <i class="fas fa-times mr-2"></i>Cancel
+                            </button>
+                            <button onclick="applyAIReview()" id="applyAIReviewBtn" class="px-6 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-[#05B0FC]-600 transition-colors font-medium">
+                                <span id="applyAIReviewText">Apply AI Changes</span>
+                                <i id="applyAIReviewLoader" class="fas fa-spinner fa-spin ml-2 hidden"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- Settings Content -->
@@ -462,7 +755,6 @@
             </div>
         </div>
 
-        <!-- Voice Recording Indicator -->
         <div id="voiceRecordingIndicator" class="hidden px-6 py-2 bg-red-50 border-l-4 border-red-500">
             <div class="flex items-center gap-2">
                 <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
@@ -477,10 +769,10 @@
         <div class="px-6 py-4 border-t border-gray-100 mt-[40px]">
             <div class="flex items-center gap-3">
                 <button onclick="toggleVoiceRecording()" id="micButton" class="w-12 h-12 border border-gray-200 rounded-xl flex items-center justify-center hover:bg-gray-50 transition-colors">
-                  <img src="./recorder.png" alt="">
+                  <img src="../static/images/recorder.png" alt="">
                 </button>
                 <button onclick="toggleVoiceOutput()" id="voiceOutputBtn" class="w-12 h-12 border border-gray-200 rounded-xl flex items-center justify-center hover:bg-gray-50 transition-colors">
-                  <img src="./voice.png" alt="">
+                  <img src="../static/images/voice.png" alt="">
                 </button>
                 
                 <div class="flex-1 relative">
@@ -497,7 +789,7 @@
                 </div>
                 
                 <button onclick="sendMessage()" class="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center hover:bg-blue-600 transition-colors">
-                    <img src="./sender.png" alt="">
+                    <img src="../static/images/sender.png" alt="">
                 </button>
             </div>
         </div>
@@ -506,47 +798,40 @@
   </div>
 
   <!-- Ask Question Modal -->
- <div id="askQuestionModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
-  <div class="bg-white rounded-lg p-6 w-96 w-[481px] h-[613px] mx-4 border border-[#05B0FC] flex flex-col">
-    
-    <!-- Modal Header -->
-    <div class="flex justify-between items-center mb-4">
-      <div>
-        <h3 class="text-lg font-bold text-[#05B0FC] ">Ask Question</h3>
-        <p class="text-sm text-gray-600 mt-4" id="modalLessonTitle">Introduction to Climate</p>
-      </div>
-      <button onclick="closeAskQuestionModal()" class="text-gray-400 hover:text-gray-600">
-        <i class="fas fa-times text-xl"></i>
-      </button>
-    </div>
-
-    <!-- Modal Content -->
-    <div class="mb-4">
-      <p class="text-sm text-gray-600 mb-4" id="modalLessonHelper">
-        Tell me how to help you to understand the 'Introduction to Climate'...
-      </p>
-    </div>
-
-    <!-- Spacer to push input to the bottom -->
-    <div class="flex-grow"></div>
-
-    <!-- Question Input -->
-    <div>
-      <div class="relative">
-        <input
-          type="text"
-          id="questionInput"
-          placeholder="Type your Question about this Lesson"
-          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 pr-12"
-        />
-        <button onclick="submitQuestion()" class="absolute px-3 py-2 right-2 top-1/2 transform -translate-y-1/2 bg-[#05B0FC] text-white p-2 rounded-lg hover:bg-blue-600 transition-colors">
-          <i class="fas fa-paper-plane"></i>
+  <div id="askQuestionModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
+    <div class="bg-white rounded-lg p-6 w-96 max-w-md mx-4">
+      <!-- Modal Header -->
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <h3 class="text-lg font-semibold text-[#05B0FC]">Ask Question</h3>
+          <p class="text-sm text-gray-600" id="modalLessonTitle">Loading...</p>
+        </div>
+        <button onclick="closeAskQuestionModal()" class="text-gray-400 hover:text-gray-600">
+          <i class="fas fa-times text-xl"></i>
         </button>
       </div>
-    </div>
 
+      <!-- Modal Content -->
+      <div class="mb-4">
+        <p class="text-sm text-gray-600 mb-4" id="modalLessonHelper">Tell me how to help you understand this lesson...</p>
+      </div>
+
+      <!-- Question Input -->
+      <div class="mb-4">
+        <div class="relative">
+          <input
+            type="text"
+            id="questionInput"
+            placeholder="Type your Question about this Lesson"
+            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 pr-12"
+          />
+          <button onclick="submitQuestion()" class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-[#05B0FC] text-white p-2 rounded-lg hover:bg-blue-600 transition-colors">
+            <i class="fas fa-paper-plane"></i>
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
-</div>
 
   <!-- JS -->
   <script>
@@ -567,68 +852,487 @@
     let voiceChatTimer = null;
     let voiceChatSeconds = 0;
     let isVoiceChatActive = false;
-    let userRole = 'student'; // Default role
+    let userRole = 'student'; // Will be set from API
     let userInfo = null;
     let currentQuestionLessonId = null;
+    let generatedLessonContent = '';
+    let currentLessonForFAQ = null;
+    let availableLessons = [];
+    let lessonFAQs = {};
 
     // Initialize
-    window.onload = function() {
-        loadUserInfo();
-        loadChatHistory();
-        startNewChat();
-        updateTokenMeter();
-        checkApiKeyStatus();
+   // Initialize
+window.onload = function() {
+    initializeApp();
+};
+
+// Initialize the application
+async function initializeApp() {
+    // Show loading state
+    showLoadingState();
+    
+    try {
+        // Wait a moment for any authentication redirects to complete
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Load user info with retry logic
+        await loadUserInfoWithRetry();
+        
+        // Initialize other components
+        await Promise.all([
+            loadChatHistory(),
+            updateTokenMeter(),
+            checkApiKeyStatus()
+        ]);
+        
+        // Setup UI
         setupSidebarListeners();
+        startNewChat();
         
         // Initialize mobile state
         if (window.innerWidth < 768) {
             document.getElementById('sidebar').classList.add('-translate-x-full');
         }
-    };
-
-    // Load user information and set up role-based UI
-    async function loadUserInfo() {
-        try {
-            const response = await fetch('/user_info');
-            if (response.ok) {
-                const data = await response.json();
-                userInfo = data.user;
-                userRole = data.user.role;
-                
-                // Set up role-based UI
-                setupRoleBasedUI();
-            } else {
-                console.error('Failed to load user info');
-            }
-        } catch (error) {
-            console.error('Error loading user info:', error);
-        }
+        
+        // Hide loading state
+        hideLoadingState();
+        
+    } catch (error) {
+        console.error('Failed to initialize app:', error);
+        hideLoadingState();
+        handleAuthenticationFailure();
     }
-
+}
     // Set up role-based UI elements
     function setupRoleBasedUI() {
         const viewLessonsLabel = document.getElementById('viewLessonsLabel');
         const lessonGeneratorContent = document.getElementById('lessonGeneratorContent');
         const generateLessonBtn = document.getElementById('generateLessonBtn');
+        const generateLessonTopBtn = document.getElementById('generateLessonTopBtn');
         const viewLessonsTitle = document.getElementById('viewLessonsTitle');
         const viewLessonsSubtitle = document.getElementById('viewLessonsSubtitle');
-        const mostAskedQuestions = document.getElementById('mostAskedQuestions');
+        const faqDashboardBtn = document.getElementById('faqDashboardBtn');
         
         if (userRole === 'teacher') {
             if (viewLessonsLabel) viewLessonsLabel.textContent = 'My Lessons';
             if (lessonGeneratorContent) lessonGeneratorContent.style.display = '';
             if (generateLessonBtn) generateLessonBtn.style.display = '';
+            if (generateLessonTopBtn) generateLessonTopBtn.style.display = '';
             if (viewLessonsTitle) viewLessonsTitle.textContent = 'My Lessons';
             if (viewLessonsSubtitle) viewLessonsSubtitle.textContent = 'Explore Your AI Powered Lessons';
-            if (mostAskedQuestions) mostAskedQuestions.classList.remove('hidden');
+            if (faqDashboardBtn) faqDashboardBtn.style.display = '';
+            
         } else if (userRole === 'student') {
             if (viewLessonsLabel) viewLessonsLabel.textContent = 'View Lessons';
             if (lessonGeneratorContent) lessonGeneratorContent.style.display = 'none';
             if (generateLessonBtn) generateLessonBtn.style.display = 'none';
+            if (generateLessonTopBtn) generateLessonTopBtn.style.display = 'none';
             if (viewLessonsTitle) viewLessonsTitle.textContent = 'Browse Lessons';
             if (viewLessonsSubtitle) viewLessonsSubtitle.textContent = 'Explore available lessons';
-            if (mostAskedQuestions) mostAskedQuestions.classList.add('hidden');
+            if (faqDashboardBtn) faqDashboardBtn.style.display = 'none';
         }
+        
+        // Update lessons display based on role
+        if (currentView === 'viewLessons') {
+            loadAvailableLessons();
+        }
+    }
+
+    // Load available lessons based on user role
+    async function loadAvailableLessons() {
+        try {
+            let endpoint = userRole === 'teacher' ? '/api/lessons/my_lessons' : '/api/lessons/browse_lessons';
+            
+            const response = await fetch(endpoint, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                availableLessons = data.lessons || [];
+                displayLessonsBasedOnRole();
+            } else {
+                console.error('Failed to load lessons');
+                showNotification('Failed to load lessons', 'error');
+            }
+        } catch (error) {
+            console.error('Error loading lessons:', error);
+            showNotification('Error loading lessons', 'error');
+        }
+    }
+
+    // Display lessons based on user role
+    function displayLessonsBasedOnRole() {
+        const lessonsDisplay = document.getElementById('lessonsDisplay');
+        
+        if (availableLessons.length === 0) {
+            lessonsDisplay.innerHTML = `
+                <div class="text-center py-16 text-gray-500">
+                    <i class="fas fa-book text-6xl mb-4"></i>
+                    <p class="text-xl">No lessons found</p>
+                    <p class="text-gray-400">${userRole === 'teacher' ? 'Create your first lesson' : 'No lessons available yet'}</p>
+                </div>
+            `;
+            return;
+        }
+        
+        if (userRole === 'teacher') {
+            // Teacher view with edit, delete, download, view FAQs actions
+            lessonsDisplay.innerHTML = `
+                <!-- Header -->
+                <div class="grid grid-cols-6 bg-[#05B0FC] text-white font-semibold py-3 px-4 rounded-t-lg">
+                    <div>No</div>
+                    <div>Lesson Title</div>
+                    <div>Subject</div>
+                    <div>Grade</div>
+                    <div>Created By</div>
+                    <div>Actions</div>
+                </div>
+                
+                ${availableLessons.map((lesson, index) => `
+                    <div class="grid grid-cols-6 py-3 px-4 border-b hover:bg-gray-50">
+                        <div class="flex items-center">${index + 1}</div>
+                        <div class="flex items-center font-medium text-gray-900">${lesson.title}</div>
+                        <div class="flex items-center">
+                            <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${lesson.subject}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="px-2 py-1 text-blue-800 text-xs">${lesson.grade}</span>
+                        </div>
+                        <div class="flex items-center text-gray-700">${lesson.created_by}</div>
+                        <div class="flex flex-row gap-1">
+                            <button onclick="editLesson(${lesson.id})" class="px-2 py-2 text-green-600 hover:bg-green-50 rounded transition-colors" title="Edit">
+                                <img src="../static/images/edit.png" alt="">
+                            </button>
+                            <button onclick="deleteLesson(${lesson.id})" class="px-2 py-2 text-red-600 hover:bg-red-50 rounded transition-colors" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            <button onclick="downloadLessonFile(${lesson.id})" class="px-2 py-2 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Download">
+                                <img src="../static/images/Group69.png" alt="">
+                            </button>
+                            <button onclick="viewLessonFAQs(${lesson.id}, '${lesson.title}')" class="px-2 py-2 text-purple-600 hover:bg-purple-50 rounded transition-colors" title="View FAQs">
+                                <img src="../static/images/faqs.png" alt="">
+                            </button>
+                        </div>
+                    </div>
+                `).join('')}
+            `;
+            
+        } else {
+            // Student view with ask question action only
+            lessonsDisplay.innerHTML = `
+                <!-- Header -->
+                <div class="grid grid-cols-6 bg-[#05B0FC] text-white font-semibold py-3 px-4 rounded-t-lg">
+                    <div>No</div>
+                    <div>Lesson Title</div>
+                    <div>Subject</div>
+                    <div>Grade</div>
+                    <div>Created By</div>
+                    <div>Actions</div>
+                </div>
+                
+                ${availableLessons.map((lesson, index) => `
+                    <div class="grid grid-cols-6 py-3 px-4 border-b hover:bg-gray-50">
+                        <div class="flex items-center">${index + 1}</div>
+                        <div class="flex items-center font-medium text-gray-900">${lesson.title}</div>
+                        <div class="flex items-center">
+                            <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${lesson.subject}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="px-2 py-1 text-blue-800 text-xs">${lesson.grade}</span>
+                        </div>
+                        <div class="flex items-center text-gray-700">${lesson.created_by}</div>
+                        <div class="flex flex-row gap-1">
+                            <button onclick="downloadLessonFile(${lesson.id})" class="px-2 py-2 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Download">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            <button onclick="openAskQuestionModal(${lesson.id}, '${lesson.title}')" class="px-2 py-2 text-green-600 hover:bg-green-50 rounded transition-colors" title="Ask Question">
+                                <i class="fas fa-question"></i>
+                            </button>
+                        </div>
+                    </div>
+                `).join('')}
+            `;
+        }
+    }
+
+    // Teacher-specific lesson management functions
+    function editLesson(lessonId) {
+        const lesson = availableLessons.find(l => l.id === lessonId);
+        if (lesson) {
+            showNotification(`Edit functionality for "${lesson.title}" would open lesson editor`, 'info');
+            // TODO: Implement lesson editor interface
+        }
+    }
+
+    async function deleteLesson(lessonId) {
+        const lesson = availableLessons.find(l => l.id === lessonId);
+        if (lesson && confirm(`Are you sure you want to delete "${lesson.title}"?`)) {
+            try {
+                const response = await fetch(`/api/lessons/delete_lesson/${lessonId}`, {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    showNotification(`"${lesson.title}" deleted successfully`, 'success');
+                    loadAvailableLessons(); // Refresh the lessons list
+                } else {
+                    showNotification('Failed to delete lesson', 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting lesson:', error);
+                showNotification('Error deleting lesson', 'error');
+            }
+        }
+    }
+
+    async function viewLessonFAQs(lessonId, lessonTitle) {
+        try {
+            const response = await fetch(`/api/lessons/faqs/${lessonId}`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                lessonFAQs[lessonId] = data.faqs || [];
+                
+                // Show Most Frequent Questions view
+                hideAllContentAreas();
+                document.getElementById('mostFrequentQuestionsView').classList.remove('hidden');
+                currentView = 'mostFrequentQuestions';
+                
+                // Update header
+                document.getElementById('chatTitle').textContent = 'Most Frequent Questions';
+                document.getElementById('chatStatus').textContent = 'View Student Questions';
+                
+                // Load questions for this specific lesson
+                loadMostFrequentQuestions();
+            } else {
+                showNotification('Failed to load lesson FAQs', 'error');
+            }
+        } catch (error) {
+            console.error('Error loading lesson FAQs:', error);
+            showNotification('Error loading lesson FAQs', 'error');
+        }
+    }
+
+    function loadMostFrequentQuestions() {
+        const tableContainer = document.getElementById('mostFrequentQuestionsTable');
+        
+        if (Object.keys(lessonFAQs).length === 0) {
+            tableContainer.innerHTML = `
+                <div class="text-center py-16 text-gray-500">
+                    <i class="fas fa-question-circle text-6xl mb-4"></i>
+                    <p class="text-xl">No questions found</p>
+                    <p class="text-gray-400">Students haven't asked questions yet</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Generate table rows from API data
+        let allQuestions = [];
+        Object.entries(lessonFAQs).forEach(([lessonId, faqs]) => {
+            const lesson = availableLessons.find(l => l.id == lessonId);
+            if (lesson && faqs.length > 0) {
+                faqs.forEach(faq => {
+                    allQuestions.push({
+                        ...faq,
+                        lessonTitle: lesson.title,
+                        lessonSubject: lesson.subject,
+                        lessonGrade: lesson.grade
+                    });
+                });
+            }
+        });
+
+        if (allQuestions.length === 0) {
+            tableContainer.innerHTML = `
+                <div class="text-center py-16 text-gray-500">
+                    <i class="fas fa-question-circle text-6xl mb-4"></i>
+                    <p class="text-xl">No questions found</p>
+                    <p class="text-gray-400">Students haven't asked questions yet</p>
+                </div>
+            `;
+            return;
+        }
+
+        tableContainer.innerHTML = allQuestions.map(question => `
+            <div class="grid grid-cols-4 py-4 px-6 hover:bg-gray-50 transition-colors">
+                <div class="flex items-center">
+                    <span class="font-medium text-gray-900">${question.lessonTitle}</span>
+                </div>
+                <div class="flex items-center">
+                    <span class="text-gray-700">${question.question}</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-[#05B0FC] text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">
+                            ${question.times_asked || 1}
+                        </div>
+                        <span class="text-gray-600">${question.time_ago || 'Recently'}</span>
+                    </div>
+                </div>
+                <div class="flex items-center">
+                    <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm mr-2">${question.lessonSubject}</span>
+                    <span class="text-gray-600">${question.lessonGrade}</span>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function backToLessons() {
+        openViewLessons();
+    }
+
+    function exportAllFAQReport() {
+        showNotification('Complete FAQ report export functionality would be implemented here', 'info');
+    }
+
+    // Show frequently asked questions dashboard to teachers
+    async function showFrequentlyAskedQuestions() {
+        hideAllContentAreas();
+        document.getElementById('faqDashboard').classList.remove('hidden');
+        currentView = 'faqDashboard';
+        
+        // Update chat header
+        document.getElementById('chatTitle').textContent = 'FAQ Dashboard';
+        document.getElementById('chatStatus').textContent = 'Monitor Student Questions';
+        
+        // Load FAQ dashboard data
+        await loadFAQDashboard();
+    }
+
+    async function loadFAQDashboard() {
+        const dashboardContent = document.getElementById('faqDashboardContent');
+        
+        try {
+            // This would call a real API endpoint for FAQ dashboard data
+            const response = await fetch('/api/lessons/faq_dashboard', {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                displayFAQDashboard(data);
+            } else {
+                throw new Error('Failed to load FAQ dashboard');
+            }
+        } catch (error) {
+            console.error('Error loading FAQ dashboard:', error);
+            // Display error message
+            dashboardContent.innerHTML = `
+                <div class="text-center py-16 text-gray-500">
+                    <i class="fas fa-exclamation-triangle text-6xl mb-4"></i>
+                    <p class="text-xl">Error loading FAQ dashboard</p>
+                    <p class="text-gray-400">Please try again later</p>
+                </div>
+            `;
+        }
+    }
+
+    function displayFAQDashboard(data) {
+        const dashboardContent = document.getElementById('faqDashboardContent');
+        
+        dashboardContent.innerHTML = `
+            <!-- Quick Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-blue-100 text-sm">Total Questions</p>
+                            <p class="text-3xl font-bold">${data.total_questions || 0}</p>
+                        </div>
+                        <i class="fas fa-question-circle text-4xl text-blue-200"></i>
+                    </div>
+                </div>
+                
+                <div class="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-green-100 text-sm">This Week</p>
+                            <p class="text-3xl font-bold">${data.weekly_questions || 0}</p>
+                        </div>
+                        <i class="fas fa-calendar-week text-4xl text-green-200"></i>
+                    </div>
+                </div>
+                
+                <div class="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-purple-100 text-sm">Active Students</p>
+                            <p class="text-3xl font-bold">${data.active_students || 0}</p>
+                        </div>
+                        <i class="fas fa-users text-4xl text-purple-200"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Questions by Lesson -->
+            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+                <h3 class="text-xl font-semibold text-gray-800 mb-6">
+                    <i class="fas fa-fire text-red-500 mr-2"></i>
+                    Most Asked Questions by Lesson
+                </h3>
+                
+                <div class="space-y-4">
+                    ${(data.top_questions || []).map(lesson => `
+                        <div class="border border-gray-200 rounded-lg p-4">
+                            <div class="flex justify-between items-center mb-3">
+                                <h4 class="font-semibold text-blue-600">${lesson.title}</h4>
+                                <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">${lesson.subject}</span>
+                            </div>
+                            <div class="space-y-2">
+                                ${lesson.questions.map(q => `
+                                    <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
+                                        <span class="text-gray-700">${q.question}</span>
+                                        <span class="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">Asked ${q.count} times</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+
+            <!-- Recent Questions -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h3 class="text-xl font-semibold text-gray-800 mb-6">
+                    <i class="fas fa-clock text-blue-500 mr-2"></i>
+                    Recent Questions (Last 24 hours)
+                </h3>
+                
+                <div class="space-y-3">
+                    ${(data.recent_questions || []).map(q => `
+                        <div class="flex items-center justify-between p-3 border-l-4 border-blue-500 bg-blue-50 rounded-r">
+                            <div>
+                                <p class="font-medium text-gray-800">${q.question}</p>
+                                <p class="text-sm text-gray-600">Student: ${q.student_name} • ${q.lesson_title} • ${q.time_ago}</p>
+                            </div>
+                            <button onclick="respondToQuestion('${q.id}')" class="bg-blue-500 text-white px-3 py-1 rounded-full text-xs hover:bg-blue-600 transition-colors">
+                                Respond
+                            </button>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="text-center mt-8">
+                <button onclick="openViewLessons()" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-blue-600 transition-colors font-medium mr-4">
+                    <i class="fas fa-book-open mr-2"></i>
+                    View All Lessons
+                </button>
+                <button onclick="exportFAQReport()" class="px-8 py-3 border border-[#05B0FC] text-[#05B0FC] rounded-lg hover:bg-blue-50 transition-colors font-medium">
+                    <i class="fas fa-download mr-2"></i>
+                    Export Report
+                </button>
+            </div>
+        `;
     }
 
     // Open lesson generator from sidebar
@@ -644,6 +1348,9 @@
         // Show lesson generator content
         document.getElementById('lessonGeneratorContent').classList.remove('hidden');
         currentView = 'lesson';
+        
+        // Reset to upload step
+        showLessonStep('upload');
         
         // Update chat header
         document.getElementById('chatTitle').textContent = 'Lesson Generator';
@@ -674,6 +1381,329 @@
         document.getElementById('lessonGeneratorContent').classList.add('hidden');
         document.getElementById('viewLessonsContent').classList.add('hidden');
         document.getElementById('settingsContent').classList.add('hidden');
+        document.getElementById('faqDashboard').classList.add('hidden');
+        document.getElementById('mostFrequentQuestionsView').classList.add('hidden');
+    }
+
+    // Show specific lesson generation step
+    function showLessonStep(step) {
+        // Hide all lesson steps
+        document.getElementById('uploadStep').classList.add('hidden');
+        document.getElementById('configStep').classList.add('hidden');
+        document.getElementById('lessonDisplay').classList.add('hidden');
+        document.getElementById('lessonCompletionPage').classList.add('hidden');
+        document.getElementById('humanReviewInterface').classList.add('hidden');
+        document.getElementById('aiReviewInterface').classList.add('hidden');
+        
+        // Show the requested step
+        switch(step) {
+            case 'upload':
+                document.getElementById('uploadStep').classList.remove('hidden');
+                break;
+            case 'config':
+                document.getElementById('configStep').classList.remove('hidden');
+                break;
+            case 'display':
+                document.getElementById('lessonDisplay').classList.remove('hidden');
+                break;
+            case 'completion':
+                document.getElementById('lessonCompletionPage').classList.remove('hidden');
+                break;
+            case 'humanReview':
+                document.getElementById('humanReviewInterface').classList.remove('hidden');
+                break;
+            case 'aiReview':
+                document.getElementById('aiReviewInterface').classList.remove('hidden');
+                break;
+        }
+    }
+
+    // Lesson Generator Functions
+    function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (file) {
+            // Check file size (10MB limit)
+            if (file.size > 10 * 1024 * 1024) {
+                showNotification('File size should be less than 10 MB', 'error');
+                return;
+            }
+            
+            currentLessonFile = file;
+            const fileNameDisplay = document.getElementById('selectedFileName');
+            fileNameDisplay.querySelector('span').textContent = file.name;
+            fileNameDisplay.classList.remove('hidden');
+            document.getElementById('proceedBtn').disabled = false;
+        }
+    }
+
+    function removeSelectedFile() {
+        document.getElementById('selectedFileName').classList.add('hidden');
+        document.getElementById('lessonFileInput').value = '';
+        document.getElementById('proceedBtn').disabled = true;
+        currentLessonFile = null;
+    }
+
+    function proceedToLessonConfig() {
+        if (!currentLessonFile) {
+            showNotification('Please select a file first', 'error');
+            return;
+        }
+        
+        showLessonStep('config');
+        showNotification('File uploaded successfully! Please fill in the lesson details.', 'success');
+    }
+
+    async function generateLesson(event) {
+        event.preventDefault();
+        
+        const formData = new FormData();
+        const form = document.getElementById('lessonConfigForm');
+        
+        // Add form fields
+        formData.append('title', form.lessonTitle.value);
+        formData.append('learning_objective', form.learningObjective.value);
+        formData.append('focus_area', form.focusArea.value);
+        formData.append('grade_level', form.gradeLevel.value);
+        formData.append('additional_notes', form.additionalNotes.value);
+        
+        // Add file
+        if (currentLessonFile) {
+            formData.append('file', currentLessonFile);
+        }
+        
+        const generateBtn = document.getElementById('generateLessonFormBtn');
+        const generateBtnText = document.getElementById('generateBtnText');
+        const generateBtnLoader = document.getElementById('generateBtnLoader');
+        
+        // Disable button and show loading
+        generateBtn.disabled = true;
+        generateBtnText.textContent = 'Generating...';
+        generateBtnLoader.classList.remove('hidden');
+        
+        try {
+            const response = await fetch('/api/lessons/create_lesson', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                
+                // Store generated lesson data
+                currentLessonData = {
+                    id: data.lesson_id,
+                    title: form.lessonTitle.value,
+                    objective: form.learningObjective.value,
+                    focusArea: form.focusArea.value,
+                    gradeLevel: form.gradeLevel.value,
+                    additionalNotes: form.additionalNotes.value,
+                    content: data.lesson_content || data.content
+                };
+                
+                generatedLessonContent = currentLessonData.content;
+                
+                // Display the generated lesson
+                displayGeneratedLesson();
+                showLessonStep('display');
+                showNotification('Lesson generated successfully!', 'success');
+                
+            } else {
+                const errorData = await response.json();
+                showNotification(`Error generating lesson: ${errorData.error || 'Generation failed'}`, 'error');
+            }
+            
+        } catch (error) {
+            console.error('Error generating lesson:', error);
+            showNotification('Error generating lesson. Please try again.', 'error');
+            
+        } finally {
+            // Re-enable button and hide loading
+            generateBtn.disabled = false;
+            generateBtnText.textContent = 'Generate Lesson';
+            generateBtnLoader.classList.add('hidden');
+        }
+    }
+
+    function displayGeneratedLesson() {
+        if (currentLessonData) {
+            const lessonSummary = document.getElementById('lessonSummary');
+            lessonSummary.innerHTML = `<pre class="whitespace-pre-wrap font-sans">${currentLessonData.content}</pre>`;
+            
+            // Show additional notes if provided
+            if (currentLessonData.additionalNotes) {
+                const additionalNotesDisplay = document.getElementById('additionalNotesDisplay');
+                const displayAdditionalNotes = document.getElementById('displayAdditionalNotes');
+                displayAdditionalNotes.textContent = currentLessonData.additionalNotes;
+                additionalNotesDisplay.classList.remove('hidden');
+            }
+        }
+    }
+
+    // Review Functions
+    function reviewWithHuman() {
+        document.getElementById('humanReviewContent').value = generatedLessonContent;
+        showLessonStep('humanReview');
+    }
+
+    function reviewWithAI() {
+        document.getElementById('currentLessonPreview').textContent = generatedLessonContent;
+        showLessonStep('aiReview');
+    }
+
+    function cancelHumanReview() {
+        showLessonStep('display');
+    }
+
+    function saveHumanReview() {
+        const editedContent = document.getElementById('humanReviewContent').value;
+        
+        if (editedContent.trim()) {
+            generatedLessonContent = editedContent;
+            currentLessonData.content = editedContent;
+            displayGeneratedLesson();
+            showLessonStep('display');
+            showNotification('Changes applied successfully!', 'success');
+        } else {
+            showNotification('Please enter some content', 'error');
+        }
+    }
+
+    function cancelAIReview() {
+        document.getElementById('aiReviewPrompt').value = '';
+        showLessonStep('display');
+    }
+
+    async function applyAIReview() {
+        const prompt = document.getElementById('aiReviewPrompt').value.trim();
+        
+        if (!prompt) {
+            showNotification('Please enter instructions for AI', 'error');
+            return;
+        }
+        
+        const applyBtn = document.getElementById('applyAIReviewBtn');
+        const applyBtnText = document.getElementById('applyAIReviewText');
+        const applyBtnLoader = document.getElementById('applyAIReviewLoader');
+        
+        // Disable button and show loading
+        applyBtn.disabled = true;
+        applyBtnText.textContent = 'Processing...';
+        applyBtnLoader.classList.remove('hidden');
+        
+        try {
+            const response = await fetch('/edit_lesson_with_prompt', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    lesson_content: generatedLessonContent,
+                    prompt: prompt
+                }),
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                generatedLessonContent = data.updated_content || data.content;
+                currentLessonData.content = generatedLessonContent;
+                displayGeneratedLesson();
+                showLessonStep('display');
+                showNotification('AI review applied successfully!', 'success');
+            } else {
+                const errorData = await response.json();
+                showNotification(`Error applying AI review: ${errorData.error}`, 'error');
+            }
+            
+        } catch (error) {
+            console.error('Error applying AI review:', error);
+            showNotification('Error applying AI review', 'error');
+            
+        } finally {
+            // Re-enable button and hide loading
+            applyBtn.disabled = false;
+            applyBtnText.textContent = 'Apply AI Changes';
+            applyBtnLoader.classList.add('hidden');
+            document.getElementById('aiReviewPrompt').value = '';
+        }
+    }
+
+    // Completion Functions
+    function proceedToCompletion() {
+        if (currentLessonData) {
+            const completedTitle = document.getElementById('completedLessonTitle');
+            completedTitle.textContent = `${currentLessonData.title}.docx`;
+            showLessonStep('completion');
+            showNotification('Lesson finalized! Ready for download.', 'success');
+        }
+    }
+
+    async function downloadLesson(format) {
+        if (!currentLessonData) {
+            showNotification('No lesson to download', 'error');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/lessons/download_lesson/${currentLessonData.id}`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${currentLessonData.title}.${format}`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+                
+                showNotification(`Lesson downloaded as ${format.toUpperCase()}!`, 'success');
+            } else {
+                showNotification('Error downloading lesson', 'error');
+            }
+            
+        } catch (error) {
+            console.error('Error downloading lesson:', error);
+            showNotification('Error downloading lesson', 'error');
+        }
+    }
+
+    function startNewLesson() {
+        // Reset lesson state
+        currentLessonFile = null;
+        currentLessonData = null;
+        generatedLessonContent = '';
+        
+        // Clear form
+        document.getElementById('lessonConfigForm').reset();
+        document.getElementById('selectedFileName').classList.add('hidden');
+        document.getElementById('lessonFileInput').value = '';
+        document.getElementById('proceedBtn').disabled = true;
+        document.getElementById('additionalNotesDisplay').classList.add('hidden');
+        
+        // Go back to upload step
+        showLessonStep('upload');
+        showNotification('Ready to create a new lesson!', 'info');
+    }
+
+    // Respond to student question
+    function respondToQuestion(questionId) {
+        // Switch to chat and prepare response
+        changeTab(document.querySelector('.tab-btn'), 'chat');
+        
+        // You could fetch specific question details here
+        addMessageToChat('ai', `I'll help you prepare a comprehensive response for the student question. What would you like to include in your response?`);
+        showNotification('Response prepared in chat area', 'success');
+    }
+
+    // Export FAQ report
+    function exportFAQReport() {
+        showNotification('FAQ report export functionality would generate a detailed report of all questions and analytics.', 'info');
     }
 
     // Tab management (now only for Chat and Knowledge Base)
@@ -755,24 +1785,25 @@
             // Show typing indicator
             showTypingIndicator();
             
-            // Simulate API call to get answer about the lesson
+            // Call API to get answer about the lesson
             const response = await fetch('/api/lessons/ask_question', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     lesson_id: currentQuestionLessonId, 
                     question: question 
-                })
+                }),
+                credentials: 'include'
             });
             
             hideTypingIndicator();
             
             if (response.ok) {
                 const data = await response.json();
-                addMessageToChat('ai', data.answer || `Based on the lesson content, here's what I can help you understand about "${question}": This is a detailed explanation that would be generated based on the lesson content.`);
+                addMessageToChat('ai', data.answer);
             } else {
-                // Fallback response
-                addMessageToChat('ai', `I understand you're asking about "${question}". Based on the lesson content, I can provide you with a comprehensive explanation. This would include relevant details from the lesson materials and additional context to help you better understand the topic.`);
+                const errorData = await response.json();
+                addMessageToChat('ai', `I'm sorry, there was an error processing your question: ${errorData.error}`);
             }
             
             saveChatToHistory();
@@ -805,7 +1836,8 @@
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ title: 'New Chat' })
+                body: JSON.stringify({ title: 'New Chat' }),
+                credentials: 'include'
             });
             
             if (response.ok) {
@@ -863,7 +1895,8 @@
                     body: JSON.stringify({
                         input: message,
                         conversation_id: currentChatId
-                    })
+                    }),
+                    credentials: 'include'
                 });
 
                 hideTypingIndicator();
@@ -896,27 +1929,6 @@
         }
     }
 
-    // Load available lessons
-    async function loadAvailableLessons() {
-        try {
-            let endpoint = '/api/lessons/browse_lessons';
-            if (userRole === 'teacher') {
-                endpoint = '/api/lessons/my_lessons';
-            }
-            const response = await fetch(endpoint);
-            if (response.ok) {
-                const data = await response.json();
-                displayLessons(data.lessons);
-            } else {
-                console.log('Using sample lessons data for demo');
-                // The sample lessons are already displayed in the HTML
-            }
-        } catch (error) {
-            console.error('Error loading lessons:', error);
-            console.log('Using sample lessons data for demo');
-        }
-    }
-
     // Search lessons
     async function searchLessons() {
         const searchTerm = document.getElementById('searchLessons').value.trim();
@@ -927,20 +1939,29 @@
         }
         
         try {
-            const params = new URLSearchParams();
-            params.append('q', searchTerm);
-            
-            const response = await fetch(`/api/lessons/search_lessons?${params}`);
+            const response = await fetch('/api/lessons/search_lessons', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    query: searchTerm,
+                    user_role: userRole
+                }),
+                credentials: 'include'
+            });
             
             if (response.ok) {
                 const data = await response.json();
-                displayLessons(data.lessons);
+                availableLessons = data.lessons || [];
+                displayLessonsBasedOnRole();
+                showNotification(`Found ${availableLessons.length} lessons matching "${searchTerm}"`, 'info');
             } else {
                 showNotification('Error searching lessons', 'error');
             }
         } catch (error) {
             console.error('Error searching lessons:', error);
-            showNotification('Error searching lessons. Please try again.', 'error');
+            showNotification('Error searching lessons', 'error');
         }
     }
 
@@ -953,7 +1974,10 @@
     // Download lesson file
     async function downloadLessonFile(lessonId) {
         try {
-            const response = await fetch(`/api/lessons/download_lesson/${lessonId}`);
+            const response = await fetch(`/api/lessons/download_lesson/${lessonId}`, {
+                method: 'GET',
+                credentials: 'include'
+            });
             
             if (response.ok) {
                 const blob = await response.blob();
@@ -976,10 +2000,6 @@
         }
     }
 
-    // [Additional functions would continue here with all the original functionality...]
-    // Including: Knowledge Base functions, Settings functions, Voice functions, etc.
-
-    // Rest of the JavaScript functions from the original code...
     // Knowledge Base Functions
     function switchKnowledgeTab(tabName) {
         const tabButtons = document.querySelectorAll('.kb-tab-btn');
@@ -1049,7 +2069,8 @@
         try {
             const response = await fetch('/upload_knowledge_base', {
                 method: 'POST',
-                body: formData
+                body: formData,
+                credentials: 'include'
             });
 
             if (response.ok) {
@@ -1101,7 +2122,8 @@
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ query: searchTerm })
+                body: JSON.stringify({ query: searchTerm }),
+                credentials: 'include'
             });
 
             if (response.ok) {
@@ -1166,6 +2188,18 @@
         showNotification('Knowledge base result added to chat context', 'success');
     }
 
+    // Remove knowledge file
+    function removeKnowledgeFile(index) {
+        selectedKnowledgeFiles.splice(index, 1);
+        if (selectedKnowledgeFiles.length === 0) {
+            document.getElementById('selectedKnowledgeFiles').classList.add('hidden');
+            document.getElementById('uploadToKnowledgeBtn').disabled = true;
+        } else {
+            const event = { target: { files: selectedKnowledgeFiles } };
+            handleKnowledgeFileSelect(event);
+        }
+    }
+
     // Settings Functions
     function toggleApiKeyVisibility() {
         const input = document.getElementById('apiKeyInput');
@@ -1202,7 +2236,8 @@
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ api_key: newApiKey })
+                body: JSON.stringify({ api_key: newApiKey }),
+                credentials: 'include'
             });
 
             if (response.ok) {
@@ -1396,9 +2431,9 @@
         
         sidebar.innerHTML = `
             <div class="flex justify-between items-center">
-                <img src="./logo.png" width="150" height="200" alt="">
+                <img src="../static/images/logo.png" width="150" height="200" alt="">
                 <button onclick="hideSidebar()" class="mt-4 hover:bg-gray-100 p-1 rounded">
-                    <img src="./slider.png" alt="">
+                    <img src="../static/images/slider.png" alt="">
                 </button>
             </div>
             
@@ -1409,24 +2444,30 @@
 
                 <!-- New Chat -->
                 <button onclick="startNewChat()" class="w-[200px] h-[50px] mt-3 mb-2 px-4 flex items-center justify-center gap-2 bg-[#05B0FC] text-white font-bold rounded transition duration-200 ease-in-out hover:bg-blue-600">
-                    <img src="./msg.png" alt="">
+                    <img src="../static/images/msg.png" alt="">
                     <span>New Chat</span>
                 </button>
 
                 <!-- Action Buttons -->
                 <button onclick="openLessonGenerator()" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors" id="generateLessonBtn">
-                    <img src="./lesson.png" alt="">
+                    <img src="../static/images/lesson.png" alt="">
                     <span>Generate Lessons</span>
                 </button>
 
                 <!-- View Lessons Button in Sidebar -->
                 <button onclick="openViewLessons()" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors" id="viewLessonsBtn">
-                    <img src="./lesson.png" alt="">
+                    <img src="../static/images/lesson.png" alt="">
                     <span id="viewLessonsLabel">View Lessons</span>
                 </button>
 
+                <!-- FAQ Dashboard Button (for teachers only) -->
+                <button onclick="showFrequentlyAskedQuestions()" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors" id="faqDashboardBtn" style="display: none;">
+                    <i class="fas fa-chart-line text-[#B7B7B7] w-5 h-5"></i>
+                    <span>FAQ Dashboard</span>
+                </button>
+
                 <button onclick="changeTab(document.querySelectorAll('.tab-btn')[1], 'settings')" class="w-[230px] h-[40px] px-4 flex items-center gap-3 font-semibold text-[16px] text-gray-700 hover:bg-gray-50 rounded transition-colors">
-                    <img src="./key.png" alt="">
+                    <img src="../static/images/key.png" alt="">
                     <span>Update API Key</span>
                 </button>
 
@@ -1627,74 +2668,166 @@
         }
     }
 
-    // Additional stub functions
+    // Chat history functions
     async function loadChatHistory() {
-        // Stub implementation
-        chatHistory = [];
-        updateChatHistoryDisplay();
+        try {
+            const response = await fetch('/get_conversations', {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                chatHistory = data.conversations || [];
+                updateChatHistoryDisplay();
+            } else {
+                console.error('Failed to load chat history');
+            }
+        } catch (error) {
+            console.error('Error loading chat history:', error);
+        }
     }
 
     function saveChatToHistory() {
-        // Stub implementation
+        // This would typically be handled by the server
+        // after each message is sent
     }
 
     function updateChatHistoryDisplay() {
-        // Stub implementation
+        const dropdown = document.getElementById('dropdownContent');
+        if (dropdown && chatHistory.length > 0) {
+            dropdown.innerHTML = chatHistory.slice(0, 10).map(chat => `
+                <div class="flex items-center gap-2 p-2 hover:bg-gray-100 rounded cursor-pointer" onclick="loadChat('${chat.id}')">
+                    <i class="fas fa-comment text-gray-400 text-sm"></i>
+                    <span class="text-sm text-gray-700 truncate">${chat.title || 'Untitled Chat'}</span>
+                </div>
+            `).join('');
+        }
+    }
+
+    async function loadChat(chatId) {
+        try {
+            const response = await fetch(`/get_messages/${chatId}`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                const messages = data.messages || [];
+                
+                // Clear current chat
+                const chatMessages = document.getElementById('chatMessages');
+                chatMessages.innerHTML = '';
+                
+                // Load messages
+                messages.forEach(msg => {
+                    addMessageToChat(msg.sender, msg.content);
+                });
+                
+                currentChatId = chatId;
+                changeTab(document.querySelector('.tab-btn'), 'chat');
+            } else {
+                showNotification('Failed to load chat', 'error');
+            }
+        } catch (error) {
+            console.error('Error loading chat:', error);
+            showNotification('Error loading chat', 'error');
+        }
     }
 
     async function downloadCurrentChat() {
-        showNotification('Download functionality not implemented in demo', 'info');
+        if (!currentChatId) {
+            showNotification('No active chat to download', 'error');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/download_chat/${currentChatId}`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `chat_${currentChatId}.docx`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+                
+                showNotification('Chat downloaded successfully!', 'success');
+            } else {
+                showNotification('Error downloading chat', 'error');
+            }
+        } catch (error) {
+            console.error('Error downloading chat:', error);
+            showNotification('Error downloading chat', 'error');
+        }
     }
 
     async function resetChat() {
-        showNotification('Reset functionality not implemented in demo', 'info');
+        if (confirm('Are you sure you want to reset the current chat?')) {
+            try {
+                const response = await fetch('/delete_all_conversations', {
+                    method: 'DELETE',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    startNewChat();
+                    showNotification('Chat reset successfully!', 'success');
+                } else {
+                    showNotification('Error resetting chat', 'error');
+                }
+            } catch (error) {
+                console.error('Error resetting chat:', error);
+                showNotification('Error resetting chat', 'error');
+            }
+        }
     }
 
     async function checkApiKeyStatus() {
-        // Stub implementation
+        try {
+            const response = await fetch('/check_api_key_status', {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (!data.has_api_key) {
+                    showNotification('Please set your API key in settings', 'warning');
+                }
+            }
+        } catch (error) {
+            console.error('Error checking API key status:', error);
+        }
     }
 
     async function updateTokenMeter() {
-        // Stub implementation
-    }
-
-    // Remove knowledge file
-    function removeKnowledgeFile(index) {
-        selectedKnowledgeFiles.splice(index, 1);
-        if (selectedKnowledgeFiles.length === 0) {
-            document.getElementById('selectedKnowledgeFiles').classList.add('hidden');
-            document.getElementById('uploadToKnowledgeBtn').disabled = true;
-        } else {
-            const event = { target: { files: selectedKnowledgeFiles } };
-            handleKnowledgeFileSelect(event);
+        try {
+            const response = await fetch('/token_status', {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                // Update token meter display if needed
+                // This would be implemented based on your UI requirements
+            }
+        } catch (error) {
+            console.error('Error updating token meter:', error);
         }
     }
 
-    // File handling for lesson generator
-    function handleFileSelect(event) {
-        const file = event.target.files[0];
-        if (file) {
-            currentLessonFile = file;
-            const fileNameDisplay = document.getElementById('selectedFileName');
-            fileNameDisplay.querySelector('span').textContent = file.name;
-            fileNameDisplay.classList.remove('hidden');
-            document.getElementById('proceedBtn').disabled = false;
-        }
-    }
-
-    function removeSelectedFile() {
-        document.getElementById('selectedFileName').classList.add('hidden');
-        document.getElementById('lessonFileInput').value = '';
-        document.getElementById('proceedBtn').disabled = true;
-        currentLessonFile = null;
-    }
-
-    function proceedToLessonConfig() {
-        if (!currentLessonFile) {
-            showNotification('Please select a file first', 'error');
-            return;
-        }
-        showNotification('Lesson configuration not fully implemented in demo', 'info');
+    // Helper function for lesson generator button
+    function generateLessonButton() {
+        openLessonGenerator();
     }
 
   </script>
