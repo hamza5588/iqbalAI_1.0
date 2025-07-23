@@ -404,7 +404,7 @@ class LessonService:
         
         try:
             self.llm = ChatGroq(
-                api_key="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",
+                api_key=api_key,
                 model="llama3-70b-8192",
                 temperature=0.3,
                 # max_tokens=4096  # Increased token limit
@@ -434,15 +434,15 @@ Return this exact JSON structure:
     ],
     "sections": [
         {{
-            "heading": "Introduction",
+            "heading": "Introduction (use a clear, bolded heading)",
             "content": "Detailed explanation with examples and key concepts"
         }},
         {{
-            "heading": "Main Content",
+            "heading": "Main Content (use a clear, bolded heading)",
             "content": "Core lesson material with detailed explanations"
         }},
         {{
-            "heading": "Conclusion",
+            "heading": "Conclusion (use a clear, bolded heading)",
             "content": "Summary and key takeaways"
         }}
     ],
@@ -468,12 +468,14 @@ Return this exact JSON structure:
     ]
 }}
 
-IMPORTANT: 
+IMPORTANT:
 - Return ONLY the JSON object
 - No markdown code blocks
 - No additional text or explanations
 - Ensure all JSON strings are properly escaped
 - Answer field must be only "A", "B", "C", or "D"
+- **All section headings must be clear, bold, and numbered (e.g., '1. Introduction', '2. Main Content', '3. Conclusion')**
+- Do NOT omit any section headings. Every section must have a heading.
 """)
 
     def allowed_file(self, filename: str) -> bool:
