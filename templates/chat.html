@@ -995,12 +995,12 @@ async function initializeApp() {
                         <div class="flex items-center">${index + 1}</div>
                         <div class="flex items-center font-medium text-gray-900">${lesson.title}</div>
                         <div class="flex items-center">
-                            <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${lesson.subject}</span>
+                            <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${lesson.focus_area || ''}</span>
                         </div>
                         <div class="flex items-center">
-                            <span class="px-2 py-1 text-blue-800 text-xs">${lesson.grade}</span>
+                            <span class="px-2 py-1 text-blue-800 text-xs">${lesson.grade_level || ''}</span>
                         </div>
-                        <div class="flex items-center text-gray-700">${lesson.created_by}</div>
+                        <div class="flex items-center text-gray-700">${userInfo && userInfo.username ? userInfo.username : ''}</div>
                         <div class="flex flex-row gap-1">
                             <button onclick="editLesson(${lesson.id})" class="px-2 py-2 text-green-600 hover:bg-green-50 rounded transition-colors" title="Edit">
                                 <img src="../static/images/edit.png" alt="">
@@ -1037,12 +1037,12 @@ async function initializeApp() {
                         <div class="flex items-center">${index + 1}</div>
                         <div class="flex items-center font-medium text-gray-900">${lesson.title}</div>
                         <div class="flex items-center">
-                            <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${lesson.subject}</span>
+                            <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${lesson.focus_area || ''}</span>
                         </div>
                         <div class="flex items-center">
-                            <span class="px-2 py-1 text-blue-800 text-xs">${lesson.grade}</span>
+                            <span class="px-2 py-1 text-blue-800 text-xs">${lesson.grade_level || ''}</span>
                         </div>
-                        <div class="flex items-center text-gray-700">${lesson.created_by}</div>
+                        <div class="flex items-center text-gray-700">${lesson.teacher_name || ''}</div>
                         <div class="flex flex-row gap-1">
                             <button onclick="downloadLessonFile(${lesson.id})" class="px-2 py-2 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Download">
                                 <i class="fas fa-download"></i>
@@ -1061,20 +1061,63 @@ async function initializeApp() {
     function editLesson(lessonId) {
         const lesson = availableLessons.find(l => l.id === lessonId);
         if (lesson) {
-            showNotification(`Edit functionality for "${lesson.title}" would open lesson editor`, 'info');
-            // TODO: Implement lesson editor interface
+            openEditLessonModal(lesson);
         }
     }
 
+    function openEditLessonModal(lesson) {
+        document.getElementById('editLessonTitle').value = lesson.title || '';
+        document.getElementById('editLessonSummary').value = lesson.summary || '';
+        document.getElementById('editLessonContent').value = lesson.content || '';
+        document.getElementById('editLessonFocusArea').value = lesson.focus_area || lesson.focusArea || '';
+        document.getElementById('editLessonGradeLevel').value = lesson.grade_level || lesson.gradeLevel || '';
+        document.getElementById('editLessonModal').classList.remove('hidden');
+        window.currentEditLessonId = lesson.id;
+    }
+
+    function closeEditLessonModal() {
+        document.getElementById('editLessonModal').classList.add('hidden');
+        window.currentEditLessonId = null;
+    }
+
+    async function saveLessonEdits() {
+        const lessonId = window.currentEditLessonId;
+        const updatedLesson = {
+            title: document.getElementById('editLessonTitle').value,
+            summary: document.getElementById('editLessonSummary').value,
+            content: document.getElementById('editLessonContent').value,
+            focus_area: document.getElementById('editLessonFocusArea').value,
+            grade_level: document.getElementById('editLessonGradeLevel').value
+            // Add other fields as needed
+        };
+        try {
+            const response = await fetch(`/api/lessons/lesson/${lessonId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(updatedLesson)
+            });
+            if (response.ok) {
+                showNotification('Lesson updated!', 'success');
+                loadAvailableLessons();
+                closeEditLessonModal();
+            } else {
+                showNotification('Failed to update lesson.', 'error');
+            }
+        } catch (error) {
+            showNotification('Error updating lesson.', 'error');
+        }
+    }
+
+    // Update deleteLesson to always refresh the list
     async function deleteLesson(lessonId) {
         const lesson = availableLessons.find(l => l.id === lessonId);
         if (lesson && confirm(`Are you sure you want to delete "${lesson.title}"?`)) {
             try {
-                const response = await fetch(`/api/lessons/delete_lesson/${lessonId}`, {
+                const response = await fetch(`/api/lessons/lesson/${lessonId}`, {
                     method: 'DELETE',
                     credentials: 'include'
                 });
-                
                 if (response.ok) {
                     showNotification(`"${lesson.title}" deleted successfully`, 'success');
                     loadAvailableLessons(); // Refresh the lessons list
@@ -1082,7 +1125,6 @@ async function initializeApp() {
                     showNotification('Failed to delete lesson', 'error');
                 }
             } catch (error) {
-                console.error('Error deleting lesson:', error);
                 showNotification('Error deleting lesson', 'error');
             }
         }
@@ -1390,6 +1432,8 @@ async function initializeApp() {
         document.getElementById('uploadStep').classList.add('hidden');
         document.getElementById('configStep').classList.add('hidden');
         document.getElementById('lessonDisplay').classList.add('hidden');
+        document.getElementById('humanReviewInterface').classList.add('hidden');
+        document.getElementById('aiReviewInterface').classList.add('hidden');
         // Add more steps if needed
         if (step === 'upload') {
             document.getElementById('uploadStep').classList.remove('hidden');
@@ -1397,6 +1441,10 @@ async function initializeApp() {
             document.getElementById('configStep').classList.remove('hidden');
         } else if (step === 'display') {
             document.getElementById('lessonDisplay').classList.remove('hidden');
+        } else if (step === 'humanReview') {
+            document.getElementById('humanReviewInterface').classList.remove('hidden');
+        } else if (step === 'aiReview') {
+            document.getElementById('aiReviewInterface').classList.remove('hidden');
         }
     }
 
@@ -1441,12 +1489,12 @@ async function initializeApp() {
         const formData = new FormData();
         const form = document.getElementById('lessonConfigForm');
         
-        // Add form fields
-        formData.append('title', form.lessonTitle.value);
-        formData.append('learning_objective', form.learningObjective.value);
-        formData.append('focus_area', form.focusArea.value);
-        formData.append('grade_level', form.gradeLevel.value);
-        formData.append('additional_notes', form.additionalNotes.value);
+        // Add form fields with correct backend keys
+        formData.append('lessonTitle', form.lessonTitle.value);
+        formData.append('learningObjective', form.learningObjective.value);
+        formData.append('focusArea', form.focusArea.value);
+        formData.append('gradeLevel', form.gradeLevel.value);
+        formData.append('additionalNotes', form.additionalNotes.value);
         
         // Add file
         if (currentLessonFile) {
@@ -1471,25 +1519,21 @@ async function initializeApp() {
             
             if (response.ok) {
                 const data = await response.json();
-                
-                // Store generated lesson data
-                currentLessonData = {
-                    id: data.lesson_id,
-                    title: form.lessonTitle.value,
-                    objective: form.learningObjective.value,
-                    focusArea: form.focusArea.value,
-                    gradeLevel: form.gradeLevel.value,
-                    additionalNotes: form.additionalNotes.value,
-                    content: data.lesson_content || data.content
-                };
-                
-                generatedLessonContent = currentLessonData.content;
-                
-                // Display the generated lesson
-                displayGeneratedLesson();
-                showLessonStep('display');
-                showNotification('Lesson generated successfully!', 'success');
-                
+                // Fetch the full lesson from the backend using the new lesson_id
+                const lessonResp = await fetch(`/api/lessons/lesson/${data.lesson_id}`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                if (lessonResp.ok) {
+                    const lessonData = await lessonResp.json();
+                    currentLessonData = lessonData.lesson;
+                    generatedLessonContent = currentLessonData.content;
+                    displayGeneratedLesson();
+                    showLessonStep('display');
+                    showNotification('Lesson generated successfully!', 'success');
+                } else {
+                    showNotification('Failed to fetch full lesson content', 'error');
+                }
             } else {
                 const errorData = await response.json();
                 showNotification(`Error generating lesson: ${errorData.error || 'Generation failed'}`, 'error');
@@ -1510,7 +1554,9 @@ async function initializeApp() {
     function displayGeneratedLesson() {
         if (currentLessonData) {
             const lessonSummary = document.getElementById('lessonSummary');
-            lessonSummary.innerHTML = `<pre class="whitespace-pre-wrap font-sans">${currentLessonData.content}</pre>`;
+            // Show content, fallback to summary if content is missing
+            const content = currentLessonData.content || currentLessonData.summary || 'No content available.';
+            lessonSummary.innerHTML = `<pre class="whitespace-pre-wrap font-sans">${content}</pre>`;
             
             // Show additional notes if provided
             if (currentLessonData.additionalNotes) {
@@ -1524,12 +1570,15 @@ async function initializeApp() {
 
     // Review Functions
     function reviewWithHuman() {
-        document.getElementById('humanReviewContent').value = generatedLessonContent;
+        // Show the human review interface and populate the textarea with the lesson content
+        document.getElementById('humanReviewContent').value = generatedLessonContent || currentLessonData.content || '';
         showLessonStep('humanReview');
     }
 
     function reviewWithAI() {
-        document.getElementById('currentLessonPreview').textContent = generatedLessonContent;
+        const content = generatedLessonContent || (currentLessonData && currentLessonData.content) || '';
+        console.log('DEBUG: AI Review content:', content, generatedLessonContent, currentLessonData);
+        document.getElementById('currentLessonPreview').textContent = content;
         showLessonStep('aiReview');
     }
 
@@ -1564,6 +1613,12 @@ async function initializeApp() {
             return;
         }
         
+        const lessonContent = generatedLessonContent || (currentLessonData && currentLessonData.content) || '';
+        if (!lessonContent) {
+            showNotification('No lesson content available for AI review.', 'error');
+            return;
+        }
+        
         const applyBtn = document.getElementById('applyAIReviewBtn');
         const applyBtnText = document.getElementById('applyAIReviewText');
         const applyBtnLoader = document.getElementById('applyAIReviewLoader');
@@ -1580,16 +1635,21 @@ async function initializeApp() {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    lesson_content: generatedLessonContent,
-                    prompt: prompt
+                    lesson_text: lessonContent,
+                    user_prompt: prompt
                 }),
                 credentials: 'include'
             });
             
             if (response.ok) {
                 const data = await response.json();
-                generatedLessonContent = data.updated_content || data.content;
-                currentLessonData.content = generatedLessonContent;
+                const newContent = data.lesson_markdown || data.updated_content || data.content || '';
+                if (!newContent.trim()) {
+                    showNotification('AI did not return any content. Please try a different prompt.', 'error');
+                    return;
+                }
+                generatedLessonContent = newContent;
+                currentLessonData.content = newContent;
                 displayGeneratedLesson();
                 showLessonStep('display');
                 showNotification('AI review applied successfully!', 'success');
@@ -1612,11 +1672,42 @@ async function initializeApp() {
     }
 
     // Completion Functions
-    function proceedToCompletion() {
+    async function proceedToCompletion() {
         if (currentLessonData) {
+            // Send updated lesson to backend
+            try {
+                const response = await fetch(`/api/lessons/lesson/${currentLessonData.id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        title: currentLessonData.title,
+                        summary: currentLessonData.summary || '',
+                        learning_objectives: currentLessonData.learning_objectives || [],
+                        focus_area: currentLessonData.focus_area || currentLessonData.focusArea || '',
+                        grade_level: currentLessonData.grade_level || currentLessonData.gradeLevel || '',
+                        content: generatedLessonContent || currentLessonData.content || '',
+                        // Add other fields as needed
+                    })
+                });
+                if (response.ok) {
+                    showNotification('Lesson updated in database!', 'success');
+                } else {
+                    showNotification('Failed to update lesson in database.', 'error');
+                }
+            } catch (error) {
+                showNotification('Error updating lesson in database.', 'error');
+            }
+
             const completedTitle = document.getElementById('completedLessonTitle');
             completedTitle.textContent = `${currentLessonData.title}.docx`;
             showLessonStep('completion');
+            // Ensure the lessonCompletionPage and its download buttons are visible
+            document.getElementById('lessonCompletionPage').classList.remove('hidden');
+            // Optionally scroll to the download section
+            document.getElementById('lessonCompletionPage').scrollIntoView({ behavior: 'smooth' });
             showNotification('Lesson finalized! Ready for download.', 'success');
         }
     }
@@ -1626,32 +1717,32 @@ async function initializeApp() {
             showNotification('No lesson to download', 'error');
             return;
         }
-        
         try {
-            const response = await fetch(`/api/lessons/download_lesson/${currentLessonData.id}`, {
+            let url;
+            if (format === 'pdf') {
+                url = `/api/lessons/download_lesson_pdf/${currentLessonData.id}`;
+            } else {
+                url = `/api/lessons/download_lesson/${currentLessonData.id}`;
+            }
+            const response = await fetch(url, {
                 method: 'GET',
                 credentials: 'include'
             });
-            
             if (response.ok) {
                 const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
                 const a = document.createElement('a');
-                a.href = url;
+                a.href = window.URL.createObjectURL(blob);
                 a.download = `${currentLessonData.title}.${format}`;
                 document.body.appendChild(a);
                 a.click();
-                window.URL.revokeObjectURL(url);
+                window.URL.revokeObjectURL(a.href);
                 a.remove();
-                
                 showNotification(`Lesson downloaded as ${format.toUpperCase()}!`, 'success');
             } else {
                 showNotification('Error downloading lesson', 'error');
             }
-            
         } catch (error) {
-            console.error('Error downloading lesson:', error);
-            showNotification('Error downloading lesson', 'error');
+            showNotification('Error downloading lesson.', 'error');
         }
     }
 
@@ -1754,6 +1845,9 @@ async function initializeApp() {
             return;
         }
 
+        // Debug log
+        console.log('DEBUG: Asking question', { lesson_id: currentQuestionLessonId, question });
+
         try {
             // Close modal first
             closeAskQuestionModal();
@@ -1786,6 +1880,7 @@ async function initializeApp() {
             } else {
                 const errorData = await response.json();
                 addMessageToChat('ai', `I'm sorry, there was an error processing your question: ${errorData.error}`);
+                showNotification(errorData.error || 'Failed to process your question', 'error');
             }
             
             saveChatToHistory();
@@ -1794,6 +1889,7 @@ async function initializeApp() {
             hideTypingIndicator();
             console.error('Error asking question:', error);
             addMessageToChat('ai', 'I\'m sorry, there was an error processing your question. Please try again.');
+            showNotification('Error asking question. Please try again.', 'error');
         }
     }
 
@@ -2515,22 +2611,21 @@ async function initializeApp() {
         try {
             const response = await fetch('/auth/logout', {
                 method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 credentials: 'include'
             });
-            
             if (response.ok) {
                 const data = await response.json();
                 if (data.success && data.redirect_url) {
                     window.location.href = data.redirect_url;
                 } else {
-                    window.location.href = '/login';
+                    window.location.href = '/auth/login';
                 }
             } else {
-                window.location.href = '/logout';
+                window.location.href = '/auth/login';
             }
         } catch (error) {
-            console.error('Logout error:', error);
-            window.location.href = '/logout';
+            window.location.href = '/auth/login';
         }
     }
 
@@ -2812,6 +2907,45 @@ async function initializeApp() {
         openLessonGenerator();
     }
 
+    async function loadUserInfo() {
+        const response = await fetch('/user_info', { credentials: 'include' });
+        if (!response.ok) throw new Error('Failed to fetch user info');
+        const data = await response.json();
+        if (data.success && data.user && data.user.role) {
+            userRole = data.user.role;
+            userInfo = data.user;
+            console.log('DEBUG: userRole set to', userRole); // Debug statement
+            setupRoleBasedUI();
+        } else {
+            throw new Error('User info missing or invalid');
+        }
+    }
+
+    // Placeholder loading state functions
+    function showLoadingState() {
+        // Optionally, show a loading spinner or overlay here
+    }
+    function hideLoadingState() {
+        // Optionally, hide the loading spinner or overlay here
+    }
+
+    // Retry loading user info up to 3 times
+    async function loadUserInfoWithRetry(retries = 3) {
+        for (let i = 0; i < retries; i++) {
+            try {
+                await loadUserInfo();
+                return;
+            } catch (e) {
+                await new Promise(res => setTimeout(res, 500));
+            }
+        }
+        throw new Error('Failed to load user info after retries');
+    }
+
+    // Handle authentication failure by redirecting to login
+    function handleAuthenticationFailure() {
+        window.location.href = '/login';
+    }
   </script>
 
   <style>

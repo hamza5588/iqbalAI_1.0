@@ -1,65 +1,57 @@
-2025-07-06 19:02:50,095 ERROR: Exception on / [GET] [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\venv\Lib\site-packages\flask\app.py:875]
-Traceback (most recent call last):
-  File "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\routes\chat.py", line 27, in index
-    return render_template('chat.html', has_submitted_survey=has_submitted_survey)
-  File "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\venv\Lib\site-packages\flask\templating.py", line 149, in render_template
-    template = app.jinja_env.get_or_select_template(template_name_or_list)
-  File "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\venv\Lib\site-packages\jinja2\environment.py", line 1087, in get_or_select_template
-    return self.get_template(template_name_or_list, parent, globals)
-           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\venv\Lib\site-packages\jinja2\environment.py", line 1016, in get_template
-    return self._load_template(name, globals)
-           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
-  File "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\venv\Lib\site-packages\jinja2\environment.py", line 975, in _load_template
-    template = self.loader.load(self, name, self.make_globals(globals))
-  File "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\venv\Lib\site-packages\jinja2\loaders.py", line 126, in load
-    source, filename, uptodate = self.get_source(environment, name)
-                                 ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\venv\Lib\site-packages\flask\templating.py", line 65, in get_source
-    return self._get_source_fast(environment, template)
-           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\venv\Lib\site-packages\flask\templating.py", line 99, in _get_source_fast
-    raise TemplateNotFound(template)
-jinja2.exceptions.TemplateNotFound: chat.html
-
-During handling of the above exception, another exception occurred:
-
-Traceback (most recent call last):
-  File "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\venv\Lib\site-packages\flask\app.py", line 1511, in wsgi_app
-    response = self.full_dispatch_request()
-  File "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\venv\Lib\site-packages\flask\app.py", line 919, in full_dispatch_request
-    rv = self.handle_user_exception(e)
-  File "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\venv\Lib\site-packages\flask_cors\extension.py", line 176, in wrapped_function
-    return cors_after_request(app.make_response(f(*args, **kwargs)))
-                                                ~^^^^^^^^^^^^^^^^^
-  File "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\venv\Lib\site-packages\flask\app.py", line 917, in full_dispatch_request
-    rv = self.dispatch_request()
-  File "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\venv\Lib\site-packages\flask\app.py", line 902, in dispatch_request
-    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
-           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
-  File "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\utils\auth.py", line 32, in decorated_function
-    return f(*args, **kwargs)
-  File "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\routes\chat.py", line 30, in index
-    return render_template('chat.html', has_submitted_survey=False)
-  File "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\venv\Lib\site-packages\flask\templating.py", line 149, in render_template
-    template = app.jinja_env.get_or_select_template(template_name_or_list)
-  File "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\venv\Lib\site-packages\jinja2\environment.py", line 1087, in get_or_select_template
-    return self.get_template(template_name_or_list, parent, globals)
-           ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\venv\Lib\site-packages\jinja2\environment.py", line 1016, in get_template
-    return self._load_template(name, globals)
-           ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^
-  File "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\venv\Lib\site-packages\jinja2\environment.py", line 975, in _load_template
-    template = self.loader.load(self, name, self.make_globals(globals))
-  File "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\venv\Lib\site-packages\jinja2\loaders.py", line 126, in load
-    source, filename, uptodate = self.get_source(environment, name)
-                                 ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\venv\Lib\site-packages\flask\templating.py", line 65, in get_source
-    return self._get_source_fast(environment, template)
-           ~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\venv\Lib\site-packages\flask\templating.py", line 99, in _get_source_fast
-    raise TemplateNotFound(template)
-jinja2.exceptions.TemplateNotFound: chat.html
-2025-07-06 19:02:51,807 INFO: Checking survey submission status for user_id: 1 [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1013]
-2025-07-06 19:02:51,810 INFO: Survey check result: User 1 has submitted a survey (count: 1) [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1022]
-2025-07-06 19:02:51,811 ERROR: Error in index route: chat.html [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\routes\chat.py:29]
+2025-07-09 01:05:54,552 INFO: Survey check result: User 11 has not submitted a survey (count: 0) [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1192]
+2025-07-09 01:06:01,395 INFO: Checking survey submission status for user_id: 11 [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1183]
+2025-07-09 01:06:01,398 INFO: Survey check result: User 11 has not submitted a survey (count: 0) [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1192]
+2025-07-09 01:06:23,109 INFO: Checking survey submission status for user_id: 11 [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1183]
+2025-07-09 01:06:23,111 INFO: Survey check result: User 11 has not submitted a survey (count: 0) [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1192]
+2025-07-09 01:09:48,996 INFO: Checking survey submission status for user_id: 11 [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1183]
+2025-07-09 01:09:48,998 INFO: Survey check result: User 11 has not submitted a survey (count: 0) [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1192]
+2025-07-09 01:12:11,081 INFO: Checking survey submission status for user_id: 11 [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1183]
+2025-07-09 01:12:11,083 INFO: Survey check result: User 11 has not submitted a survey (count: 0) [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1192]
+2025-07-09 01:13:56,539 INFO: Checking survey submission status for user_id: 1 [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1183]
+2025-07-09 01:13:56,541 INFO: Survey check result: User 1 has submitted a survey (count: 1) [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1192]
+2025-07-09 01:15:06,204 INFO: Processing text of length: 6910 [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\services\lesson_service.py:586]
+2025-07-09 01:15:06,204 INFO: About to invoke LLM... [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\services\lesson_service.py:587]
+2025-07-09 01:15:08,900 INFO: Received LLM response type: <class 'langchain_core.messages.ai.AIMessage'> [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\services\lesson_service.py:594]
+2025-07-09 01:15:08,901 INFO: Response text (first 200 chars): {
+    "title": "Hamza Nawaz: AI Engineer Profile Analysis",
+    "summary": "This lesson explores the profile of Hamza Nawaz, an AI Engineer with expertise in Machine Learning, Deep Learning, and Gener [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\services\lesson_service.py:599]
+2025-07-09 01:15:08,902 INFO: Successfully generated structured lesson [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\services\lesson_service.py:605]
+2025-07-09 01:15:27,604 INFO: Checking survey submission status for user_id: 11 [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1183]
+2025-07-09 01:15:27,606 INFO: Survey check result: User 11 has not submitted a survey (count: 0) [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1192]
+2025-07-09 01:32:32,753 INFO: Checking survey submission status for user_id: 11 [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1183]
+2025-07-09 01:32:32,758 INFO: Survey check result: User 11 has not submitted a survey (count: 0) [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1192]
+2025-07-09 01:32:49,719 INFO: Checking survey submission status for user_id: 1 [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1183]
+2025-07-09 01:32:49,722 INFO: Survey check result: User 1 has submitted a survey (count: 1) [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1192]
+2025-07-09 01:35:42,972 INFO: Checking survey submission status for user_id: 1 [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1183]
+2025-07-09 01:35:42,974 INFO: Survey check result: User 1 has submitted a survey (count: 1) [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1192]
+2025-07-09 01:39:24,665 INFO: Checking survey submission status for user_id: 11 [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1183]
+2025-07-09 01:39:24,672 INFO: Survey check result: User 11 has not submitted a survey (count: 0) [in C:\Users\DCS\Desktop\New folder (6)\iqbalAI\iqbalAI\iqbal_Ai_Version2\app\models\models.py:1192]
+2025-07-19 16:20:24,256 INFO: Checking survey submission status for user_id: 1 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1183]
+2025-07-19 16:20:24,259 INFO: Survey check result: User 1 has submitted a survey (count: 1) [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1192]
+2025-07-19 16:22:43,763 INFO: Checking survey submission status for user_id: 1 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1183]
+2025-07-19 16:22:43,765 INFO: Survey check result: User 1 has submitted a survey (count: 1) [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1192]
+2025-07-19 16:24:00,276 INFO: Checking survey submission status for user_id: 1 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1183]
+2025-07-19 16:24:00,278 INFO: Survey check result: User 1 has submitted a survey (count: 1) [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1192]
+2025-07-19 16:26:43,239 INFO: Checking survey submission status for user_id: 1 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1183]
+2025-07-19 16:26:43,243 INFO: Survey check result: User 1 has submitted a survey (count: 1) [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1192]
+2025-07-19 16:35:47,296 INFO: Checking survey submission status for user_id: 1 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1183]
+2025-07-19 16:35:47,298 INFO: Survey check result: User 1 has submitted a survey (count: 1) [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1192]
+2025-07-19 16:38:00,500 INFO: Checking survey submission status for user_id: 1 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1183]
+2025-07-19 16:38:00,502 INFO: Survey check result: User 1 has submitted a survey (count: 1) [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1192]
+2025-07-19 16:38:11,944 INFO: Checking survey submission status for user_id: 1 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1183]
+2025-07-19 16:38:11,946 INFO: Survey check result: User 1 has submitted a survey (count: 1) [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1192]
+2025-07-19 16:38:34,430 INFO: Checking survey submission status for user_id: 1 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1183]
+2025-07-19 16:38:34,432 INFO: Survey check result: User 1 has submitted a survey (count: 1) [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1192]
+2025-07-19 16:45:29,146 INFO: Checking survey submission status for user_id: 1 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1183]
+2025-07-19 16:45:29,148 INFO: Survey check result: User 1 has submitted a survey (count: 1) [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1192]
+2025-07-19 17:16:54,325 INFO: Checking survey submission status for user_id: 1 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1183]
+2025-07-19 17:16:54,327 INFO: Survey check result: User 1 has submitted a survey (count: 1) [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1192]
+2025-07-19 17:17:53,802 INFO: Verification email sent to marwafarooq4@gmail.com with link: http://localhost:5000/auth/verify_email/tfS1YBX5QFwIk9mCJ2N1XF3UBggvDunLtxAqjyWRCeI [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\routes\auth.py:59]
+2025-07-19 17:21:27,206 INFO: Verification email sent to y7hamzakhanswati@gmail.com with link: http://localhost:5000/auth/verify_email/ibCZU70nKuPCBBBYiNP7IZqomcK-pF_nuPNVvVyipAc [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\routes\auth.py:59]
+2025-07-19 17:21:46,793 INFO: Verifying email with token: ibCZU70nKu... [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\routes\auth.py:72]
+2025-07-19 17:21:46,794 INFO: Email verified successfully for: y7hamzakhanswati@gmail.com [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\routes\auth.py:85]
+2025-07-19 17:22:48,158 INFO: Checking survey submission status for user_id: 12 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1183]
+2025-07-19 17:22:48,165 INFO: Survey check result: User 12 has not submitted a survey (count: 0) [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1192]
+2025-07-19 17:30:01,626 INFO: Checking survey submission status for user_id: 12 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1183]
+2025-07-19 17:30:01,629 INFO: Survey check result: User 12 has not submitted a survey (count: 0) [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1192]
+2025-07-19 17:30:40,468 INFO: Checking survey submission status for user_id: 12 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1183]
