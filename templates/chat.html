@@ -1387,34 +1387,16 @@ async function initializeApp() {
 
     // Show specific lesson generation step
     function showLessonStep(step) {
-        // Hide all lesson steps
         document.getElementById('uploadStep').classList.add('hidden');
         document.getElementById('configStep').classList.add('hidden');
         document.getElementById('lessonDisplay').classList.add('hidden');
-        document.getElementById('lessonCompletionPage').classList.add('hidden');
-        document.getElementById('humanReviewInterface').classList.add('hidden');
-        document.getElementById('aiReviewInterface').classList.add('hidden');
-        
-        // Show the requested step
-        switch(step) {
-            case 'upload':
-                document.getElementById('uploadStep').classList.remove('hidden');
-                break;
-            case 'config':
-                document.getElementById('configStep').classList.remove('hidden');
-                break;
-            case 'display':
-                document.getElementById('lessonDisplay').classList.remove('hidden');
-                break;
-            case 'completion':
-                document.getElementById('lessonCompletionPage').classList.remove('hidden');
-                break;
-            case 'humanReview':
-                document.getElementById('humanReviewInterface').classList.remove('hidden');
-                break;
-            case 'aiReview':
-                document.getElementById('aiReviewInterface').classList.remove('hidden');
-                break;
+        // Add more steps if needed
+        if (step === 'upload') {
+            document.getElementById('uploadStep').classList.remove('hidden');
+        } else if (step === 'config') {
+            document.getElementById('configStep').classList.remove('hidden');
+        } else if (step === 'display') {
+            document.getElementById('lessonDisplay').classList.remove('hidden');
         }
     }
 
