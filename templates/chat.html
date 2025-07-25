@@ -15,6 +15,7 @@
       }
     }
   </script>
+  <script src="https://cdn.jsdelivr.net/npm/emoji-button@4.6.4/dist/emoji-button.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
 
   <!-- Google Fonts & Font Awesome -->
@@ -146,10 +147,13 @@
                     Chat
                 </button>
                 <button
-                    onclick="changeTab(this, 'knowledge')"
-                    class="tab-btn px-6 py-3 text-gray-500 font-semibold rounded-xl whitespace-nowrap hover:bg-gray-50"
+                    id="knowledgeTabBtn"
+                    class="tab-btn px-6 py-3 text-gray-400 font-semibold rounded-xl whitespace-nowrap cursor-not-allowed relative flex items-center gap-2"
+                    disabled
+                    style="pointer-events: none;"
                 >
-                    Knowledge Base
+                    <span>Knowledge Base</span>
+                    <span class="ml-auto px-2 py-1 bg-orange-100 text-orange-600 text-xs font-semibold rounded-full">Coming Soon</span>
                 </button>
             </div>
             <div class="w-11 h-11 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
@@ -301,8 +305,8 @@
                 </div>
 
                 <!-- Lessons Display -->
-                <div id="lessonsDisplay" class="space-y-6">
-                    <!-- Lessons will be loaded here -->
+                <div id="lessonsDisplayContainer" class="max-h-[500px] overflow-y-auto">
+                  <!-- Content will be injected here by JS -->
                 </div>
             </div>
         </div>
@@ -322,25 +326,6 @@
 
                 <!-- FAQ Table -->
                 <div class="bg-white rounded-lg shadow-md overflow-hidden">
-                    <!-- Table Header -->
-                    <div class="grid grid-cols-4 bg-[#05B0FC] text-white font-semibold py-4 px-6">
-                        <div class="flex items-center">
-                            <i class="fas fa-book mr-2"></i>
-                            Lesson Title
-                        </div>
-                        <div class="flex items-center">
-                            <i class="fas fa-question-circle mr-2"></i>
-                            Question Asked
-                        </div>
-                        <div class="flex items-center">
-                            <i class="fas fa-clock mr-2"></i>
-                            Time Asked
-                        </div>
-                        <div class="flex items-center">
-                            Subject & Grade
-                        </div>
-                    </div>
-
                     <!-- Table Rows -->
                     <div id="mostFrequentQuestionsTable" class="divide-y divide-gray-200">
                         <!-- Content will be populated here -->
@@ -783,7 +768,7 @@
                         class="w-full px-6 py-4 bg-gray-100 rounded-full border-0 focus:outline-none text-gray-700 placeholder-gray-500"
                         onkeypress="handleKeyPress(event)"
                     />
-                    <button class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                    <button id="emojiBtn" class="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600" type="button">
                         <i class="far fa-smile text-xl"></i>
                     </button>
                 </div>
@@ -799,7 +784,7 @@
 
   <!-- Ask Question Modal -->
   <div id="askQuestionModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
-    <div class="bg-white rounded-lg p-6 w-96 max-w-md mx-4">
+    <div class="bg-white rounded-lg p-8 w-[600px] max-w-full mx-4" style="max-height:80vh; overflow-y:auto;">
       <!-- Modal Header -->
       <div class="flex justify-between items-center mb-4">
         <div>
@@ -810,6 +795,9 @@
           <i class="fas fa-times text-xl"></i>
         </button>
       </div>
+
+      <!-- Chat-like Q&A History Area -->
+      <div id="lessonQnAHistory" class="mb-4 max-h-72 overflow-y-auto bg-gray-50 rounded p-2 text-sm"></div>
 
       <!-- Modal Content -->
       <div class="mb-4">
@@ -824,6 +812,7 @@
             id="questionInput"
             placeholder="Type your Question about this Lesson"
             class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 pr-12"
+            onkeypress="if(event.key==='Enter'){submitQuestion();}"
           />
           <button onclick="submitQuestion()" class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-[#05B0FC] text-white p-2 rounded-lg hover:bg-blue-600 transition-colors">
             <i class="fas fa-paper-plane"></i>
@@ -859,6 +848,9 @@
     let currentLessonForFAQ = null;
     let availableLessons = [];
     let lessonFAQs = {};
+    // Pagination state
+    let currentLessonPage = 1;
+    const lessonsPerPage = 5;
 
     // Initialize
    // Initialize
@@ -962,12 +954,17 @@ async function initializeApp() {
         }
     }
 
-    // Display lessons based on user role
+    // Display lessons based on user role (with pagination)
     function displayLessonsBasedOnRole() {
-        const lessonsDisplay = document.getElementById('lessonsDisplay');
-        
-        if (availableLessons.length === 0) {
-            lessonsDisplay.innerHTML = `
+        const lessonsDisplayContainer = document.getElementById('lessonsDisplayContainer');
+        const totalLessons = availableLessons.length;
+        const totalPages = Math.ceil(totalLessons / lessonsPerPage);
+        const startIdx = (currentLessonPage - 1) * lessonsPerPage;
+        const endIdx = startIdx + lessonsPerPage;
+        const lessonsToShow = availableLessons.slice(startIdx, endIdx);
+
+        if (totalLessons === 0) {
+            lessonsDisplayContainer.innerHTML = `
                 <div class="text-center py-16 text-gray-500">
                     <i class="fas fa-book text-6xl mb-4"></i>
                     <p class="text-xl">No lessons found</p>
@@ -976,12 +973,11 @@ async function initializeApp() {
             `;
             return;
         }
-        
+
+        let lessonsHtml = '';
         if (userRole === 'teacher') {
-            // Teacher view with edit, delete, download, view FAQs actions
-            lessonsDisplay.innerHTML = `
-                <!-- Header -->
-                <div class="grid grid-cols-6 bg-[#05B0FC] text-white font-semibold py-3 px-4 rounded-t-lg">
+            lessonsHtml += `
+                <div class="grid grid-cols-6 bg-[#05B0FC] text-white font-semibold py-3 px-4 sticky top-0 z-10 shadow">
                     <div>No</div>
                     <div>Lesson Title</div>
                     <div>Subject</div>
@@ -989,41 +985,34 @@ async function initializeApp() {
                     <div>Created By</div>
                     <div>Actions</div>
                 </div>
-                
-                ${availableLessons.map((lesson, index) => `
-                    <div class="grid grid-cols-6 py-3 px-4 border-b hover:bg-gray-50">
-                        <div class="flex items-center">${index + 1}</div>
-                        <div class="flex items-center font-medium text-gray-900">${lesson.title}</div>
-                        <div class="flex items-center">
-                            <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${lesson.focus_area || ''}</span>
-                        </div>
-                        <div class="flex items-center">
-                            <span class="px-2 py-1 text-blue-800 text-xs">${lesson.grade_level || ''}</span>
-                        </div>
-                        <div class="flex items-center text-gray-700">${userInfo && userInfo.username ? userInfo.username : ''}</div>
-                        <div class="flex flex-row gap-1">
-                            <button onclick="editLesson(${lesson.id})" class="px-2 py-2 text-green-600 hover:bg-green-50 rounded transition-colors" title="Edit">
-                                <img src="../static/images/edit.png" alt="">
-                            </button>
-                            <button onclick="deleteLesson(${lesson.id})" class="px-2 py-2 text-red-600 hover:bg-red-50 rounded transition-colors" title="Delete">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                            <button onclick="downloadLessonFile(${lesson.id})" class="px-2 py-2 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Download">
-                                <img src="../static/images/Group69.png" alt="">
-                            </button>
-                            <button onclick="viewLessonFAQs(${lesson.id}, '${lesson.title}')" class="px-2 py-2 text-purple-600 hover:bg-purple-50 rounded transition-colors" title="View FAQs">
-                                <img src="../static/images/faqs.png" alt="">
-                            </button>
-                        </div>
-                    </div>
-                `).join('')}
             `;
-            
+            lessonsHtml += lessonsToShow.map((lesson, index) => `
+                <div class="grid grid-cols-6 py-3 px-4 border-b hover:bg-gray-50">
+                    <div class="flex items-center">${startIdx + index + 1}</div>
+                    <div class="flex items-center font-medium text-gray-900">${lesson.title}</div>
+                    <div class="flex items-center">
+                        <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${lesson.focus_area || ''}</span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="px-2 py-1 text-blue-800 text-xs">${lesson.grade_level || ''}</span>
+                    </div>
+                    <div class="flex items-center text-gray-700">${userInfo && userInfo.username ? userInfo.username : ''}</div>
+                    <div class="flex flex-row gap-1">
+                        <button onclick="deleteLesson(${lesson.id})" class="px-2 py-2 text-red-600 hover:bg-red-50 rounded transition-colors" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                        <button onclick="downloadLessonFile(${lesson.id})" class="px-2 py-2 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Download">
+                            <img src="../static/images/Group69.png" alt="">
+                        </button>
+                        <button onclick="viewLessonFAQs(${lesson.id}, '${lesson.title}')" class="px-2 py-2 text-purple-600 hover:bg-purple-50 rounded transition-colors" title="View FAQs">
+                            <img src="../static/images/faqs.png" alt="">
+                        </button>
+                    </div>
+                </div>
+            `).join('');
         } else {
-            // Student view with ask question action only
-            lessonsDisplay.innerHTML = `
-                <!-- Header -->
-                <div class="grid grid-cols-6 bg-[#05B0FC] text-white font-semibold py-3 px-4 rounded-t-lg">
+            lessonsHtml += `
+                <div class="grid grid-cols-6 bg-[#05B0FC] text-white font-semibold py-3 px-4 sticky top-0 z-10 shadow">
                     <div>No</div>
                     <div>Lesson Title</div>
                     <div>Subject</div>
@@ -1031,29 +1020,72 @@ async function initializeApp() {
                     <div>Created By</div>
                     <div>Actions</div>
                 </div>
-                
-                ${availableLessons.map((lesson, index) => `
-                    <div class="grid grid-cols-6 py-3 px-4 border-b hover:bg-gray-50">
-                        <div class="flex items-center">${index + 1}</div>
-                        <div class="flex items-center font-medium text-gray-900">${lesson.title}</div>
-                        <div class="flex items-center">
-                            <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${lesson.focus_area || ''}</span>
-                        </div>
-                        <div class="flex items-center">
-                            <span class="px-2 py-1 text-blue-800 text-xs">${lesson.grade_level || ''}</span>
-                        </div>
-                        <div class="flex items-center text-gray-700">${lesson.teacher_name || ''}</div>
-                        <div class="flex flex-row gap-1">
-                            <button onclick="downloadLessonFile(${lesson.id})" class="px-2 py-2 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Download">
-                                <i class="fas fa-download"></i>
-                            </button>
-                            <button onclick="openAskQuestionModal(${lesson.id}, '${lesson.title}')" class="px-2 py-2 text-green-600 hover:bg-green-50 rounded transition-colors" title="Ask Question">
-                                <i class="fas fa-question"></i>
-                            </button>
-                        </div>
-                    </div>
-                `).join('')}
             `;
+            lessonsHtml += lessonsToShow.map((lesson, index) => `
+                <div class="grid grid-cols-6 py-3 px-4 border-b hover:bg-gray-50">
+                    <div class="flex items-center">${startIdx + index + 1}</div>
+                    <div class="flex items-center font-medium text-gray-900">${lesson.title}</div>
+                    <div class="flex items-center">
+                        <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${lesson.focus_area || ''}</span>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="px-2 py-1 text-blue-800 text-xs">${lesson.grade_level || ''}</span>
+                    </div>
+                    <div class="flex items-center text-gray-700">${lesson.teacher_name || ''}</div>
+                    <div class="flex flex-row gap-1">
+                        <button onclick="downloadLessonFile(${lesson.id})" class="px-2 py-2 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Download">
+                            <i class="fas fa-download"></i>
+                        </button>
+                        <button onclick="openAskQuestionModal(${lesson.id}, '${lesson.title}')" class="px-2 py-2 text-green-600 hover:bg-green-50 rounded transition-colors" title="Ask Question">
+                            <i class="fas fa-question"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Pagination controls
+        lessonsHtml += `
+            <div class="flex justify-center items-center gap-4 mt-6">
+                <button onclick="changeLessonPage(-1)" class="px-4 py-2 rounded bg-gray-200 text-gray-700 font-semibold" ${currentLessonPage === 1 ? 'disabled' : ''}>Previous</button>
+                <span class="font-medium">Page ${currentLessonPage} of ${totalPages}</span>
+                <button onclick="changeLessonPage(1)" class="px-4 py-2 rounded bg-gray-200 text-gray-700 font-semibold" ${currentLessonPage === totalPages ? 'disabled' : ''}>Next</button>
+            </div>
+        `;
+
+        lessonsDisplayContainer.innerHTML = lessonsHtml;
+    }
+
+    function changeLessonPage(delta) {
+        const totalPages = Math.ceil(availableLessons.length / lessonsPerPage);
+        currentLessonPage += delta;
+        if (currentLessonPage < 1) currentLessonPage = 1;
+        if (currentLessonPage > totalPages) currentLessonPage = totalPages;
+        displayLessonsBasedOnRole();
+    }
+
+    // Reset to page 1 on new search or browse
+    async function loadAvailableLessons() {
+        currentLessonPage = 1;
+        try {
+            let endpoint = userRole === 'teacher' ? '/api/lessons/my_lessons' : '/api/lessons/browse_lessons';
+            
+            const response = await fetch(endpoint, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                availableLessons = data.lessons || [];
+                displayLessonsBasedOnRole();
+            } else {
+                console.error('Failed to load lessons');
+                showNotification('Failed to load lessons', 'error');
+            }
+        } catch (error) {
+            console.error('Error loading lessons:', error);
+            showNotification('Error loading lessons', 'error');
         }
     }
 
@@ -1130,28 +1162,95 @@ async function initializeApp() {
         }
     }
 
+    // Add a reusable function to render FAQ tables
+    function renderFAQTable(faqs) {
+        const tableContainer = document.getElementById('mostFrequentQuestionsTable');
+        if (!faqs || faqs.length === 0) {
+            tableContainer.innerHTML = `
+                <div class="text-center py-16 text-gray-500">
+                    <i class="fas fa-question-circle text-6xl mb-4"></i>
+                    <p class="text-xl">No questions found</p>
+                    <p class="text-gray-400">No FAQs available</p>
+                </div>
+            `;
+            return;
+        }
+        // Table header (4 columns)
+        let header = `
+            <div class="grid grid-cols-4 bg-[#05B0FC] text-white font-semibold py-4 px-6 rounded-t-lg">
+                <div>Lesson Title</div>
+                <div>Question Asked</div>
+                <div>Time Asked</div>
+                <div>Subject & Grade</div>
+            </div>
+        `;
+        // Table rows (4 columns)
+        let rows = faqs.map(faq => `
+            <div class="grid grid-cols-4 py-4 px-6 hover:bg-gray-50 transition-colors">
+                <div class="flex items-center">
+                    <span class="font-medium text-gray-900">${faq.lessonTitle || ''}</span>
+                </div>
+                <div class="flex items-center">
+                    <span class="text-gray-700">${faq.question}</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="w-8 h-8 bg-[#05B0FC] text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">
+                        ${faq.times_asked || faq.count || 1}
+                    </div>
+                    <span class="text-gray-600 ml-2">${faq.time_ago || 'Recently'}</span>
+                </div>
+                <div class="flex items-center">
+                    <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm mr-2">${faq.subject || ''}</span>
+                    <span class="text-gray-600">${faq.grade || ''}</span>
+                </div>
+            </div>
+        `).join('');
+        tableContainer.innerHTML = header + rows;
+    }
+
+    // Update viewLessonFAQs to always include lesson title, subject, and grade in each FAQ row
     async function viewLessonFAQs(lessonId, lessonTitle) {
         try {
             const response = await fetch(`/api/lessons/faqs/${lessonId}`, {
                 method: 'GET',
                 credentials: 'include'
             });
-            
             if (response.ok) {
                 const data = await response.json();
-                lessonFAQs[lessonId] = data.faqs || [];
-                
-                // Show Most Frequent Questions view
+                let faqs = data.faqs || [];
+                // If subject/grade missing, fetch lesson info
+                let subject = '';
+                let grade = '';
+                if (faqs.length > 0) {
+                    subject = faqs[0].subject || '';
+                    grade = faqs[0].grade || '';
+                }
+                // If still missing, fetch lesson details
+                if (!subject || !grade) {
+                    const lessonResp = await fetch(`/api/lessons/lesson/${lessonId}`, {
+                        method: 'GET',
+                        credentials: 'include'
+                    });
+                    if (lessonResp.ok) {
+                        const lessonData = await lessonResp.json();
+                        subject = lessonData.lesson?.focus_area || '';
+                        grade = lessonData.lesson?.grade_level || '';
+                    }
+                }
+                // Fill every FAQ row with lessonTitle, subject, and grade
+                faqs = faqs.map(faq => ({
+                    ...faq,
+                    lessonTitle: faq.lessonTitle || lessonTitle || '',
+                    subject: faq.subject || subject,
+                    grade: faq.grade || grade
+                }));
+                // Show table
                 hideAllContentAreas();
                 document.getElementById('mostFrequentQuestionsView').classList.remove('hidden');
                 currentView = 'mostFrequentQuestions';
-                
-                // Update header
                 document.getElementById('chatTitle').textContent = 'Most Frequent Questions';
                 document.getElementById('chatStatus').textContent = 'View Student Questions';
-                
-                // Load questions for this specific lesson
-                loadMostFrequentQuestions();
+                renderFAQTable(faqs);
             } else {
                 showNotification('Failed to load lesson FAQs', 'error');
             }
@@ -1161,77 +1260,34 @@ async function initializeApp() {
         }
     }
 
-    function loadMostFrequentQuestions() {
-        const tableContainer = document.getElementById('mostFrequentQuestionsTable');
-        
-        if (Object.keys(lessonFAQs).length === 0) {
-            tableContainer.innerHTML = `
-                <div class="text-center py-16 text-gray-500">
-                    <i class="fas fa-question-circle text-6xl mb-4"></i>
-                    <p class="text-xl">No questions found</p>
-                    <p class="text-gray-400">Students haven't asked questions yet</p>
-                </div>
-            `;
-            return;
-        }
-
-        // Generate table rows from API data
-        let allQuestions = [];
-        Object.entries(lessonFAQs).forEach(([lessonId, faqs]) => {
-            const lesson = availableLessons.find(l => l.id == lessonId);
-            if (lesson && faqs.length > 0) {
-                faqs.forEach(faq => {
-                    allQuestions.push({
-                        ...faq,
-                        lessonTitle: lesson.title,
-                        lessonSubject: lesson.subject,
-                        lessonGrade: lesson.grade
-                    });
-                });
-            }
-        });
-
-        if (allQuestions.length === 0) {
-            tableContainer.innerHTML = `
-                <div class="text-center py-16 text-gray-500">
-                    <i class="fas fa-question-circle text-6xl mb-4"></i>
-                    <p class="text-xl">No questions found</p>
-                    <p class="text-gray-400">Students haven't asked questions yet</p>
-                </div>
-            `;
-            return;
-        }
-
-        tableContainer.innerHTML = allQuestions.map(question => `
-            <div class="grid grid-cols-4 py-4 px-6 hover:bg-gray-50 transition-colors">
-                <div class="flex items-center">
-                    <span class="font-medium text-gray-900">${question.lessonTitle}</span>
-                </div>
-                <div class="flex items-center">
-                    <span class="text-gray-700">${question.question}</span>
-                </div>
-                <div class="flex items-center">
-                    <div class="flex items-center">
-                        <div class="w-8 h-8 bg-[#05B0FC] text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">
-                            ${question.times_asked || 1}
-                        </div>
-                        <span class="text-gray-600">${question.time_ago || 'Recently'}</span>
-                    </div>
-                </div>
-                <div class="flex items-center">
-                    <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm mr-2">${question.lessonSubject}</span>
-                    <span class="text-gray-600">${question.lessonGrade}</span>
-                </div>
-            </div>
-        `).join('');
-    }
-
     function backToLessons() {
         openViewLessons();
     }
 
     function exportAllFAQReport() {
-        showNotification('Complete FAQ report export functionality would be implemented here', 'info');
+        // Download the FAQ dashboard as a Word document
+        fetch('/api/lessons/export_faq_dashboard', {
+            method: 'GET',
+            credentials: 'include'
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Failed to export FAQ dashboard');
+            return response.blob();
+        })
+        .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'faq_dashboard_export.docx';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+            showNotification('FAQ dashboard exported successfully!', 'success');
+        })
+        .catch(error => {
+            showNotification('Error exporting FAQ dashboard', 'error');
+        });
     }
 
     // Show frequently asked questions dashboard to teachers
@@ -1248,133 +1304,45 @@ async function initializeApp() {
         await loadFAQDashboard();
     }
 
+    // Update loadFAQDashboard to use the new renderFAQTable
     async function loadFAQDashboard() {
         const dashboardContent = document.getElementById('faqDashboardContent');
-        
         try {
-            // This would call a real API endpoint for FAQ dashboard data
             const response = await fetch('/api/lessons/faq_dashboard', {
                 method: 'GET',
                 credentials: 'include'
             });
-            
             if (response.ok) {
                 const data = await response.json();
-                displayFAQDashboard(data);
+                // Instead of the old dashboard, show the tabular FAQ interface
+                hideAllContentAreas();
+                document.getElementById('mostFrequentQuestionsView').classList.remove('hidden');
+                currentView = 'mostFrequentQuestions';
+                document.getElementById('chatTitle').textContent = 'FAQ Dashboard';
+                document.getElementById('chatStatus').textContent = 'Monitor Student Questions';
+                // Flatten top_questions into a single array of FAQ rows
+                let faqs = [];
+                (data.top_questions || []).forEach(lesson => {
+                    (lesson.questions || []).forEach(q => {
+                        faqs.push({
+                            lessonTitle: lesson.title,
+                            question: q.question,
+                            times_asked: q.count,
+                            time_ago: 'Recently',
+                            subject: lesson.subject,
+                            grade: lesson.grade || ''
+                        });
+                    });
+                });
+                renderFAQTable(faqs);
             } else {
                 throw new Error('Failed to load FAQ dashboard');
             }
         } catch (error) {
             console.error('Error loading FAQ dashboard:', error);
-            // Display error message
-            dashboardContent.innerHTML = `
-                <div class="text-center py-16 text-gray-500">
-                    <i class="fas fa-exclamation-triangle text-6xl mb-4"></i>
-                    <p class="text-xl">Error loading FAQ dashboard</p>
-                    <p class="text-gray-400">Please try again later</p>
-                </div>
-            `;
+            // Display error message in the FAQ table area
+            renderFAQTable([]);
         }
-    }
-
-    function displayFAQDashboard(data) {
-        const dashboardContent = document.getElementById('faqDashboardContent');
-        
-        dashboardContent.innerHTML = `
-            <!-- Quick Stats -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div class="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-lg p-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-blue-100 text-sm">Total Questions</p>
-                            <p class="text-3xl font-bold">${data.total_questions || 0}</p>
-                        </div>
-                        <i class="fas fa-question-circle text-4xl text-blue-200"></i>
-                    </div>
-                </div>
-                
-                <div class="bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg p-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-green-100 text-sm">This Week</p>
-                            <p class="text-3xl font-bold">${data.weekly_questions || 0}</p>
-                        </div>
-                        <i class="fas fa-calendar-week text-4xl text-green-200"></i>
-                    </div>
-                </div>
-                
-                <div class="bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-lg p-6">
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <p class="text-purple-100 text-sm">Active Students</p>
-                            <p class="text-3xl font-bold">${data.active_students || 0}</p>
-                        </div>
-                        <i class="fas fa-users text-4xl text-purple-200"></i>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Top Questions by Lesson -->
-            <div class="bg-white rounded-lg shadow-md p-6 mb-8">
-                <h3 class="text-xl font-semibold text-gray-800 mb-6">
-                    <i class="fas fa-fire text-red-500 mr-2"></i>
-                    Most Asked Questions by Lesson
-                </h3>
-                
-                <div class="space-y-4">
-                    ${(data.top_questions || []).map(lesson => `
-                        <div class="border border-gray-200 rounded-lg p-4">
-                            <div class="flex justify-between items-center mb-3">
-                                <h4 class="font-semibold text-blue-600">${lesson.title}</h4>
-                                <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs">${lesson.subject}</span>
-                            </div>
-                            <div class="space-y-2">
-                                ${lesson.questions.map(q => `
-                                    <div class="flex justify-between items-center p-2 bg-gray-50 rounded">
-                                        <span class="text-gray-700">${q.question}</span>
-                                        <span class="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">Asked ${q.count} times</span>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-
-            <!-- Recent Questions -->
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h3 class="text-xl font-semibold text-gray-800 mb-6">
-                    <i class="fas fa-clock text-blue-500 mr-2"></i>
-                    Recent Questions (Last 24 hours)
-                </h3>
-                
-                <div class="space-y-3">
-                    ${(data.recent_questions || []).map(q => `
-                        <div class="flex items-center justify-between p-3 border-l-4 border-blue-500 bg-blue-50 rounded-r">
-                            <div>
-                                <p class="font-medium text-gray-800">${q.question}</p>
-                                <p class="text-sm text-gray-600">Student: ${q.student_name} • ${q.lesson_title} • ${q.time_ago}</p>
-                            </div>
-                            <button onclick="respondToQuestion('${q.id}')" class="bg-blue-500 text-white px-3 py-1 rounded-full text-xs hover:bg-blue-600 transition-colors">
-                                Respond
-                            </button>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-
-            <!-- Action Buttons -->
-            <div class="text-center mt-8">
-                <button onclick="openViewLessons()" class="px-8 py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-blue-600 transition-colors font-medium mr-4">
-                    <i class="fas fa-book-open mr-2"></i>
-                    View All Lessons
-                </button>
-                <button onclick="exportFAQReport()" class="px-8 py-3 border border-[#05B0FC] text-[#05B0FC] rounded-lg hover:bg-blue-50 transition-colors font-medium">
-                    <i class="fas fa-download mr-2"></i>
-                    Export Report
-                </button>
-            </div>
-        `;
     }
 
     // Open lesson generator from sidebar
@@ -1834,62 +1802,54 @@ async function initializeApp() {
     // Submit Question
     async function submitQuestion() {
         const question = document.getElementById('questionInput').value.trim();
-        
         if (!question) {
             showNotification('Please enter a question', 'error');
             return;
         }
-
         if (!currentQuestionLessonId) {
             showNotification('No lesson selected', 'error');
             return;
         }
-
-        // Debug log
-        console.log('DEBUG: Asking question', { lesson_id: currentQuestionLessonId, question });
-
+        const lessonIdToSend = currentQuestionLessonId;
+        // Append question to Q&A history
+        const qnaDiv = document.getElementById('lessonQnAHistory');
+        if (qnaDiv) {
+            qnaDiv.innerHTML += `<div class='mb-1'><span class='font-semibold text-blue-700'>You:</span> ${question}</div>`;
+            qnaDiv.innerHTML += `<div class='mb-1' id='lessonQnALoading'><span class='font-semibold text-green-700'>AI:</span> <span class='italic text-gray-400'>Loading...</span></div>`;
+            qnaDiv.scrollTop = qnaDiv.scrollHeight;
+        }
+        document.getElementById('questionInput').value = '';
         try {
-            // Close modal first
-            closeAskQuestionModal();
-            
-            // Switch to chat tab
-            changeTab(document.querySelector('.tab-btn'), 'chat');
-            
-            // Add user question to chat
-            addMessageToChat('user', question);
-            
-            // Show typing indicator
-            showTypingIndicator();
-            
-            // Call API to get answer about the lesson
             const response = await fetch('/api/lessons/ask_question', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                    lesson_id: currentQuestionLessonId, 
+                    lesson_id: lessonIdToSend, 
                     question: question 
                 }),
                 credentials: 'include'
             });
-            
-            hideTypingIndicator();
-            
             if (response.ok) {
                 const data = await response.json();
-                addMessageToChat('ai', data.answer);
+                if (qnaDiv) {
+                    const loadingDiv = document.getElementById('lessonQnALoading');
+                    if (loadingDiv) loadingDiv.outerHTML = `<div class='mb-2'><span class='font-semibold text-green-700'>AI:</span> ${data.answer}</div>`;
+                    qnaDiv.scrollTop = qnaDiv.scrollHeight;
+                }
             } else {
                 const errorData = await response.json();
-                addMessageToChat('ai', `I'm sorry, there was an error processing your question: ${errorData.error}`);
-                showNotification(errorData.error || 'Failed to process your question', 'error');
+                if (qnaDiv) {
+                    const loadingDiv = document.getElementById('lessonQnALoading');
+                    if (loadingDiv) loadingDiv.outerHTML = `<div class='mb-2 text-red-600'><span class='font-semibold text-green-700'>AI:</span> Error: ${errorData.error || 'Failed to process your question'}</div>`;
+                    qnaDiv.scrollTop = qnaDiv.scrollHeight;
+                }
             }
-            
-            saveChatToHistory();
-            
         } catch (error) {
-            hideTypingIndicator();
-            console.error('Error asking question:', error);
-            addMessageToChat('ai', 'I\'m sorry, there was an error processing your question. Please try again.');
-            showNotification('Error asking question. Please try again.', 'error');
+            if (qnaDiv) {
+                const loadingDiv = document.getElementById('lessonQnALoading');
+                if (loadingDiv) loadingDiv.outerHTML = `<div class='mb-2 text-red-600'><span class='font-semibold text-green-700'>AI:</span> Error asking question. Please try again.</div>`;
+                qnaDiv.scrollTop = qnaDiv.scrollHeight;
+            }
         }
     }
 
@@ -2009,26 +1969,17 @@ async function initializeApp() {
 
     // Search lessons
     async function searchLessons() {
+        currentLessonPage = 1;
         const searchTerm = document.getElementById('searchLessons').value.trim();
-        
         if (!searchTerm) {
             loadAvailableLessons();
             return;
         }
-        
         try {
-            const response = await fetch('/api/lessons/search_lessons', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    query: searchTerm,
-                    user_role: userRole
-                }),
+            const response = await fetch(`/api/lessons/search_lessons?q=${encodeURIComponent(searchTerm)}`, {
+                method: 'GET',
                 credentials: 'include'
             });
-            
             if (response.ok) {
                 const data = await response.json();
                 availableLessons = data.lessons || [];
@@ -2302,9 +2253,22 @@ async function initializeApp() {
     async function saveApiKey() {
         const apiKeyInput = document.getElementById('apiKeyInput');
         const newApiKey = apiKeyInput.value.trim();
+        const saveBtn = document.querySelector('button[onclick="saveApiKey()"]');
+        let spinner = document.getElementById('saveApiKeySpinner');
+        if (!spinner) {
+            spinner = document.createElement('i');
+            spinner.id = 'saveApiKeySpinner';
+            spinner.className = 'fas fa-spinner fa-spin ml-2';
+        }
+        if (saveBtn && !saveBtn.contains(spinner)) {
+            saveBtn.appendChild(spinner);
+        }
+        if (saveBtn) saveBtn.disabled = true;
 
         if (!newApiKey) {
             showNotification('Please enter an API key', 'error');
+            if (saveBtn) saveBtn.disabled = false;
+            if (spinner) spinner.remove();
             return;
         }
 
@@ -2334,6 +2298,9 @@ async function initializeApp() {
         } catch (error) {
             console.error('Error updating API key:', error);
             showNotification('Error updating API key', 'error');
+        } finally {
+            if (saveBtn) saveBtn.disabled = false;
+            if (spinner) spinner.remove();
         }
     }
 
@@ -2799,7 +2766,8 @@ async function initializeApp() {
                 
                 // Load messages
                 messages.forEach(msg => {
-                    addMessageToChat(msg.sender, msg.content);
+                    // Use msg.role and msg.message for correct mapping
+                    addMessageToChat(msg.role === 'bot' ? 'ai' : 'user', msg.message);
                 });
                 
                 currentChatId = chatId;
@@ -2946,6 +2914,28 @@ async function initializeApp() {
     function handleAuthenticationFailure() {
         window.location.href = '/login';
     }
+  </script>
+
+  <!-- Emoji Picker Initialization: Place at end of body to ensure all elements exist and avoid DOMContentLoaded conflicts -->
+  <script>
+    (function() {
+      const emojiBtn = document.getElementById('emojiBtn');
+      const messageInput = document.getElementById('messageInput');
+      if (emojiBtn && messageInput && window.EmojiButton) {
+        const picker = new EmojiButton({ position: 'top-end', zIndex: 9999 });
+        emojiBtn.addEventListener('click', function(e) {
+          picker.togglePicker(emojiBtn);
+        });
+        picker.on('emoji', function(emoji) {
+          const start = messageInput.selectionStart;
+          const end = messageInput.selectionEnd;
+          const text = messageInput.value;
+          messageInput.value = text.slice(0, start) + emoji + text.slice(end);
+          messageInput.selectionStart = messageInput.selectionEnd = start + emoji.length;
+          messageInput.focus();
+        });
+      }
+    })();
   </script>
 
   <style>

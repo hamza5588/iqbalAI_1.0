@@ -348,3 +348,116 @@ def get_lesson_faqs(lesson_id):
     service = LessonService()
     faqs = service.get_lesson_faqs(lesson_id)
     return jsonify({'faqs': faqs}) 
+
+@bp.route('/faq_dashboard', methods=['GET'])
+@teacher_required
+def faq_dashboard():
+    try:
+        user_id = session['user_id']
+        # Get all lessons for this teacher
+        lessons = LessonModel.get_lessons_by_teacher(user_id)
+        lesson_ids = [lesson['id'] for lesson in lessons]
+        top_questions = []
+        total_questions = 0
+        recent_questions = []
+        import sqlite3
+        from datetime import datetime, timedelta
+
+        conn = sqlite3.connect('instance/chatbot.db')
+        c = conn.cursor()
+        # For each lesson, get top questions
+        for lesson in lessons:
+            c.execute('SELECT question, count FROM lesson_faq WHERE lesson_id=? ORDER BY count DESC LIMIT 3', (lesson['id'],))
+            faqs = [{'question': row[0], 'count': row[1]} for row in c.fetchall()]
+            total_questions += sum(row['count'] for row in faqs)
+            if faqs:
+                top_questions.append({
+                    'title': lesson['title'],
+                    'subject': lesson.get('focus_area', ''),
+                    'questions': faqs
+                })
+        # Get recent questions (last 24h) -- placeholder, as timestamps are not tracked
+        # If you want real recent questions, you need to log timestamps in lesson_faq
+        # For now, just return the most asked question per lesson
+        for lesson in lessons:
+            c.execute('SELECT question, count FROM lesson_faq WHERE lesson_id=? ORDER BY count DESC LIMIT 1', (lesson['id'],))
+            row = c.fetchone()
+            if row:
+                recent_questions.append({
+                    'question': row[0],
+                    'student_name': '',  # Not tracked
+                    'lesson_title': lesson['title'],
+                    'time_ago': 'Recently'
+                })
+        conn.close()
+        return jsonify({
+            'total_questions': total_questions,
+            'weekly_questions': total_questions,  # Placeholder
+            'active_students': 0,  # Placeholder
+            'top_questions': top_questions,
+            'recent_questions': recent_questions
+        })
+    except Exception as e:
+        logger.error(f"Error loading FAQ dashboard: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Failed to load FAQ dashboard'}), 500 
+
+@bp.route('/export_faq_dashboard', methods=['GET'])
+@teacher_required
+def export_faq_dashboard():
+    try:
+        user_id = session['user_id']
+        lessons = LessonModel.get_lessons_by_teacher(user_id)
+        import sqlite3
+        from io import BytesIO
+        from docx import Document
+        from docx.shared import Pt
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+
+        conn = sqlite3.connect('instance/chatbot.db')
+        c = conn.cursor()
+        # Prepare data for export
+        rows = []
+        for lesson in lessons:
+            c.execute('SELECT question, count FROM lesson_faq WHERE lesson_id=? ORDER BY count DESC', (lesson['id'],))
+            faqs = c.fetchall()
+            for faq in faqs:
+                rows.append({
+                    'lesson_title': lesson['title'],
+                    'subject': lesson.get('focus_area', ''),
+                    'question': faq[0],
+                    'count': faq[1]
+                })
+        conn.close()
+
+        # Create Word document
+        doc = Document()
+        doc.add_heading('FAQ Dashboard Export', 0).alignment = WD_ALIGN_PARAGRAPH.CENTER
+        table = doc.add_table(rows=1, cols=4)
+        table.style = 'Table Grid'
+        hdr_cells = table.rows[0].cells
+        hdr_cells[0].text = 'Lesson Title'
+        hdr_cells[1].text = 'Subject'
+        hdr_cells[2].text = 'Question'
+        hdr_cells[3].text = 'Count'
+        for cell in hdr_cells:
+            for paragraph in cell.paragraphs:
+                paragraph.runs[0].font.bold = True
+                paragraph.runs[0].font.size = Pt(11)
+        for row in rows:
+            cells = table.add_row().cells
+            cells[0].text = str(row['lesson_title'])
+            cells[1].text = str(row['subject'])
+            cells[2].text = str(row['question'])
+            cells[3].text = str(row['count'])
+        # Save to BytesIO
+        doc_io = BytesIO()
+        doc.save(doc_io)
+        doc_io.seek(0)
+        from flask import make_response
+        response = make_response(doc_io.getvalue())
+        response.headers["Content-Disposition"] = "attachment; filename=faq_dashboard_export.docx"
+        response.headers["Content-type"] = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        return response
+    except Exception as e:
+        logger.error(f"Error exporting FAQ dashboard: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Failed to export FAQ dashboard'}), 500 
