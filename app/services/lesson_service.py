@@ -372,6 +372,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 from docx import Document as DocxDocument
 from langchain_nomic import NomicEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
+
 from docx.shared import Inches
 from io import BytesIO
 import tempfile
@@ -942,15 +944,15 @@ IMPORTANT:
                 return lesson_text
 
             # 2. Embed and store in FAISS
-            # embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-            #nomic embeddings
+            embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+            # nomic embeddings
           
 
-            embeddings = NomicEmbeddings(
-                model="nomic-embed-text-v1.5",
-                # api_key="nk-7Ad201NonNkEv_pYdRwb-EkNjf84mVLW205ihoE7RyU"
+            # embeddings = NomicEmbeddings(
+            #     model="nomic-embed-text-v1.5",
+            #     # api_key="nk-7Ad201NonNkEv_pYdRwb-EkNjf84mVLW205ihoE7RyU"
        
-            )
+            # )
             with tempfile.TemporaryDirectory() as tmpdir:
                 faiss_path = os.path.join(tmpdir, "faiss_index")
                 vector_db = FAISS.from_texts(chunks, embeddings)
