@@ -135,7 +135,7 @@ def get_conversations():
     try:
         chat_service = ChatService(session['user_id'], session['groq_api_key'])
         conversations = chat_service.get_recent_conversations()
-        return jsonify(conversations)
+        return jsonify({'conversations': conversations})  # <-- wrap in dict for frontend
     except Exception as e:
         logger.error(f"Error retrieving conversations: {str(e)}")
         return jsonify({'error': 'Failed to retrieve conversations'}), 500
@@ -147,7 +147,7 @@ def get_messages(conversation_id):
     try:
         chat_service = ChatService(session['user_id'], session['groq_api_key'])
         messages = chat_service.get_conversation_messages(conversation_id)
-        return jsonify(messages)
+        return jsonify({'messages': messages})  # <-- wrap in dict for frontend
     except Exception as e:
         logger.error(f"Error retrieving messages: {str(e)}")
         return jsonify({'error': 'Failed to retrieve messages'}), 500
