@@ -1,6 +1,8 @@
 import os
 from groq import Groq
 from langchain_nomic import NomicEmbeddings
+from langchain_community.embeddings import HuggingFaceEmbeddings
+
 from langchain_community.vectorstores import FAISS
 from typing import Optional, List, Dict, Any
 import sqlite3
@@ -594,6 +596,10 @@ class TokenBucket:
 #                 'reset_in': max(0, self.token_reset_time - now),
 #                 'history': db_usage['history']
 #             }
+
+
+from langchain_community.embeddings import HuggingFaceEmbeddings
+
 class ChatModel:
     """Model for handling chat-related operations"""
     
@@ -860,10 +866,12 @@ class VectorStoreModel:
                 if nomic_api_key == 'your_nomic_api_key_here':
                     raise ValueError("Please configure your Nomic API key in the config file")
                 
-                self._embeddings = NomicEmbeddings(
-                    model="nomic-embed-text-v1.5",
-                    nomic_api_key=nomic_api_key
-                )
+                # self._embeddings = NomicEmbeddings(
+                #     model="nomic-embed-text-v1.5",
+                #     nomic_api_key=nomic_api_key
+                # )
+                self.embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+
             except Exception as e:
                 logger.error(f"Failed to create embeddings: {str(e)}")
                 raise

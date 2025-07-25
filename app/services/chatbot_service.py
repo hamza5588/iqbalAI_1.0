@@ -9,6 +9,8 @@ from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.chains import create_retrieval_chain
 from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import HuggingFaceEmbeddings
+
 from langchain_community.document_loaders import PyPDFLoader, PyPDFDirectoryLoader
 from langchain_nomic.embeddings import NomicEmbeddings
 from app.models.models import UserModel
@@ -115,10 +117,12 @@ class DocumentChatBot:
 
     def _initialize_embeddings(self):
         try:
-            self.embeddings = NomicEmbeddings(
-                model="nomic-embed-text-v1",
-                nomic_api_key=self.nomic_api_key
-            )
+            # self.embeddings = NomicEmbeddings(
+            #     model="nomic-embed-text-v1",
+            #     nomic_api_key=self.nomic_api_key
+            # )
+            self.embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+
 
             loader = self._get_document_loader()
             docs = loader.load()
