@@ -7,14 +7,19 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first
+# Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt tiktoken flask_wtf sentence-transformers
+    pip install --no-cache-dir -r requirements.txt \
+    tiktoken \
+    flask_wtf \
+    sentence-transformers \
+    "huggingface_hub[hf_xet]"
 
-# Copy the rest of the application
+# Copy application files
 COPY . .
 
 # Set environment variables
@@ -26,5 +31,5 @@ ENV PYTHONPATH=/app
 # Expose port
 EXPOSE 5000
 
-# Run the application with gunicorn for production
+# Run the app
 CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "1", "--timeout", "120", "--preload", "run:app"]
