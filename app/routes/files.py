@@ -162,8 +162,13 @@ def download_lesson():
             'quiz': []
         }
         
+        # Get API key from session
+        api_key = session.get('groq_api_key')
+        if not api_key:
+            return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
+        
         # Generate DOCX from the lesson data
-        lesson_service = LessonService()
+        lesson_service = LessonService(api_key=api_key)
         docx_bytes = lesson_service._create_docx(lesson)
         
         # Create filename
@@ -253,7 +258,12 @@ def download_lesson_ppt():
         lesson = data.get('lesson')
         if not lesson:
             return jsonify({'error': 'No lesson data provided'}), 400
-        lesson_service = LessonService()
+        # Get API key from session
+        api_key = session.get('groq_api_key')
+        if not api_key:
+            return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
+        
+        lesson_service = LessonService(api_key=api_key)
         ppt_bytes = lesson_service.create_ppt(lesson)
         filename = lesson.get('title', 'lesson').replace(' ', '_') + '.pptx'
         ppt_buffer = BytesIO(ppt_bytes)
@@ -278,7 +288,12 @@ def download_edited_lesson():
         data = request.get_json()
         lesson = data.get('lesson')
         lesson_markdown = data.get('lesson_markdown')
-        lesson_service = LessonService()
+        # Get API key from session
+        api_key = session.get('groq_api_key')
+        if not api_key:
+            return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
+        
+        lesson_service = LessonService(api_key=api_key)
         if lesson_markdown:
             # Convert markdown to lesson structure (simple fallback: put all in one section)
             lesson = {
