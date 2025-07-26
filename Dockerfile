@@ -11,7 +11,8 @@ RUN apt-get update && apt-get install -y \
 
 # Copy requirements first
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt tiktoken flask_wtf
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt tiktoken flask_wtf sentence-transformers
 
 # Copy the rest of the application
 COPY . .
