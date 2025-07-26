@@ -10,6 +10,9 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
+# Add this to avoid hf_xet thread panic
+ENV HF_HUB_DISABLE_XET=1
+
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
 RUN pip install --upgrade pip && \
@@ -17,7 +20,7 @@ RUN pip install --upgrade pip && \
     tiktoken \
     flask_wtf \
     sentence-transformers \
-    "huggingface_hub[hf_xet]"
+    langchain-huggingface
 
 # Copy application files
 COPY . .
