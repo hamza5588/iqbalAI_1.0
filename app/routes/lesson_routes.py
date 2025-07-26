@@ -354,7 +354,7 @@ def ask_lesson_question():
         return jsonify({'error': 'lesson_id and question are required'}), 400
     api_key = session.get('groq_api_key')
     service = LessonService(api_key=api_key)
-    result = service.answer_lesson_question(lesson_id, question, api_key)
+    result = service.answer_lesson_question(lesson_id, question)
     if 'error' in result:
         return jsonify({'error': result['error']}), 400
     return jsonify({'answer': result['answer']})
