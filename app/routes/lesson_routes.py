@@ -254,8 +254,13 @@ def download_lesson(lesson_id):
             'quiz': []
         }
         
+        # Get API key from session
+        api_key = session.get('groq_api_key')
+        if not api_key:
+            return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
+        
         # Generate DOCX
-        lesson_service = LessonService()
+        lesson_service = LessonService(api_key=api_key)
         docx_bytes = lesson_service._create_docx(lesson_data)
         
         # Create filename
@@ -293,7 +298,12 @@ def download_lesson_pdf(lesson_id):
         'activities': [],
         'quiz': []
     }
-    lesson_service = LessonService()
+    # Get API key from session
+    api_key = session.get('groq_api_key')
+    if not api_key:
+        return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
+    
+    lesson_service = LessonService(api_key=api_key)
     docx_bytes = lesson_service._create_docx(lesson_data)
 
     # Save DOCX to temp file
@@ -345,7 +355,12 @@ def ask_lesson_question():
 @bp.route('/faqs/<int:lesson_id>', methods=['GET'])
 @teacher_required
 def get_lesson_faqs(lesson_id):
-    service = LessonService()
+    # Get API key from session
+    api_key = session.get('groq_api_key')
+    if not api_key:
+        return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
+    
+    service = LessonService(api_key=api_key)
     faqs = service.get_lesson_faqs(lesson_id)
     return jsonify({'faqs': faqs}) 
 
