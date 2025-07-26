@@ -313,8 +313,15 @@ def download_lesson_pdf(lesson_id):
 
     pdf_path = docx_path.replace('.docx', '.pdf')
     try:
-        from docx2pdf import convert
-        convert(docx_path, pdf_path)
+        import subprocess
+        # Use LibreOffice to convert DOCX to PDF
+        result = subprocess.run([
+            'libreoffice', '--headless', '--convert-to', 'pdf', '--outdir', os.path.dirname(pdf_path), docx_path
+        ], capture_output=True)
+        if result.returncode != 0:
+            raise Exception(f'LibreOffice conversion failed: {result.stderr.decode()}')
+        # LibreOffice names the output file as <docx_basename>.pdf
+        pdf_path = os.path.splitext(docx_path)[0] + '.pdf'
 
         @after_this_request
         def cleanup(response):
