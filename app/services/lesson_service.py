@@ -395,14 +395,15 @@ class LessonService:
     6. After final screening and edits, the final document is ready.
     7. User/teacher can download the final version.
     """
-    def __init__(self, api_key: Optional[str] = None):
+    def __init__(self, api_key: str):
         """
-        Initialize the LessonService with API key.
-        Falls back to GROQ_API_KEY environment variable if not provided.
+        Initialize the LessonService with API key from database.
+        API key is required and must be provided.
         """
-        self.api_key = api_key or os.getenv("GROQ_API_KEY")
-        if not self.api_key:
-            raise ValueError("API key is required. Please provide api_key parameter or set GROQ_API_KEY environment variable.")
+        if not api_key:
+            raise ValueError("API key is required. Please provide api_key parameter from database.")
+        
+        self.api_key = api_key
         
         try:
             self.llm = ChatGroq(
@@ -1046,7 +1047,7 @@ IMPORTANT:
             logger.error(f"Error creating PPTX: {str(e)}", exc_info=True)
             return b''
 
-    def answer_lesson_question(self, lesson_id, question, api_key=None):
+    def answer_lesson_question(self, lesson_id, question):
         # Get lesson content
         lesson = LessonModel.get_lesson_by_id(lesson_id)
         if not lesson:
@@ -1055,13 +1056,12 @@ IMPORTANT:
         if not content:
             return {'error': 'No lesson content available'}
         # Use LLM to answer
-        # (Replace with your actual LLM call)
-        answer = self.llm_answer(content, question, api_key)
+        answer = self.llm_answer(content, question)
         # Log the question
         LessonFAQ.log_question(lesson_id, question)
         return {'answer': answer}
 
-    def llm_answer(self, lesson_content, question, api_key=None):
+    def llm_answer(self, lesson_content, question):
         # Use Groq LLM (already implemented in the project)
         prompt = f"""
 You are a helpful teacher. Use the following lesson content to answer the student's question concisely and clearly.
