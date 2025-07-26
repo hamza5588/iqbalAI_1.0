@@ -233,7 +233,10 @@ def edit_lesson_with_prompt():
         user_prompt = data.get('user_prompt')
         if not lesson_text or not user_prompt:
             return jsonify({'error': 'Missing lesson_text or user_prompt'}), 400
-        lesson_service = LessonService()
+        api_key = session.get('groq_api_key')
+        if not api_key:
+            return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
+        lesson_service = LessonService(api_key=api_key)
         new_markdown = lesson_service.edit_lesson_with_prompt(lesson_text, user_prompt)
         return jsonify({'lesson_markdown': new_markdown})
     except Exception as e:
