@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
     git \
+    libreoffice \
     && rm -rf /var/lib/apt/lists/*
 
 # Add this to avoid hf_xet thread panic
