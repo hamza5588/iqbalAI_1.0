@@ -1722,7 +1722,9 @@ function saveHumanReview() {
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `lesson_${lessonId}.txt`;
+            // Use the actual lesson title for the filename
+            const filename = `${lesson.title.replace(/[^a-zA-Z0-9]/g, '_')}.txt`;
+            a.download = filename;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);

@@ -7,6 +7,7 @@ import logging
 import os
 from io import BytesIO
 import tempfile
+import io
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('lesson_routes', __name__)
@@ -68,6 +69,7 @@ def create_lesson():
         full_content = "\n\n".join([section.get('content', '') for section in sections if section.get('content')])
         
         # Store lesson in database
+        logger.info(f"Creating lesson with title: '{lesson_title}'")
         lesson_id = LessonModel.create_lesson(
             teacher_id=session['user_id'],
             title=lesson_title,
@@ -144,29 +146,59 @@ def search_lessons():
 @bp.route('/lesson/<int:lesson_id>', methods=['GET'])
 @login_required
 def get_lesson(lesson_id):
-    """Get a specific lesson by ID"""
+    """Get lesson details by ID"""
     try:
         lesson = LessonModel.get_lesson_by_id(lesson_id)
         if not lesson:
             return jsonify({'error': 'Lesson not found'}), 404
         
-        # Check if user can access this lesson
-        user_model = UserModel(session['user_id'])
-        if lesson['teacher_id'] != session['user_id'] and not lesson['is_public']:
+        # Check if user has permission to view this lesson
+        if not lesson['is_public'] and lesson['teacher_id'] != session['user_id']:
             return jsonify({'error': 'Access denied'}), 403
         
         return jsonify({
             'success': True,
             'lesson': lesson
         })
+        
     except Exception as e:
-        logger.error(f"Error getting lesson: {str(e)}", exc_info=True)
-        return jsonify({'error': f'Failed to get lesson: {str(e)}'}), 500
+        logger.error(f"Error retrieving lesson: {str(e)}")
+        return jsonify({'error': 'Failed to retrieve lesson'}), 500
+
+@bp.route('/lesson/<int:lesson_id>/view', methods=['GET'])
+@login_required
+def view_lesson(lesson_id):
+    """View lesson details in a formatted way"""
+    try:
+        lesson = LessonModel.get_lesson_by_id(lesson_id)
+        if not lesson:
+            return jsonify({'error': 'Lesson not found'}), 404
+        
+        # Check if user has permission to view this lesson
+        if not lesson['is_public'] and lesson['teacher_id'] != session['user_id']:
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Get lesson versions if user is the teacher
+        versions = []
+        if lesson['teacher_id'] == session['user_id']:
+            versions = LessonModel.get_lesson_versions(lesson_id)
+            logger.info(f"Retrieved {len(versions)} versions for lesson {lesson_id}")
+            logger.info(f"Versions: {versions}")
+        
+        return jsonify({
+            'success': True,
+            'lesson': lesson,
+            'versions': versions
+        })
+        
+    except Exception as e:
+        logger.error(f"Error viewing lesson: {str(e)}")
+        return jsonify({'error': 'Failed to view lesson'}), 500
 
 @bp.route('/lesson/<int:lesson_id>', methods=['PUT'])
 @teacher_required
 def update_lesson(lesson_id):
-    """Update a lesson (teacher only, and only their own lessons)"""
+    """Create a new version of a lesson (teacher only, and only their own lessons)"""
     try:
         lesson = LessonModel.get_lesson_by_id(lesson_id)
         if not lesson:
@@ -177,29 +209,36 @@ def update_lesson(lesson_id):
             return jsonify({'error': 'Access denied'}), 403
         
         data = request.get_json()
-        lesson_model = LessonModel(lesson_id)
         
-        success = lesson_model.update_lesson(
-            title=data.get('title'),
-            summary=data.get('summary'),
-            learning_objectives=data.get('learning_objectives'),
-            focus_area=data.get('focus_area'),
-            grade_level=data.get('grade_level'),
-            content=data.get('content'),
-            is_public=data.get('is_public')
+        # Log the data being received
+        logger.info(f"Creating new version of lesson {lesson_id}")
+        logger.info(f"Received data: {data}")
+        logger.info(f"Original lesson content length: {len(lesson.get('content', ''))}")
+        logger.info(f"New content length: {len(data.get('content', ''))}")
+        
+        # Create a new version of the lesson
+        new_lesson_id = LessonModel.create_new_version(
+            original_lesson_id=lesson_id,
+            teacher_id=session['user_id'],
+            title=data.get('title', lesson['title']),
+            summary=data.get('summary', lesson['summary']),
+            learning_objectives=data.get('learning_objectives', lesson['learning_objectives']),
+            focus_area=data.get('focus_area', lesson['focus_area']),
+            grade_level=data.get('grade_level', lesson['grade_level']),
+            content=data.get('content', lesson['content']),
+            file_name=lesson.get('file_name'),
+            is_public=data.get('is_public', lesson['is_public'])
         )
         
-        if success:
-            return jsonify({
-                'success': True,
-                'message': 'Lesson updated successfully'
-            })
-        else:
-            return jsonify({'error': 'Failed to update lesson'}), 500
+        return jsonify({
+            'success': True,
+            'message': 'New version of lesson created successfully',
+            'new_lesson_id': new_lesson_id
+        })
             
     except Exception as e:
-        logger.error(f"Error updating lesson: {str(e)}", exc_info=True)
-        return jsonify({'error': f'Failed to update lesson: {str(e)}'}), 500
+        logger.error(f"Error creating new version: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to create new version: {str(e)}'}), 500
 
 @bp.route('/lesson/<int:lesson_id>', methods=['DELETE'])
 @teacher_required
@@ -265,6 +304,7 @@ def download_lesson(lesson_id):
         
         # Create filename
         filename = lesson['title'].replace(' ', '_') + '.docx'
+        logger.info(f"Downloading lesson with title: '{lesson['title']}', filename: '{filename}'")
         
         # Create BytesIO object
         docx_buffer = BytesIO(docx_bytes)
@@ -343,6 +383,93 @@ def download_lesson_pdf(lesson_id):
             os.remove(pdf_path)
         logger.error(f"PDF generation error: {str(e)}")
         return jsonify({'error': 'Failed to generate PDF'}), 500
+
+@bp.route('/download_lesson_ppt/<int:lesson_id>', methods=['GET'])
+@login_required
+def download_lesson_ppt(lesson_id):
+    """Download a lesson as PowerPoint file"""
+    try:
+        lesson = LessonModel.get_lesson_by_id(lesson_id)
+        if not lesson:
+            return jsonify({'error': 'Lesson not found'}), 404
+        
+        # Check if user can access this lesson
+        user_model = UserModel(session['user_id'])
+        if lesson['teacher_id'] != session['user_id'] and not lesson['is_public']:
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Get API key from session
+        api_key = session.get('groq_api_key')
+        if not api_key:
+            return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
+        
+        # Create lesson structure for PPT generation
+        lesson_data = {
+            'title': lesson['title'],
+            'summary': lesson['summary'] or '',
+            'learning_objectives': [lesson['learning_objectives']] if lesson['learning_objectives'] else [],
+            'sections': [{'heading': 'Lesson Content', 'content': lesson['content']}],
+            'key_concepts': [],
+            'activities': [],
+            'quiz': []
+        }
+        
+        # If we have content, try to parse it into sections
+        if lesson['content']:
+            # Split content by common section markers
+            content_lines = lesson['content'].split('\n')
+            sections = []
+            current_section = {'heading': 'Introduction', 'content': ''}
+            
+            for line in content_lines:
+                line = line.strip()
+                if line and (line.startswith('#') or line.isupper() or line.endswith(':') or 
+                           any(keyword in line.lower() for keyword in ['objective', 'goal', 'aim', 'purpose', 'overview', 'introduction', 'conclusion', 'summary'])):
+                    # Save previous section if it has content
+                    if current_section['content'].strip():
+                        sections.append(current_section)
+                    
+                    # Start new section
+                    heading = line.replace('#', '').strip()
+                    if heading.endswith(':'):
+                        heading = heading[:-1]
+                    current_section = {'heading': heading, 'content': ''}
+                else:
+                    current_section['content'] += line + '\n'
+            
+            # Add the last section
+            if current_section['content'].strip():
+                sections.append(current_section)
+            
+            # If we found sections, use them; otherwise use the original structure
+            if len(sections) > 1:
+                lesson_data['sections'] = sections
+        
+        # Generate PPT
+        lesson_service = LessonService(api_key=api_key)
+        ppt_bytes = lesson_service.create_ppt(lesson_data)
+        
+        if not ppt_bytes:
+            return jsonify({'error': 'Failed to generate PowerPoint content'}), 500
+        
+        # Get filename from lesson or use title
+        filename = lesson.get('file_name') or lesson['title']
+        if not filename.endswith('.pptx'):
+            filename += '.pptx'
+        
+        # Clean filename for download
+        filename = "".join(c for c in filename if c.isalnum() or c in (' ', '-', '_', '.')).rstrip()
+        
+        return send_file(
+            io.BytesIO(ppt_bytes),
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        )
+        
+    except Exception as e:
+        logger.error(f"PPT download error: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to download lesson: {str(e)}'}), 500
 
 @bp.route('/ask_question', methods=['POST'])
 @student_required
@@ -483,3 +610,59 @@ def export_faq_dashboard():
     except Exception as e:
         logger.error(f"Error exporting FAQ dashboard: {str(e)}", exc_info=True)
         return jsonify({'error': 'Failed to export FAQ dashboard'}), 500 
+
+@bp.route('/lesson/<int:lesson_id>/create_ai_version', methods=['POST'])
+@login_required
+def create_ai_version(lesson_id):
+    """Create a new version of a lesson with AI improvements"""
+    try:
+        lesson = LessonModel.get_lesson_by_id(lesson_id)
+        if not lesson:
+            return jsonify({'error': 'Lesson not found'}), 404
+        
+        # Check if the lesson belongs to the current teacher
+        if lesson['teacher_id'] != session['user_id']:
+            return jsonify({'error': 'Access denied'}), 403
+        
+        data = request.get_json()
+        improvement_prompt = data.get('improvement_prompt', '')
+        
+        # Get API key
+        api_key = session.get('groq_api_key')
+        if not api_key:
+            return jsonify({'error': 'API key not found'}), 400
+        
+        # Create lesson service
+        lesson_service = LessonService(api_key=api_key)
+        
+        # Generate improved content using AI
+        improved_content = lesson_service.improve_lesson_content(
+            lesson_id=lesson_id,
+            current_content=lesson['content'],
+            improvement_prompt=improvement_prompt
+        )
+        
+        # Create new version with improved content
+        new_lesson_id = LessonModel.create_new_version(
+            original_lesson_id=lesson_id,
+            teacher_id=session['user_id'],
+            title=lesson['title'],
+            summary=lesson['summary'],
+            learning_objectives=lesson['learning_objectives'],
+            focus_area=lesson['focus_area'],
+            grade_level=lesson['grade_level'],
+            content=improved_content,
+            file_name=lesson.get('file_name'),
+            is_public=lesson['is_public']
+        )
+        
+        return jsonify({
+            'success': True,
+            'message': 'New AI-improved version created successfully',
+            'new_lesson_id': new_lesson_id,
+            'improved_content': improved_content
+        })
+        
+    except Exception as e:
+        logger.error(f"Error creating AI version: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to create AI version: {str(e)}'}), 500 

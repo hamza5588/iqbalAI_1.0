@@ -11,11 +11,17 @@ def get_db():
             print(current_app.config['DATABASE'])
             g.db = sqlite3.connect(
                 current_app.config['DATABASE'],
-                detect_types=sqlite3.PARSE_DECLTYPES
+                detect_types=sqlite3.PARSE_DECLTYPES,
+                timeout=20.0,  # Add timeout to prevent immediate locking
+                check_same_thread=False  # Allow multiple threads
             )
             g.db.row_factory = sqlite3.Row
             # Enable foreign key support
             g.db.execute('PRAGMA foreign_keys = ON')
+            # Set WAL mode for better concurrency
+            g.db.execute('PRAGMA journal_mode = WAL')
+            # Set busy timeout
+            g.db.execute('PRAGMA busy_timeout = 30000')
         except Exception as e:
             logger.error(f"Database connection error: {str(e)}")
             raise
@@ -26,9 +32,14 @@ def close_db(e=None):
     db = g.pop('db', None)
     if db is not None:
         try:
+            db.commit()  # Commit any pending transactions
             db.close()
         except Exception as e:
             logger.error(f"Error closing database: {str(e)}")
+            try:
+                db.rollback()  # Rollback on error
+            except:
+                pass
 
 
 def update_token_usage(user_id: int, tokens_used: int) -> None:

@@ -141,20 +141,38 @@ class LessonModel:
     @staticmethod
     def create_lesson(teacher_id: int, title: str, summary: str, learning_objectives: str,
                      focus_area: str, grade_level: str, content: str, file_name: str = None,
-                     is_public: bool = True) -> int:
+                     is_public: bool = True, parent_lesson_id: int = None) -> int:
         """Create a new lesson in the database"""
         try:
+            logger.info(f"Saving lesson to database with title: '{title}'")
             db = get_db()
+            
+            # If this is a new version of an existing lesson, get the next version number
+            version = 1
+            if parent_lesson_id:
+                # Get the highest version number for this parent lesson
+                # Include both the original lesson (id = parent_lesson_id) and all its versions
+                result = db.execute(
+                    '''SELECT MAX(version) as max_version FROM lessons 
+                       WHERE id = ? OR parent_lesson_id = ?''',
+                    (parent_lesson_id, parent_lesson_id)
+                ).fetchone()
+                if result and result['max_version']:
+                    version = result['max_version'] + 1
+                
+                logger.info(f"Creating new version for parent lesson {parent_lesson_id}, assigned version {version}")
+                logger.info(f"Max version found: {result['max_version'] if result else 'None'}")
+            
             cursor = db.execute(
                 '''INSERT INTO lessons 
-                   (teacher_id, title, summary, learning_objectives, focus_area, grade_level, content, file_name, is_public)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                (teacher_id, title, summary, learning_objectives, focus_area, grade_level, content, file_name, is_public)
+                (teacher_id, title, summary, learning_objectives, focus_area, grade_level, content, file_name, is_public, parent_lesson_id, version) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                (teacher_id, title, summary, learning_objectives, focus_area, grade_level, content, file_name, is_public, parent_lesson_id, version)
             )
             db.commit()
             return cursor.lastrowid
         except Exception as e:
-            logger.error(f"Lesson creation failed: {str(e)}")
+            logger.error(f"Error creating lesson: {str(e)}")
             raise
 
     @staticmethod
@@ -169,20 +187,34 @@ class LessonModel:
                    WHERE l.id = ?''',
                 (lesson_id,)
             ).fetchone()
-            return dict(lesson) if lesson else None
+            if lesson:
+                lesson_dict = dict(lesson)
+                logger.info(f"Retrieved lesson ID {lesson_id} with title: '{lesson_dict.get('title', 'NO_TITLE')}'")
+                return lesson_dict
+            else:
+                logger.warning(f"No lesson found with ID: {lesson_id}")
+                return None
         except Exception as e:
             logger.error(f"Error retrieving lesson by ID: {str(e)}")
             raise
 
     @staticmethod
     def get_lessons_by_teacher(teacher_id: int) -> List[Dict[str, Any]]:
-        """Get all lessons created by a specific teacher"""
+        """Get all lessons created by a specific teacher (only latest versions)"""
         try:
             db = get_db()
-            lessons = db.execute(
-                'SELECT * FROM lessons WHERE teacher_id = ? ORDER BY created_at DESC',
-                (teacher_id,)
-            ).fetchall()
+            # Get only the latest version of each lesson
+            lessons = db.execute('''
+                SELECT l.* FROM lessons l
+                WHERE l.teacher_id = ?
+                AND (l.parent_lesson_id IS NULL OR l.id = (
+                    SELECT MAX(id) 
+                    FROM lessons 
+                    WHERE (parent_lesson_id = l.parent_lesson_id OR (parent_lesson_id IS NULL AND id = l.parent_lesson_id))
+                    AND teacher_id = ?
+                ))
+                ORDER BY l.created_at DESC
+            ''', (teacher_id, teacher_id)).fetchall()
             return [dict(lesson) for lesson in lessons]
         except Exception as e:
             logger.error(f"Error retrieving lessons by teacher: {str(e)}")
@@ -190,13 +222,19 @@ class LessonModel:
 
     @staticmethod
     def get_public_lessons(grade_level: str = None, focus_area: str = None) -> List[Dict[str, Any]]:
-        """Get all public lessons with optional filtering"""
+        """Get all public lessons with optional filtering (only latest versions)"""
         try:
             db = get_db()
             query = '''SELECT l.*, u.username as teacher_name 
                       FROM lessons l 
                       JOIN users u ON l.teacher_id = u.id 
-                      WHERE l.is_public = TRUE'''
+                      WHERE l.is_public = TRUE
+                      AND (l.parent_lesson_id IS NULL OR l.id = (
+                          SELECT MAX(id) 
+                          FROM lessons 
+                          WHERE (parent_lesson_id = l.parent_lesson_id OR (parent_lesson_id IS NULL AND id = l.parent_lesson_id))
+                          AND is_public = TRUE
+                      ))'''
             params = []
             
             if grade_level:
@@ -217,14 +255,20 @@ class LessonModel:
 
     @staticmethod
     def search_lessons(search_term: str, grade_level: str = None) -> List[Dict[str, Any]]:
-        """Search lessons by title, content, or focus area"""
+        """Search lessons by title, content, or focus area (only latest versions)"""
         try:
             db = get_db()
             query = '''SELECT l.*, u.username as teacher_name 
                       FROM lessons l 
                       JOIN users u ON l.teacher_id = u.id 
                       WHERE l.is_public = TRUE 
-                      AND (l.title LIKE ? OR l.content LIKE ? OR l.focus_area LIKE ?)'''
+                      AND (l.title LIKE ? OR l.content LIKE ? OR l.focus_area LIKE ?)
+                      AND (l.parent_lesson_id IS NULL OR l.id = (
+                          SELECT MAX(id) 
+                          FROM lessons 
+                          WHERE (parent_lesson_id = l.parent_lesson_id OR (parent_lesson_id IS NULL AND id = l.parent_lesson_id))
+                          AND is_public = TRUE
+                      ))'''
             params = [f'%{search_term}%', f'%{search_term}%', f'%{search_term}%']
             
             if grade_level:
@@ -294,6 +338,72 @@ class LessonModel:
         except Exception as e:
             logger.error(f"Error deleting lesson: {str(e)}")
             return False
+
+    @staticmethod
+    def create_new_version(original_lesson_id: int, teacher_id: int, title: str, summary: str, 
+                          learning_objectives: str, focus_area: str, grade_level: str, 
+                          content: str, file_name: str = None, is_public: bool = True) -> int:
+        """Create a new version of an existing lesson"""
+        try:
+            logger.info(f"Creating new version of lesson {original_lesson_id} with title: '{title}'")
+            return LessonModel.create_lesson(
+                teacher_id=teacher_id,
+                title=title,
+                summary=summary,
+                learning_objectives=learning_objectives,
+                focus_area=focus_area,
+                grade_level=grade_level,
+                content=content,
+                file_name=file_name,
+                is_public=is_public,
+                parent_lesson_id=original_lesson_id
+            )
+        except Exception as e:
+            logger.error(f"Error creating new version: {str(e)}")
+            raise
+
+    @staticmethod
+    def get_lesson_versions(lesson_id: int) -> List[Dict[str, Any]]:
+        """Get all versions of a lesson (including the original and all versions)"""
+        try:
+            db = get_db()
+            # Get the original lesson and all its versions
+            lessons = db.execute(
+                '''SELECT l.*, u.username as teacher_name 
+                   FROM lessons l 
+                   JOIN users u ON l.teacher_id = u.id 
+                   WHERE l.id = ? OR l.parent_lesson_id = ?
+                   ORDER BY l.version ASC''',
+                (lesson_id, lesson_id)
+            ).fetchall()
+            
+            result = [dict(lesson) for lesson in lessons]
+            logger.info(f"get_lesson_versions for lesson {lesson_id}: found {len(result)} versions")
+            logger.info(f"Versions data: {result}")
+            return result
+        except Exception as e:
+            logger.error(f"Error retrieving lesson versions: {str(e)}")
+            raise
+
+    @staticmethod
+    def get_latest_version(lesson_id: int) -> Dict[str, Any]:
+        """Get the latest version of a lesson"""
+        try:
+            db = get_db()
+            # Get the lesson with the highest version number
+            lesson = db.execute(
+                '''SELECT l.*, u.username as teacher_name 
+                   FROM lessons l 
+                   JOIN users u ON l.teacher_id = u.id 
+                   WHERE l.id = ? OR l.parent_lesson_id = ?
+                   ORDER BY l.version DESC
+                   LIMIT 1''',
+                (lesson_id, lesson_id)
+            ).fetchone()
+            return dict(lesson) if lesson else None
+        except Exception as e:
+            logger.error(f"Error retrieving latest version: {str(e)}")
+            raise
 
 # app/models/models.py (ChatModel part)
 from langchain_groq import ChatGroq
