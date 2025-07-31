@@ -1,102 +1,25 @@
-2025-07-26 09:23:50,945 ERROR: Error editing lesson with prompt: Could not import sentence_transformers python package. Please install it with `pip install sentence-transformers`. [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:987]
-Traceback (most recent call last):
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\venv\Lib\site-packages\langchain_community\embeddings\huggingface.py", line 84, in __init__
-    import sentence_transformers
-ModuleNotFoundError: No module named 'sentence_transformers'
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py", line 947, in edit_lesson_with_prompt
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\venv\Lib\site-packages\langchain_core\_api\deprecation.py", line 222, in warn_if_direct_instance
-    return wrapped(self, *args, **kwargs)
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\venv\Lib\site-packages\langchain_community\embeddings\huggingface.py", line 87, in __init__
-    raise ImportError(
-    ...<2 lines>...
-    ) from exc
-ImportError: Could not import sentence_transformers python package. Please install it with `pip install sentence-transformers`.
-2025-07-26 09:50:22,086 INFO: Checking survey submission status for user_id: 12 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1191]
-2025-07-26 09:50:22,120 INFO: Survey check result: User 12 has not submitted a survey (count: 0) [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1200]
-2025-07-26 09:51:23,775 INFO: Processing text of length: 6910 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:590]
-2025-07-26 09:51:23,776 INFO: About to invoke LLM... [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:591]
-2025-07-26 09:51:27,099 INFO: Received LLM response type: <class 'langchain_core.messages.ai.AIMessage'> [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:598]
-2025-07-26 09:51:27,102 INFO: Response text (first 200 chars): {
-    "title": "AI Resumer: Exploring the Skills and Experience of a Machine Learning Engineer",
-    "summary": "This lesson explores the skills and experience of a machine learning engineer, highligh [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:603]
-2025-07-26 09:51:27,106 INFO: Successfully generated structured lesson [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:609]
-2025-07-26 09:51:46,452 ERROR: Error editing lesson with prompt: Could not import sentence_transformers python package. Please install it with `pip install sentence-transformers`. [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:987]
-Traceback (most recent call last):
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\venv\Lib\site-packages\langchain_community\embeddings\huggingface.py", line 84, in __init__
-    import sentence_transformers
-ModuleNotFoundError: No module named 'sentence_transformers'
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py", line 947, in edit_lesson_with_prompt
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\venv\Lib\site-packages\langchain_core\_api\deprecation.py", line 222, in warn_if_direct_instance
-    return wrapped(self, *args, **kwargs)
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\venv\Lib\site-packages\langchain_community\embeddings\huggingface.py", line 87, in __init__
-    raise ImportError(
-    ...<2 lines>...
-    ) from exc
-ImportError: Could not import sentence_transformers python package. Please install it with `pip install sentence-transformers`.
-2025-07-26 09:52:50,006 ERROR: Error editing lesson with prompt: Could not import sentence_transformers python package. Please install it with `pip install sentence-transformers`. [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:987]
-Traceback (most recent call last):
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\venv\Lib\site-packages\langchain_community\embeddings\huggingface.py", line 84, in __init__
-    import sentence_transformers
-ModuleNotFoundError: No module named 'sentence_transformers'
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py", line 947, in edit_lesson_with_prompt
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\venv\Lib\site-packages\langchain_core\_api\deprecation.py", line 222, in warn_if_direct_instance
-    return wrapped(self, *args, **kwargs)
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\venv\Lib\site-packages\langchain_community\embeddings\huggingface.py", line 87, in __init__
-    raise ImportError(
-    ...<2 lines>...
-    ) from exc
-ImportError: Could not import sentence_transformers python package. Please install it with `pip install sentence-transformers`.
-2025-07-26 10:07:09,426 INFO: Checking survey submission status for user_id: 12 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1191]
-2025-07-26 10:07:09,430 INFO: Survey check result: User 12 has not submitted a survey (count: 0) [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1200]
-2025-07-26 10:07:21,428 INFO: Checking survey submission status for user_id: 12 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1191]
-2025-07-26 10:07:21,431 INFO: Survey check result: User 12 has not submitted a survey (count: 0) [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1200]
-2025-07-26 10:08:18,295 INFO: Processing text of length: 6910 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:590]
-2025-07-26 10:08:18,295 INFO: About to invoke LLM... [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:591]
-2025-07-26 10:08:21,407 INFO: Received LLM response type: <class 'langchain_core.messages.ai.AIMessage'> [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:598]
-2025-07-26 10:08:21,409 INFO: Response text (first 200 chars): {
-    "title": "AI Resumer: Building Intelligent AI Solutions",
-    "summary": "This lesson covers the skills and experience of an AI/ML Engineer, showcasing expertise in machine learning, deep learni [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:603]
-2025-07-26 10:08:21,411 INFO: Successfully generated structured lesson [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:609]
-2025-07-26 10:08:43,481 ERROR: Error editing lesson with prompt: Could not import sentence_transformers python package. Please install it with `pip install sentence-transformers`. [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:987]
-Traceback (most recent call last):
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\venv\Lib\site-packages\langchain_community\embeddings\huggingface.py", line 84, in __init__
-    import sentence_transformers
-ModuleNotFoundError: No module named 'sentence_transformers'
-
-The above exception was the direct cause of the following exception:
-
-Traceback (most recent call last):
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py", line 947, in edit_lesson_with_prompt
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\venv\Lib\site-packages\langchain_core\_api\deprecation.py", line 222, in warn_if_direct_instance
-    return wrapped(self, *args, **kwargs)
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\venv\Lib\site-packages\langchain_community\embeddings\huggingface.py", line 87, in __init__
-    raise ImportError(
-    ...<2 lines>...
-    ) from exc
-ImportError: Could not import sentence_transformers python package. Please install it with `pip install sentence-transformers`.
-2025-07-26 10:14:27,685 INFO: Checking survey submission status for user_id: 12 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1191]
-2025-07-26 10:14:27,688 INFO: Survey check result: User 12 has not submitted a survey (count: 0) [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1200]
-2025-07-26 10:14:37,634 INFO: Checking survey submission status for user_id: 12 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1191]
-2025-07-26 10:14:37,635 INFO: Survey check result: User 12 has not submitted a survey (count: 0) [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1200]
-2025-07-26 10:15:05,737 INFO: Processing text of length: 6910 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:590]
-2025-07-26 10:15:05,737 INFO: About to invoke LLM... [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:591]
-2025-07-26 10:15:09,098 INFO: Received LLM response type: <class 'langchain_core.messages.ai.AIMessage'> [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:598]
-2025-07-26 10:15:09,100 INFO: Response text (first 200 chars): {
-    "title": "AI Resumer: Exploring AI/ML Engineer Hamza Nawaz's Profile",
-    "summary": "This lesson explores the profile of AI/ML Engineer Hamza Nawaz, highlighting his skills, experience, and pr [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:603]
+2025-08-01 03:10:55,385 INFO: Received data: {'title': 'Agentic RAG System Documentation', 'summary': 'The Agentic RAG System is an intelligent document processing and question-answering platform that combines the power of Large Language Models (LLMs) with vector databases to provide contextual, source-referenced responses from PDF documents.', 'learning_objectives': 'ai', 'focus_area': 'Other', 'grade_level': 'College', 'content': 'The Agentic RAG System is an intelligent document processing and question-answering platform that combines the power of Large Language Models (LLMs) with vector databases to provide contextual, source-referenced responses from PDF documents.\n\nThe system consists of several components, including the LangGraph Workflow Engine, AI Models, Vector Database, and Memory System. It provides features such as intelligent intent detection, self-correcting queries, autonomous workflow routing, and context-aware responses.\n\nThe system architecture consists of a high-level architecture, component interaction flow, and core components. The core components include the LangGraph Workflow Engine, AI Models, Vector Database, and Memory System.\n\nThe core components of the system include the LangGraph Workflow Engine, AI Models, Vector Database, and Memory System. The LangGraph Workflow Engine orchestrates the entire workflow using a state-based graph. The AI Models include the Groq Llama3-70B and Nomic Embeddings. The Vector Database is ChromaDB, which provides persistent vector storage and cosine similarity search.\n\nThe workflow process consists of three phases: document ingestion, query processing, and response generation. The system analyzes incoming queries and classifies them into three categories: REWRITE, SUMMARIZE, and ANSWER.\n\nThe system provides features such as query enhancement, document summarization, precise question answering, conversational interface, and advanced search. It also supports multiple PDFs, custom thread management, and batch processing.\n\nThe system requires Python 3.8+, OpenAI API key (or Groq API key), and at least 4GB RAM for optimal performance. The installation steps include cloning or downloading the system, installing dependencies, setting API keys, and initializing the system.\n\nThe usage guide provides examples of basic and advanced usage, including adding documents, starting conversations, and maintaining conversations.\n\nThe technical implementation includes state management, vector search implementation, and memory management. The system uses a TypedDict to maintain state across workflow steps and ChromaDB for vector similarity search.\n\nThe troubleshooting section provides solutions to common issues such as import errors, API key issues, ChromaDB issues, PDF processing issues, and memory issues.\n\nThe Agentic RAG System provides a powerful, intelligent interface for document interaction that goes beyond simple search and retrieval. It combines multiple AI models with thoughtful workflow design to deliver contextual, source-referenced responses while handling the complexities of natural language queries gracefully.'} [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\routes\lesson_routes.py:215]
+2025-08-01 03:10:55,415 INFO: Original lesson content length: 2679 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\routes\lesson_routes.py:216]
+2025-08-01 03:10:55,417 INFO: New content length: 2679 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\routes\lesson_routes.py:217]
+2025-08-01 03:10:55,420 INFO: Creating new version of lesson 47 with title: 'Agentic RAG System Documentation' [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:348]
+2025-08-01 03:10:55,422 INFO: Saving lesson to database with title: 'Agentic RAG System Documentation' [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:147]
+2025-08-01 03:10:55,424 INFO: Creating new version for parent lesson 47, assigned version 2 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:163]
+2025-08-01 03:10:55,424 INFO: Max version found: 1 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:164]
+2025-08-01 03:16:06,857 INFO: Checking survey submission status for user_id: 12 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1301]
+2025-08-01 03:16:06,859 INFO: Survey check result: User 12 has not submitted a survey (count: 0) [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1310]
+2025-08-01 03:22:10,597 INFO: Checking survey submission status for user_id: 12 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1301]
+2025-08-01 03:22:10,772 INFO: Survey check result: User 12 has not submitted a survey (count: 0) [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1310]
+2025-08-01 03:23:59,351 INFO: Checking survey submission status for user_id: 12 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1301]
+2025-08-01 03:23:59,353 INFO: Survey check result: User 12 has not submitted a survey (count: 0) [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1310]
+2025-08-01 03:24:30,716 INFO: Processing text of length: 17686 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:591]
+2025-08-01 03:24:30,716 INFO: About to invoke LLM... [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:592]
+2025-08-01 03:24:36,995 INFO: Received LLM response type: <class 'langchain_core.messages.ai.AIMessage'> [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:599]
+2025-08-01 03:24:36,996 INFO: Response text (first 200 chars): {
+    "title": "Agentic RAG System Documentation",
+    "summary": "The Agentic RAG System is an intelligent document processing and question-answering platform that combines the power of Large Languag [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:604]
+2025-08-01 03:24:36,998 INFO: Successfully generated structured lesson [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:610]
+2025-08-01 03:24:37,151 INFO: Creating lesson with title: 'Agentic RAG System Documentation' [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\routes\lesson_routes.py:72]
+2025-08-01 03:24:37,152 INFO: Saving lesson to database with title: 'Agentic RAG System Documentation' [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:147]
+2025-08-01 03:24:37,488 INFO: Retrieved lesson ID 49 with title: 'Agentic RAG System Documentation' [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:192]
+2025-08-01 03:24:40,472 INFO: Retrieved lesson ID 49 with title: 'Agentic RAG System Documentation' [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:192]
+2025-08-01 03:24:40,473 INFO: Creating new version of lesson 49 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\routes\lesson_routes.py:214]

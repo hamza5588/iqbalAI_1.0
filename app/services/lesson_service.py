@@ -993,14 +993,20 @@ IMPORTANT:
         Generate a basic PPTX file from the lesson structure using python-pptx.
         """
         try:
+            logger.info(f"Creating PowerPoint for lesson: {lesson_data.get('title', 'Unknown')}")
+            logger.info(f"Lesson data keys: {list(lesson_data.keys())}")
+            logger.info(f"Content length: {len(lesson_data.get('content', ''))}")
+            
             from pptx import Presentation
             from pptx.util import Inches, Pt
             prs = Presentation()
+            
             # Title slide
             slide_layout = prs.slide_layouts[0]
             slide = prs.slides.add_slide(slide_layout)
             slide.shapes.title.text = lesson_data.get('title', 'Lesson')
             slide.placeholders[1].text = lesson_data.get('summary', '')
+            
             # Learning Objectives
             if lesson_data.get('learning_objectives'):
                 slide = prs.slides.add_slide(prs.slide_layouts[1])
@@ -1008,12 +1014,42 @@ IMPORTANT:
                 body = slide.shapes.placeholders[1].text_frame
                 for obj in lesson_data['learning_objectives']:
                     body.add_paragraph().text = str(obj)
+            
             # Sections
-            for section in lesson_data.get('sections', []):
-                slide = prs.slides.add_slide(prs.slide_layouts[1])
-                slide.shapes.title.text = section.get('heading', 'Section')
-                body = slide.shapes.placeholders[1].text_frame
-                body.text = section.get('content', '')[:1000]
+            sections = lesson_data.get('sections', [])
+            if sections:
+                logger.info(f"Creating {len(sections)} section slides")
+                for section in sections:
+                    slide = prs.slides.add_slide(prs.slide_layouts[1])
+                    slide.shapes.title.text = section.get('heading', 'Section')
+                    body = slide.shapes.placeholders[1].text_frame
+                    content = section.get('content', '')
+                    # Limit content to avoid slide overflow
+                    if len(content) > 1000:
+                        content = content[:1000] + "..."
+                    body.text = content
+            else:
+                # If no sections, create a content slide with the main content
+                if lesson_data.get('content'):
+                    logger.info("Creating content slide with main lesson content")
+                    slide = prs.slides.add_slide(prs.slide_layouts[1])
+                    slide.shapes.title.text = 'Lesson Content'
+                    body = slide.shapes.placeholders[1].text_frame
+                    content = lesson_data['content']
+                    # Split long content into multiple slides if needed
+                    if len(content) > 1000:
+                        # Create multiple slides for long content
+                        chunks = [content[i:i+1000] for i in range(0, len(content), 1000)]
+                        logger.info(f"Splitting content into {len(chunks)} slides")
+                        for i, chunk in enumerate(chunks):
+                            if i > 0:  # First chunk already added above
+                                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                                slide.shapes.title.text = f'Lesson Content (Continued {i+1})'
+                                body = slide.shapes.placeholders[1].text_frame
+                            body.text = chunk
+                    else:
+                        body.text = content
+            
             # Key Concepts
             if lesson_data.get('key_concepts'):
                 slide = prs.slides.add_slide(prs.slide_layouts[1])
@@ -1021,6 +1057,7 @@ IMPORTANT:
                 body = slide.shapes.placeholders[1].text_frame
                 for kc in lesson_data['key_concepts']:
                     body.add_paragraph().text = str(kc)
+            
             # Activities
             if lesson_data.get('activities'):
                 slide = prs.slides.add_slide(prs.slide_layouts[1])
@@ -1028,6 +1065,7 @@ IMPORTANT:
                 body = slide.shapes.placeholders[1].text_frame
                 for act in lesson_data['activities']:
                     body.add_paragraph().text = f"{act.get('name', '')}: {act.get('description', '')} ({act.get('duration', '')})"
+            
             # Quiz
             if lesson_data.get('quiz'):
                 slide = prs.slides.add_slide(prs.slide_layouts[1])
@@ -1038,11 +1076,27 @@ IMPORTANT:
                     for i, opt in enumerate(q.get('options', [])):
                         body.add_paragraph().text = f"{chr(65+i)}. {opt}"
                     body.add_paragraph().text = f"Answer: {q.get('answer', '')}"
+            
+            # If we only have a title slide, add a content slide
+            if len(prs.slides) == 1 and lesson_data.get('content'):
+                logger.info("Adding content slide as only title slide exists")
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = 'Lesson Content'
+                body = slide.shapes.placeholders[1].text_frame
+                content = lesson_data['content']
+                if len(content) > 1000:
+                    content = content[:1000] + "..."
+                body.text = content
+            
+            logger.info(f"Created PowerPoint with {len(prs.slides)} slides")
+            
             from io import BytesIO
             buffer = BytesIO()
             prs.save(buffer)
             buffer.seek(0)
-            return buffer.getvalue()
+            ppt_bytes = buffer.getvalue()
+            logger.info(f"PowerPoint generated successfully, size: {len(ppt_bytes)} bytes")
+            return ppt_bytes
         except Exception as e:
             logger.error(f"Error creating PPTX: {str(e)}", exc_info=True)
             return b''
@@ -1082,4 +1136,104 @@ Answer as a helpful teacher:
             return f"[Error from LLM: {e}]"
 
     def get_lesson_faqs(self, lesson_id, limit=5):
-        return LessonFAQ.get_top_faqs(lesson_id, limit)
+        """Get frequently asked questions for a lesson"""
+        try:
+            # Get lesson content from database
+            from app.models.models import LessonModel
+            lesson = LessonModel.get_lesson_by_id(lesson_id)
+            if not lesson:
+                return []
+            
+            lesson_content = lesson['content']
+            
+            # Generate FAQs using LLM
+            faq_prompt = f"""
+            Based on the following lesson content, generate {limit} frequently asked questions that students might have.
+            Focus on key concepts, common misconceptions, and important details.
+            
+            Lesson Content:
+            {lesson_content}
+            
+            Return the questions in this JSON format:
+            {{
+                "faqs": [
+                    {{
+                        "question": "What is...?",
+                        "answer": "The answer is..."
+                    }}
+                ]
+            }}
+            """
+            
+            response = self.llm.invoke(faq_prompt)
+            response_text = response.content
+            
+            # Parse JSON response
+            try:
+                import json
+                faq_data = json.loads(response_text)
+                return faq_data.get('faqs', [])
+            except json.JSONDecodeError:
+                logger.error(f"Failed to parse FAQ JSON: {response_text}")
+                return []
+                
+        except Exception as e:
+            logger.error(f"Error generating FAQs: {str(e)}")
+            return []
+
+    def improve_lesson_content(self, lesson_id: int, current_content: str, improvement_prompt: str = "") -> str:
+        """
+        Improve lesson content using AI based on user prompt
+        
+        Args:
+            lesson_id: ID of the lesson to improve
+            current_content: Current lesson content
+            improvement_prompt: User's specific improvement request
+            
+        Returns:
+            str: Improved lesson content
+        """
+        try:
+            # Create improvement prompt
+            if improvement_prompt:
+                prompt = f"""
+                You are an expert teacher. Please improve the following lesson content based on the user's specific request.
+                
+                User's Improvement Request:
+                {improvement_prompt}
+                
+                Current Lesson Content:
+                {current_content}
+                
+                Please provide an improved version of the lesson content that addresses the user's request.
+                Maintain the same structure and format, but enhance the content according to the improvement request.
+                Return only the improved content, no additional explanations.
+                """
+            else:
+                prompt = f"""
+                You are an expert teacher. Please improve the following lesson content to make it more engaging, 
+                comprehensive, and effective for students.
+                
+                Current Lesson Content:
+                {current_content}
+                
+                Please provide an improved version that:
+                1. Enhances clarity and readability
+                2. Adds more examples and explanations where needed
+                3. Improves the overall educational value
+                4. Maintains the same structure and format
+                
+                Return only the improved content, no additional explanations.
+                """
+            
+            # Generate improved content using LLM
+            response = self.llm.invoke(prompt)
+            improved_content = response.content.strip()
+            
+            logger.info(f"Successfully improved lesson {lesson_id} content")
+            return improved_content
+            
+        except Exception as e:
+            logger.error(f"Error improving lesson content: {str(e)}")
+            # Return original content if improvement fails
+            return current_content
