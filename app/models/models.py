@@ -151,14 +151,17 @@ class LessonModel:
             version = 1
             if parent_lesson_id:
                 # Get the highest version number for this parent lesson
-                # Include both the original lesson (id = parent_lesson_id) and all its versions
+                # Only look at versions (where parent_lesson_id is set), not the original lesson
                 result = db.execute(
                     '''SELECT MAX(version) as max_version FROM lessons 
-                       WHERE id = ? OR parent_lesson_id = ?''',
-                    (parent_lesson_id, parent_lesson_id)
+                       WHERE parent_lesson_id = ?''',
+                    (parent_lesson_id,)
                 ).fetchone()
                 if result and result['max_version']:
                     version = result['max_version'] + 1
+                else:
+                    # If no versions exist yet, this is version 2
+                    version = 2
                 
                 logger.info(f"Creating new version for parent lesson {parent_lesson_id}, assigned version {version}")
                 logger.info(f"Max version found: {result['max_version'] if result else 'None'}")
@@ -200,19 +203,22 @@ class LessonModel:
 
     @staticmethod
     def get_lessons_by_teacher(teacher_id: int) -> List[Dict[str, Any]]:
-        """Get all lessons created by a specific teacher (only latest versions)"""
+        """Get all lessons created by a specific teacher (only main lessons and latest versions)"""
         try:
             db = get_db()
-            # Get only the latest version of each lesson
+            # Get main lessons (parent_lesson_id IS NULL) and their latest versions
             lessons = db.execute('''
                 SELECT l.* FROM lessons l
                 WHERE l.teacher_id = ?
-                AND (l.parent_lesson_id IS NULL OR l.id = (
-                    SELECT MAX(id) 
-                    FROM lessons 
-                    WHERE (parent_lesson_id = l.parent_lesson_id OR (parent_lesson_id IS NULL AND id = l.parent_lesson_id))
-                    AND teacher_id = ?
-                ))
+                AND (
+                    l.parent_lesson_id IS NULL 
+                    OR l.id = (
+                        SELECT MAX(id) 
+                        FROM lessons 
+                        WHERE parent_lesson_id = l.parent_lesson_id
+                        AND teacher_id = ?
+                    )
+                )
                 ORDER BY l.created_at DESC
             ''', (teacher_id, teacher_id)).fetchall()
             return [dict(lesson) for lesson in lessons]
@@ -222,19 +228,22 @@ class LessonModel:
 
     @staticmethod
     def get_public_lessons(grade_level: str = None, focus_area: str = None) -> List[Dict[str, Any]]:
-        """Get all public lessons with optional filtering (only latest versions)"""
+        """Get all public lessons with optional filtering (only main lessons and latest versions)"""
         try:
             db = get_db()
             query = '''SELECT l.*, u.username as teacher_name 
                       FROM lessons l 
                       JOIN users u ON l.teacher_id = u.id 
                       WHERE l.is_public = TRUE
-                      AND (l.parent_lesson_id IS NULL OR l.id = (
-                          SELECT MAX(id) 
-                          FROM lessons 
-                          WHERE (parent_lesson_id = l.parent_lesson_id OR (parent_lesson_id IS NULL AND id = l.parent_lesson_id))
-                          AND is_public = TRUE
-                      ))'''
+                      AND (
+                          l.parent_lesson_id IS NULL 
+                          OR l.id = (
+                              SELECT MAX(id) 
+                              FROM lessons 
+                              WHERE parent_lesson_id = l.parent_lesson_id
+                              AND is_public = TRUE
+                          )
+                      )'''
             params = []
             
             if grade_level:
@@ -255,7 +264,7 @@ class LessonModel:
 
     @staticmethod
     def search_lessons(search_term: str, grade_level: str = None) -> List[Dict[str, Any]]:
-        """Search lessons by title, content, or focus area (only latest versions)"""
+        """Search lessons by title, content, or focus area (only main lessons and latest versions)"""
         try:
             db = get_db()
             query = '''SELECT l.*, u.username as teacher_name 
@@ -263,12 +272,15 @@ class LessonModel:
                       JOIN users u ON l.teacher_id = u.id 
                       WHERE l.is_public = TRUE 
                       AND (l.title LIKE ? OR l.content LIKE ? OR l.focus_area LIKE ?)
-                      AND (l.parent_lesson_id IS NULL OR l.id = (
-                          SELECT MAX(id) 
-                          FROM lessons 
-                          WHERE (parent_lesson_id = l.parent_lesson_id OR (parent_lesson_id IS NULL AND id = l.parent_lesson_id))
-                          AND is_public = TRUE
-                      ))'''
+                      AND (
+                          l.parent_lesson_id IS NULL 
+                          OR l.id = (
+                              SELECT MAX(id) 
+                              FROM lessons 
+                              WHERE parent_lesson_id = l.parent_lesson_id
+                              AND is_public = TRUE
+                          )
+                      )'''
             params = [f'%{search_term}%', f'%{search_term}%', f'%{search_term}%']
             
             if grade_level:
@@ -373,11 +385,20 @@ class LessonModel:
                    FROM lessons l 
                    JOIN users u ON l.teacher_id = u.id 
                    WHERE l.id = ? OR l.parent_lesson_id = ?
-                   ORDER BY l.version ASC''',
+                   ORDER BY l.version ASC, l.id ASC''',
                 (lesson_id, lesson_id)
             ).fetchall()
             
             result = [dict(lesson) for lesson in lessons]
+            
+            # Ensure the original lesson (id = lesson_id) is treated as version 1
+            for lesson in result:
+                if lesson['id'] == lesson_id and lesson['parent_lesson_id'] is None:
+                    lesson['version'] = 1
+                    lesson['is_original'] = True
+                elif lesson['parent_lesson_id'] == lesson_id:
+                    lesson['is_original'] = False
+            
             logger.info(f"get_lesson_versions for lesson {lesson_id}: found {len(result)} versions")
             logger.info(f"Versions data: {result}")
             return result
@@ -1351,3 +1372,63 @@ class LessonFAQ:
         faqs = [{'question': row[0], 'count': row[1]} for row in c.fetchall()]
         conn.close()
         return faqs
+
+class LessonChatHistory:
+    """Model for handling lesson-specific chat history"""
+    
+    @staticmethod
+    def create_table():
+        """Create the lesson_chat_history table if it doesn't exist"""
+        conn = sqlite3.connect('instance/chatbot.db')
+        c = conn.cursor()
+        c.execute('''CREATE TABLE IF NOT EXISTS lesson_chat_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            lesson_id INTEGER,
+            user_id INTEGER,
+            question TEXT,
+            answer TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )''')
+        conn.commit()
+        conn.close()
+    
+    @staticmethod
+    def save_qa(lesson_id: int, user_id: int, question: str, answer: str) -> int:
+        """Save a Q&A pair for a specific lesson and user"""
+        LessonChatHistory.create_table()
+        conn = sqlite3.connect('instance/chatbot.db')
+        c = conn.cursor()
+        c.execute('''INSERT INTO lesson_chat_history 
+                     (lesson_id, user_id, question, answer) 
+                     VALUES (?, ?, ?, ?)''', 
+                  (lesson_id, user_id, question, answer))
+        conn.commit()
+        chat_id = c.lastrowid
+        conn.close()
+        return chat_id
+    
+    @staticmethod
+    def get_lesson_chat_history(lesson_id: int, user_id: int) -> List[Dict]:
+        """Get chat history for a specific lesson and user"""
+        LessonChatHistory.create_table()
+        conn = sqlite3.connect('instance/chatbot.db')
+        c = conn.cursor()
+        c.execute('''SELECT question, answer, created_at 
+                     FROM lesson_chat_history 
+                     WHERE lesson_id = ? AND user_id = ?
+                     ORDER BY created_at ASC''', (lesson_id, user_id))
+        history = [{'question': row[0], 'answer': row[1], 'created_at': row[2]} 
+                  for row in c.fetchall()]
+        conn.close()
+        return history
+    
+    @staticmethod
+    def clear_lesson_chat_history(lesson_id: int, user_id: int) -> None:
+        """Clear chat history for a specific lesson and user"""
+        LessonChatHistory.create_table()
+        conn = sqlite3.connect('instance/chatbot.db')
+        c = conn.cursor()
+        c.execute('''DELETE FROM lesson_chat_history 
+                     WHERE lesson_id = ? AND user_id = ?''', (lesson_id, user_id))
+        conn.commit()
+        conn.close()
