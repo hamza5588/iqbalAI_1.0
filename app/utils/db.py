@@ -152,9 +152,23 @@ def init_db(app):
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     is_public BOOLEAN DEFAULT TRUE,
-                    FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE
+                    parent_lesson_id INTEGER,
+                    version INTEGER DEFAULT 1,
+                    FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE,
+                    FOREIGN KEY (parent_lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
                 )
             ''')
+            
+            # Add parent_lesson_id and version columns if they don't exist (for existing databases)
+            try:
+                db.execute('ALTER TABLE lessons ADD COLUMN parent_lesson_id INTEGER')
+            except:
+                pass  # Column already exists
+                
+            try:
+                db.execute('ALTER TABLE lessons ADD COLUMN version INTEGER DEFAULT 1')
+            except:
+                pass  # Column already exists
             
             # Create conversations table
             db.execute('''

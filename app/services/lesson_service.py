@@ -1105,26 +1105,53 @@ IMPORTANT:
         # Get lesson content
         lesson = LessonModel.get_lesson_by_id(lesson_id)
         if not lesson:
-            return {'error': 'Lesson not found'}
-        content = lesson.get('content') or lesson.get('summary')
-        if not content:
-            return {'error': 'No lesson content available'}
-        # Use LLM to answer
-        answer = self.llm_answer(content, question)
+            # Handle demo lessons that don't exist in database
+            if lesson_id in [1, 2, 3]:
+                demo_lessons = {
+                    1: {
+                        'title': 'Introduction to Climate',
+                        'content': 'Climate refers to the long-term patterns of temperature, humidity, wind, and precipitation in a particular region. Unlike weather, which describes short-term atmospheric conditions, climate represents the average weather conditions over a period of 30 years or more. Key concepts include climate vs weather, climate factors (latitude, altitude, ocean currents, wind patterns, landforms), and climate zones (tropical, temperate, polar, desert). Climate change is a significant topic, with human activities like burning fossil fuels contributing to increased greenhouse gas concentrations.'
+                    },
+                    2: {
+                        'title': 'World History Overview',
+                        'content': 'World history encompasses the study of human civilization from its earliest beginnings to the present day. Major periods include Ancient Civilizations (Mesopotamia, Egypt, Greece, Rome), Middle Ages (500-1500 CE), Early Modern Period (1500-1800), and Modern Period (1800-Present). Key themes include power and politics, economics, culture, technology, and environment. Understanding world history helps us make sense of current events and prepare for future challenges.'
+                    },
+                    3: {
+                        'title': 'Physics Fundamentals',
+                        'content': 'Physics is the study of matter, energy, and their interactions. Core areas include mechanics (Newton\'s laws, forces, energy, momentum), waves and sound (wave properties, sound waves), electricity and magnetism (electric charges, current, magnetism), and modern physics (quantum mechanics, relativity). Physics principles apply to engineering, medicine, technology, space exploration, and energy. Understanding physics helps us comprehend the natural world and develop technologies that improve our lives.'
+                    }
+                }
+                demo_lesson = demo_lessons[lesson_id]
+                lesson_title = demo_lesson['title']
+                content = demo_lesson['content']
+                logger.info(f"Using demo lesson '{lesson_title}' for ID: {lesson_id}")
+            else:
+                return {'error': 'Lesson not found'}
+        else:
+            content = lesson.get('content') or lesson.get('summary')
+            if not content:
+                return {'error': 'No lesson content available'}
+            lesson_title = lesson.get('title', 'this lesson')
+            logger.info(f"Answering question for lesson '{lesson_title}' (ID: {lesson_id})")
+        
+        # Use LLM to answer with lesson-specific context
+        answer = self.llm_answer(content, question, lesson_title)
         # Log the question
         LessonFAQ.log_question(lesson_id, question)
         return {'answer': answer}
 
-    def llm_answer(self, lesson_content, question):
+    def llm_answer(self, lesson_content, question, lesson_title="this lesson"):
         # Use Groq LLM (already implemented in the project)
         prompt = f"""
-You are a helpful teacher. Use the following lesson content to answer the student's question concisely and clearly.
+You are a helpful teacher for the lesson titled "{lesson_title}". Use the following lesson content to answer the student's question concisely and clearly. Make sure your response is specific to this lesson and its content.
 
+Lesson Title: {lesson_title}
 Lesson Content:
 {lesson_content}
 
-Question: {question}
-Answer as a helpful teacher:
+Student's Question: {question}
+
+Answer as a helpful teacher, being specific to the "{lesson_title}" lesson content:
 """
         try:
             response = self.llm.invoke(prompt)

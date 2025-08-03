@@ -801,7 +801,15 @@
       </div>
 
       <!-- Chat-like Q&A History Area -->
-      <div id="lessonQnAHistory" class="mb-4 max-h-72 overflow-y-auto bg-gray-50 rounded p-2 text-sm"></div>
+      <div class="mb-4">
+        <div class="flex justify-between items-center mb-2">
+          <h4 class="text-sm font-semibold text-gray-700">Previous Questions</h4>
+          <button onclick="clearLessonChatHistory()" class="text-xs text-red-600 hover:text-red-800 px-2 py-1 rounded hover:bg-red-50">
+            <i class="fas fa-trash mr-1"></i>Clear History
+          </button>
+        </div>
+        <div id="lessonQnAHistory" class="max-h-72 overflow-y-auto bg-gray-50 rounded p-2 text-sm"></div>
+      </div>
 
       <!-- Modal Content -->
       <div class="mb-4">
@@ -958,109 +966,242 @@ async function initializeApp() {
         }
     }
 
-    // Display lessons based on user role (with pagination)
-    function displayLessonsBasedOnRole() {
-        const lessonsDisplayContainer = document.getElementById('lessonsDisplayContainer');
-        const totalLessons = availableLessons.length;
-        const totalPages = Math.ceil(totalLessons / lessonsPerPage);
-        const startIdx = (currentLessonPage - 1) * lessonsPerPage;
-        const endIdx = startIdx + lessonsPerPage;
-        const lessonsToShow = availableLessons.slice(startIdx, endIdx);
+            // Display lessons based on user role (with pagination and version grouping)
+        function displayLessonsBasedOnRole() {
+            const lessonsDisplayContainer = document.getElementById('lessonsDisplayContainer');
+            const totalLessons = availableLessons.length;
+            const totalPages = Math.ceil(totalLessons / lessonsPerPage);
+            const startIdx = (currentLessonPage - 1) * lessonsPerPage;
+            const endIdx = startIdx + lessonsPerPage;
+            const lessonsToShow = availableLessons.slice(startIdx, endIdx);
 
-        if (totalLessons === 0) {
-            lessonsDisplayContainer.innerHTML = `
-                <div class="text-center py-16 text-gray-500">
-                    <i class="fas fa-book text-6xl mb-4"></i>
-                    <p class="text-xl">No lessons found</p>
-                    <p class="text-gray-400">${userRole === 'teacher' ? 'Create your first lesson' : 'No lessons available yet'}</p>
-                </div>
-            `;
-            return;
-        }
+            if (totalLessons === 0) {
+                lessonsDisplayContainer.innerHTML = `
+                    <div class="text-center py-16 text-gray-500">
+                        <i class="fas fa-book text-6xl mb-4"></i>
+                        <p class="text-xl">No lessons found</p>
+                        <p class="text-gray-400">${userRole === 'teacher' ? 'Create your first lesson' : 'No lessons available yet'}</p>
+                    </div>
+                `;
+                return;
+            }
 
-        let lessonsHtml = '';
-        if (userRole === 'teacher') {
-            lessonsHtml += `
-                <div class="grid grid-cols-6 bg-[#05B0FC] text-white font-semibold py-3 px-4 sticky top-0 z-10 shadow">
-                    <div>No</div>
-                    <div>Lesson Title</div>
-                    <div>Subject</div>
-                    <div>Grade</div>
-                    <div>Created By</div>
-                    <div>Actions</div>
-                </div>
-            `;
-            lessonsHtml += lessonsToShow.map((lesson, index) => `
-                <div class="grid grid-cols-6 py-3 px-4 border-b hover:bg-gray-50">
-                    <div class="flex items-center">${startIdx + index + 1}</div>
-                    <div class="flex items-center font-medium text-gray-900">
-                        ${lesson.title}
-                        ${lesson.version && lesson.version > 1 ? `<span class="ml-2 px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded">v${lesson.version}</span>` : ''}
+            // Group lessons by title to handle multiple versions
+            const groupedLessons = groupLessonsByTitle(lessonsToShow);
+
+            let lessonsHtml = '';
+            if (userRole === 'teacher') {
+                lessonsHtml += `
+                    <div class="grid grid-cols-7 bg-[#05B0FC] text-white font-semibold py-3 px-4 sticky top-0 z-10 shadow">
+                        <div>No</div>
+                        <div>Lesson Title</div>
+                        <div>Subject</div>
+                        <div>Grade</div>
+                        <div>Created By</div>
+                        <div>Actions</div>
+                        <div>Versions</div>
                     </div>
-                    <div class="flex items-center">
-                        <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${lesson.focus_area || ''}</span>
+                `;
+                
+                let rowIndex = 0;
+                groupedLessons.forEach((group, groupIndex) => {
+                    const mainLesson = group.lessons[0]; // Show the latest version as main
+                    // Only show multiple versions if there are actually multiple lessons
+                    const hasMultipleVersions = group.lessons.length > 1;
+                
+                lessonsHtml += `
+                    <div class="grid grid-cols-7 py-3 px-4 border-b hover:bg-gray-50">
+                        <div class="flex items-center">${startIdx + rowIndex + 1}</div>
+                        <div class="flex items-center font-medium text-gray-900">
+                            ${mainLesson.title}
+                            ${mainLesson.version && mainLesson.version > 1 ? `<span class="ml-2 px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded">v${mainLesson.version}</span>` : ''}
+                        </div>
+                        <div class="flex items-center">
+                            <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${mainLesson.focus_area || ''}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="px-2 py-1 text-blue-800 text-xs">${mainLesson.grade_level || ''}</span>
+                        </div>
+                        <div class="flex items-center text-gray-700">${userInfo && userInfo.username ? userInfo.username : ''}</div>
+                        <div class="flex flex-row gap-1">
+                            <button onclick="viewLesson(${mainLesson.id}, '${mainLesson.title}')" class="px-2 py-2 text-green-600 hover:bg-green-50 rounded transition-colors" title="View">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button onclick="deleteLesson(${mainLesson.id})" class="px-2 py-2 text-red-600 hover:bg-red-50 rounded transition-colors" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                            <button onclick="downloadLessonFile(${mainLesson.id})" class="px-2 py-2 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Download DOCX">
+                                <img src="../static/images/Group69.png" alt="">
+                            </button>
+                            <button onclick="downloadLessonPPT(${mainLesson.id})" class="px-2 py-2 text-orange-600 hover:bg-orange-50 rounded transition-colors" title="Download PPT">
+                                <i class="fas fa-file-powerpoint"></i>
+                            </button>
+                            <button onclick="viewLessonFAQs(${mainLesson.id}, '${mainLesson.title}')" class="px-2 py-2 text-purple-600 hover:bg-purple-50 rounded transition-colors" title="View FAQs">
+                                <img src="../static/images/faqs.png" alt="">
+                            </button>
+                        </div>
+                        <div class="flex items-center">
+                            ${hasMultipleVersions ? 
+                                `<button onclick="toggleLessonVersions('${group.title}')" class="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm">
+                                    <i class="fas fa-chevron-down mr-1"></i>${group.lessons.length} versions
+                                </button>` : 
+                                `<span class="text-gray-400 text-sm">1 version</span>`
+                            }
+                        </div>
                     </div>
-                    <div class="flex items-center">
-                        <span class="px-2 py-1 text-blue-800 text-xs">${lesson.grade_level || ''}</span>
-                    </div>
-                    <div class="flex items-center text-gray-700">${userInfo && userInfo.username ? userInfo.username : ''}</div>
-                    <div class="flex flex-row gap-1">
-                        <button onclick="viewLesson(${lesson.id}, '${lesson.title}')" class="px-2 py-2 text-green-600 hover:bg-green-50 rounded transition-colors" title="View">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                        <button onclick="deleteLesson(${lesson.id})" class="px-2 py-2 text-red-600 hover:bg-red-50 rounded transition-colors" title="Delete">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                        <button onclick="downloadLessonFile(${lesson.id})" class="px-2 py-2 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Download DOCX">
-                            <img src="../static/images/Group69.png" alt="">
-                        </button>
-                        <button onclick="downloadLessonPPT(${lesson.id})" class="px-2 py-2 text-orange-600 hover:bg-orange-50 rounded transition-colors" title="Download PPT">
-                            <i class="fas fa-file-powerpoint"></i>
-                        </button>
-                        <button onclick="viewLessonFAQs(${lesson.id}, '${lesson.title}')" class="px-2 py-2 text-purple-600 hover:bg-purple-50 rounded transition-colors" title="View FAQs">
-                            <img src="../static/images/faqs.png" alt="">
-                        </button>
-                    </div>
-                </div>
-            `).join('');
+                `;
+                
+                // Add expandable versions section
+                if (hasMultipleVersions) {
+                    lessonsHtml += `
+                        <div id="versions-${group.title.replace(/[^a-zA-Z0-9]/g, '')}" class="hidden bg-gray-50 border-b">
+                            <div class="px-4 py-3">
+                                <h4 class="font-semibold text-gray-700 mb-3">All Versions of "${group.title}"</h4>
+                                <div class="space-y-2">
+                                    ${group.lessons.map((lesson, versionIndex) => `
+                                        <div class="grid grid-cols-7 py-2 px-3 bg-white rounded border">
+                                            <div class="flex items-center text-sm text-gray-500">v${lesson.version || 1}</div>
+                                            <div class="flex items-center font-medium text-gray-900 text-sm">
+                                                ${lesson.title}
+                                                <span class="ml-2 px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded">v${lesson.version || 1}</span>
+                                            </div>
+                                            <div class="flex items-center">
+                                                <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${lesson.focus_area || ''}</span>
+                                            </div>
+                                            <div class="flex items-center">
+                                                <span class="px-2 py-1 text-blue-800 text-xs">${lesson.grade_level || ''}</span>
+                                            </div>
+                                            <div class="flex items-center text-gray-700 text-sm">${userInfo && userInfo.username ? userInfo.username : ''}</div>
+                                            <div class="flex flex-row gap-1">
+                                                <button onclick="viewLesson(${lesson.id}, '${lesson.title}')" class="px-2 py-1 text-green-600 hover:bg-green-50 rounded transition-colors text-xs" title="View">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
+                                                <button onclick="deleteLesson(${lesson.id})" class="px-2 py-1 text-red-600 hover:bg-red-50 rounded transition-colors text-xs" title="Delete">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                                <button onclick="downloadLessonFile(${lesson.id})" class="px-2 py-1 text-blue-600 hover:bg-blue-50 rounded transition-colors text-xs" title="Download DOCX">
+                                                    <img src="../static/images/Group69.png" alt="" class="w-4 h-4">
+                                                </button>
+                                                <button onclick="downloadLessonPPT(${lesson.id})" class="px-2 py-1 text-orange-600 hover:bg-orange-50 rounded transition-colors text-xs" title="Download PPT">
+                                                    <i class="fas fa-file-powerpoint"></i>
+                                                </button>
+                                                <button onclick="viewLessonFAQs(${lesson.id}, '${lesson.title}')" class="px-2 py-1 text-purple-600 hover:bg-purple-50 rounded transition-colors text-xs" title="View FAQs">
+                                                    <img src="../static/images/faqs.png" alt="" class="w-4 h-4">
+                                                </button>
+                                            </div>
+                                            <div class="flex items-center text-xs text-gray-500">
+                                                ${new Date(lesson.created_at || lesson.createdAt || Date.now()).toLocaleDateString()}
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                rowIndex++;
+            });
         } else {
             lessonsHtml += `
-                <div class="grid grid-cols-6 bg-[#05B0FC] text-white font-semibold py-3 px-4 sticky top-0 z-10 shadow">
+                <div class="grid grid-cols-7 bg-[#05B0FC] text-white font-semibold py-3 px-4 sticky top-0 z-10 shadow">
                     <div>No</div>
                     <div>Lesson Title</div>
                     <div>Subject</div>
                     <div>Grade</div>
                     <div>Created By</div>
                     <div>Actions</div>
+                    <div>Versions</div>
                 </div>
             `;
-            lessonsHtml += lessonsToShow.map((lesson, index) => `
-                <div class="grid grid-cols-6 py-3 px-4 border-b hover:bg-gray-50">
-                    <div class="flex items-center">${startIdx + index + 1}</div>
-                    <div class="flex items-center font-medium text-gray-900">
-                        ${lesson.title}
-                        ${lesson.version && lesson.version > 1 ? `<span class="ml-2 px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded">v${lesson.version}</span>` : ''}
+            
+            let rowIndex = 0;
+            groupedLessons.forEach((group, groupIndex) => {
+                const mainLesson = group.lessons[0]; // Show the latest version as main
+                // Only show multiple versions if there are actually multiple lessons
+                const hasMultipleVersions = group.lessons.length > 1;
+                
+                lessonsHtml += `
+                    <div class="grid grid-cols-7 py-3 px-4 border-b hover:bg-gray-50">
+                        <div class="flex items-center">${startIdx + rowIndex + 1}</div>
+                        <div class="flex items-center font-medium text-gray-900">
+                            ${mainLesson.title}
+                            ${mainLesson.version && mainLesson.version > 1 ? `<span class="ml-2 px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded">v${mainLesson.version}</span>` : ''}
+                        </div>
+                        <div class="flex items-center">
+                            <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${mainLesson.focus_area || ''}</span>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="px-2 py-1 text-blue-800 text-xs">${mainLesson.grade_level || ''}</span>
+                        </div>
+                        <div class="flex items-center text-gray-700">${mainLesson.teacher_name || ''}</div>
+                        <div class="flex flex-row gap-1">
+                            <button onclick="downloadLessonFile(${mainLesson.id})" class="px-2 py-2 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Download DOCX">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            <button onclick="downloadLessonPPT(${mainLesson.id})" class="px-2 py-2 text-orange-600 hover:bg-orange-50 rounded transition-colors" title="Download PPT">
+                                <i class="fas fa-file-powerpoint"></i>
+                            </button>
+                            <button onclick="openAskQuestionModal(${mainLesson.id}, '${mainLesson.title}')" class="px-2 py-2 text-green-600 hover:bg-green-50 rounded transition-colors" title="Ask Question">
+                                <i class="fas fa-question"></i>
+                            </button>
+                        </div>
+                        <div class="flex items-center">
+                            ${hasMultipleVersions ? 
+                                `<button onclick="toggleLessonVersions('${group.title}')" class="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm">
+                                    <i class="fas fa-chevron-down mr-1"></i>${group.lessons.length} versions
+                                </button>` : 
+                                `<span class="text-gray-400 text-sm">1 version</span>`
+                            }
+                        </div>
                     </div>
-                    <div class="flex items-center">
-                        <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${lesson.focus_area || ''}</span>
-                    </div>
-                    <div class="flex items-center">
-                        <span class="px-2 py-1 text-blue-800 text-xs">${lesson.grade_level || ''}</span>
-                    </div>
-                    <div class="flex items-center text-gray-700">${lesson.teacher_name || ''}</div>
-                    <div class="flex flex-row gap-1">
-                        <button onclick="downloadLessonFile(${lesson.id})" class="px-2 py-2 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Download DOCX">
-                            <i class="fas fa-download"></i>
-                        </button>
-                        <button onclick="downloadLessonPPT(${lesson.id})" class="px-2 py-2 text-orange-600 hover:bg-orange-50 rounded transition-colors" title="Download PPT">
-                            <i class="fas fa-file-powerpoint"></i>
-                        </button>
-                        <button onclick="openAskQuestionModal(${lesson.id}, '${lesson.title}')" class="px-2 py-2 text-green-600 hover:bg-green-50 rounded transition-colors" title="Ask Question">
-                            <i class="fas fa-question"></i>
-                        </button>
-                    </div>
-                </div>
-            `).join('');
+                `;
+                
+                // Add expandable versions section for students
+                if (hasMultipleVersions) {
+                    lessonsHtml += `
+                        <div id="versions-${group.title.replace(/[^a-zA-Z0-9]/g, '')}" class="hidden bg-gray-50 border-b">
+                            <div class="px-4 py-3">
+                                <h4 class="font-semibold text-gray-700 mb-3">All Versions of "${group.title}"</h4>
+                                <div class="space-y-2">
+                                    ${group.lessons.map((lesson, versionIndex) => `
+                                        <div class="grid grid-cols-7 py-2 px-3 bg-white rounded border">
+                                            <div class="flex items-center text-sm text-gray-500">v${lesson.version || 1}</div>
+                                            <div class="flex items-center font-medium text-gray-900 text-sm">
+                                                ${lesson.title}
+                                                <span class="ml-2 px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded">v${lesson.version || 1}</span>
+                                            </div>
+                                            <div class="flex items-center">
+                                                <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${lesson.focus_area || ''}</span>
+                                            </div>
+                                            <div class="flex items-center">
+                                                <span class="px-2 py-1 text-blue-800 text-xs">${lesson.grade_level || ''}</span>
+                                            </div>
+                                            <div class="flex items-center text-gray-700 text-sm">${lesson.teacher_name || ''}</div>
+                                            <div class="flex flex-row gap-1">
+                                                <button onclick="downloadLessonFile(${lesson.id})" class="px-2 py-1 text-blue-600 hover:bg-blue-50 rounded transition-colors text-xs" title="Download DOCX">
+                                                    <i class="fas fa-download"></i>
+                                                </button>
+                                                <button onclick="downloadLessonPPT(${lesson.id})" class="px-2 py-1 text-orange-600 hover:bg-orange-50 rounded transition-colors text-xs" title="Download PPT">
+                                                    <i class="fas fa-file-powerpoint"></i>
+                                                </button>
+                                                <button onclick="openAskQuestionModal(${lesson.id}, '${lesson.title}')" class="px-2 py-1 text-green-600 hover:bg-green-50 rounded transition-colors text-xs" title="Ask Question">
+                                                    <i class="fas fa-question"></i>
+                                                </button>
+                                            </div>
+                                            <div class="flex items-center text-xs text-gray-500">
+                                                ${new Date(lesson.created_at || lesson.createdAt || Date.now()).toLocaleDateString()}
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                rowIndex++;
+            });
         }
 
         // Pagination controls
@@ -1073,6 +1214,71 @@ async function initializeApp() {
         `;
 
         lessonsDisplayContainer.innerHTML = lessonsHtml;
+    }
+
+    // Group lessons by title to handle multiple versions
+    function groupLessonsByTitle(lessons) {
+        const groups = {};
+        
+        lessons.forEach(lesson => {
+            // For lessons with versions, group by the original lesson title
+            let baseTitle = lesson.title;
+            
+            // If this is a version (parent_lesson_id exists), we need to find the original lesson title
+            if (lesson.parent_lesson_id) {
+                // Find the original lesson to get its title
+                const originalLesson = lessons.find(l => l.id === lesson.parent_lesson_id);
+                if (originalLesson) {
+                    baseTitle = originalLesson.title;
+                }
+            }
+            
+            if (!groups[baseTitle]) {
+                groups[baseTitle] = {
+                    title: baseTitle,
+                    lessons: []
+                };
+            }
+            groups[baseTitle].lessons.push(lesson);
+        });
+        
+        // Sort lessons within each group by version (newest first)
+        Object.values(groups).forEach(group => {
+            group.lessons.sort((a, b) => (b.version || 1) - (a.version || 1));
+        });
+        
+        // Only group lessons that actually have multiple versions
+        return Object.values(groups).map(group => {
+            // If there's only one lesson, don't group
+            if (group.lessons.length === 1) {
+                return group.lessons.map(lesson => ({
+                    title: lesson.title,
+                    lessons: [lesson]
+                }));
+            }
+            return group;
+        }).flat();
+    }
+
+    // Toggle lesson versions expand/collapse
+    function toggleLessonVersions(lessonTitle) {
+        const sanitizedTitle = lessonTitle.replace(/[^a-zA-Z0-9]/g, '');
+        const versionsDiv = document.getElementById(`versions-${sanitizedTitle}`);
+        const button = event.target.closest('button');
+        
+        if (versionsDiv) {
+            const isHidden = versionsDiv.classList.contains('hidden');
+            
+            if (isHidden) {
+                versionsDiv.classList.remove('hidden');
+                button.innerHTML = `<i class="fas fa-chevron-up mr-1"></i>${button.textContent.split(' ')[1]} versions`;
+                button.classList.add('bg-blue-200');
+            } else {
+                versionsDiv.classList.add('hidden');
+                button.innerHTML = `<i class="fas fa-chevron-down mr-1"></i>${button.textContent.split(' ')[1]} versions`;
+                button.classList.remove('bg-blue-200');
+            }
+        }
     }
 
     function changeLessonPage(delta) {
@@ -1555,19 +1761,20 @@ async function initializeApp() {
             let endpoint = '/api/lessons/create_lesson';
             let method = 'POST';
             
-            // If we're editing an existing lesson, use PUT to create a new version
+            // If we're editing an existing lesson, use POST to create a new version
             if (window.editingLessonId) {
-                endpoint = `/api/lessons/lesson/${window.editingLessonId}`;
-                method = 'PUT';
+                endpoint = `/api/lessons/lesson/${window.editingLessonId}/create_version`;
+                method = 'POST';
                 
-                // Convert FormData to JSON for PUT request
+                // Convert FormData to JSON for POST request
                 const jsonData = {
                     title: form.lessonTitle.value,
                     learning_objectives: form.learningObjective.value,
                     focus_area: form.focusArea.value,
                     grade_level: form.gradeLevel.value,
                     summary: form.additionalNotes.value,
-                    content: generatedLessonContent || currentLessonData?.content || ''
+                    content: generatedLessonContent || currentLessonData?.content || '',
+                    file_name: currentLessonFile ? currentLessonFile.name : null
                 };
                 
                 // Debug logging
@@ -1965,17 +2172,121 @@ async function initializeApp() {
 
     // Open Ask Question Modal
     function openAskQuestionModal(lessonId, lessonTitle) {
+        // Store the current lesson ID for question submission
         currentQuestionLessonId = lessonId;
+        
+        // Update modal title and helper text
         document.getElementById('modalLessonTitle').textContent = lessonTitle;
         document.getElementById('modalLessonHelper').textContent = `Tell me how to help you to understand the '${lessonTitle}'...`;
+        
+        // Load existing lesson chat history
+        loadLessonChatHistory(lessonId);
+        
+        // Show modal and focus on input
         document.getElementById('askQuestionModal').classList.remove('hidden');
         document.getElementById('questionInput').focus();
     }
 
+    // Load lesson chat history from backend
+    async function loadLessonChatHistory(lessonId) {
+        try {
+            const response = await fetch(`/api/lessons/lesson_chat_history/${lessonId}`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                displayLessonChatHistory(data.history || []);
+            } else {
+                console.error('Failed to load lesson chat history');
+                displayLessonChatHistory([]);
+            }
+        } catch (error) {
+            console.error('Error loading lesson chat history:', error);
+            displayLessonChatHistory([]);
+        }
+    }
+
+    // Display lesson chat history in the modal
+    function displayLessonChatHistory(history) {
+        const qnaDiv = document.getElementById('lessonQnAHistory');
+        if (!qnaDiv) return;
+        
+        if (history.length === 0) {
+            qnaDiv.innerHTML = '<div class="text-gray-500 text-center py-4">No previous questions for this lesson</div>';
+            return;
+        }
+        
+        let historyHtml = '';
+        history.forEach(item => {
+            historyHtml += `
+                <div class="mb-3 p-3 bg-white rounded border">
+                    <div class="mb-2">
+                        <span class="font-semibold text-blue-700">You:</span> 
+                        <span class="text-gray-800">${item.question}</span>
+                    </div>
+                    <div>
+                        <span class="font-semibold text-green-700">AI:</span> 
+                        <span class="text-gray-800">${item.answer}</span>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        ${new Date(item.created_at).toLocaleString()}
+                    </div>
+                </div>
+            `;
+        });
+        
+        qnaDiv.innerHTML = historyHtml;
+        qnaDiv.scrollTop = qnaDiv.scrollHeight;
+    }
+
+    // Clear lesson chat history
+    async function clearLessonChatHistory() {
+        if (!currentQuestionLessonId) {
+            showNotification('No lesson selected', 'error');
+            return;
+        }
+        
+        if (!confirm('Are you sure you want to clear all questions for this lesson? This action cannot be undone.')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/lessons/clear_lesson_chat_history/${currentQuestionLessonId}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                showNotification('Lesson chat history cleared successfully', 'success');
+                // Reload the chat history (which will be empty now)
+                loadLessonChatHistory(currentQuestionLessonId);
+            } else {
+                showNotification('Failed to clear lesson chat history', 'error');
+            }
+        } catch (error) {
+            console.error('Error clearing lesson chat history:', error);
+            showNotification('Error clearing lesson chat history', 'error');
+        }
+    }
+
     // Close Ask Question Modal
     function closeAskQuestionModal() {
+        // Hide the modal
         document.getElementById('askQuestionModal').classList.add('hidden');
+        
+        // Clear the question input
         document.getElementById('questionInput').value = '';
+        
+        // Clear Q&A history when closing the modal
+        // This ensures a clean state for the next lesson
+        const qnaDiv = document.getElementById('lessonQnAHistory');
+        if (qnaDiv) {
+            qnaDiv.innerHTML = '';
+        }
+        
+        // Reset the current lesson ID
         currentQuestionLessonId = null;
     }
 
@@ -1990,15 +2301,33 @@ async function initializeApp() {
             showNotification('No lesson selected', 'error');
             return;
         }
+        
+        // Store the lesson ID to ensure consistency throughout the request
         const lessonIdToSend = currentQuestionLessonId;
+        
         // Append question to Q&A history
         const qnaDiv = document.getElementById('lessonQnAHistory');
         if (qnaDiv) {
-            qnaDiv.innerHTML += `<div class='mb-1'><span class='font-semibold text-blue-700'>You:</span> ${question}</div>`;
-            qnaDiv.innerHTML += `<div class='mb-1' id='lessonQnALoading'><span class='font-semibold text-green-700'>AI:</span> <span class='italic text-gray-400'>Loading...</span></div>`;
+            // Add the new question to the history
+            const questionHtml = `
+                <div class="mb-3 p-3 bg-white rounded border">
+                    <div class="mb-2">
+                        <span class="font-semibold text-blue-700">You:</span> 
+                        <span class="text-gray-800">${question}</span>
+                    </div>
+                    <div id="lessonQnALoading">
+                        <span class="font-semibold text-green-700">AI:</span> 
+                        <span class="italic text-gray-400">Loading...</span>
+                    </div>
+                </div>
+            `;
+            qnaDiv.innerHTML += questionHtml;
             qnaDiv.scrollTop = qnaDiv.scrollHeight;
         }
+        
+        // Clear the input field
         document.getElementById('questionInput').value = '';
+        
         try {
             const response = await fetch('/api/lessons/ask_question', {
                 method: 'POST',
@@ -2009,25 +2338,45 @@ async function initializeApp() {
                 }),
                 credentials: 'include'
             });
+            
             if (response.ok) {
                 const data = await response.json();
                 if (qnaDiv) {
                     const loadingDiv = document.getElementById('lessonQnALoading');
-                    if (loadingDiv) loadingDiv.outerHTML = `<div class='mb-2'><span class='font-semibold text-green-700'>AI:</span> ${data.answer}</div>`;
+                    if (loadingDiv) {
+                        loadingDiv.innerHTML = `
+                            <span class="font-semibold text-green-700">AI:</span> 
+                            <span class="text-gray-800">${data.answer}</span>
+                            <div class="text-xs text-gray-500 mt-1">
+                                ${new Date().toLocaleString()}
+                            </div>
+                        `;
+                    }
                     qnaDiv.scrollTop = qnaDiv.scrollHeight;
                 }
             } else {
                 const errorData = await response.json();
                 if (qnaDiv) {
                     const loadingDiv = document.getElementById('lessonQnALoading');
-                    if (loadingDiv) loadingDiv.outerHTML = `<div class='mb-2 text-red-600'><span class='font-semibold text-green-700'>AI:</span> Error: ${errorData.error || 'Failed to process your question'}</div>`;
+                    if (loadingDiv) {
+                        loadingDiv.innerHTML = `
+                            <span class="font-semibold text-green-700">AI:</span> 
+                            <span class="text-red-600">Error: ${errorData.error || 'Failed to process your question'}</span>
+                        `;
+                    }
                     qnaDiv.scrollTop = qnaDiv.scrollHeight;
                 }
             }
         } catch (error) {
+            console.error('Error submitting question:', error);
             if (qnaDiv) {
                 const loadingDiv = document.getElementById('lessonQnALoading');
-                if (loadingDiv) loadingDiv.outerHTML = `<div class='mb-2 text-red-600'><span class='font-semibold text-green-700'>AI:</span> Error asking question. Please try again.</div>`;
+                if (loadingDiv) {
+                    loadingDiv.innerHTML = `
+                        <span class="font-semibold text-green-700">AI:</span> 
+                        <span class="text-red-600">Error asking question. Please try again.</span>
+                    `;
+                }
                 qnaDiv.scrollTop = qnaDiv.scrollHeight;
             }
         }
@@ -3207,12 +3556,7 @@ async function initializeApp() {
                             </div>
                             
                             <div class="flex justify-end gap-3 mt-6 pt-4 border-t">
-                                <button onclick="downloadCurrentVersion()" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                                    <i class="fas fa-download mr-2"></i>Download
-                                </button>
-                                <button onclick="downloadCurrentVersionPPT()" class="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700">
-                                    <i class="fas fa-download mr-2"></i>Download PPT
-                                </button>
+
                                 <button onclick="showAIVersioning(${currentVersion.id})" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
                                     <i class="fas fa-magic mr-2"></i>AI Improve
                                 </button>
@@ -3264,33 +3608,11 @@ async function initializeApp() {
                 aiButton.setAttribute('onclick', `showAIVersioning(${selectedVersion.id})`);
             }
             
-            // Update download button to use current version
-            const downloadButton = document.querySelector('button[onclick*="downloadCurrentVersion"]');
-            if (downloadButton) {
-                downloadButton.setAttribute('onclick', `downloadLessonFile(${selectedVersion.id})`);
-            }
-            
-            // Update PowerPoint download button to use current version
-            const pptButton = document.querySelector('button[onclick*="downloadCurrentVersionPPT"]');
-            if (pptButton) {
-                pptButton.setAttribute('onclick', `downloadLessonPPT(${selectedVersion.id})`);
-            }
+
         }
     }
 
-    // Download current version
-    function downloadCurrentVersion() {
-        const versionSelect = document.getElementById('versionSelect');
-        const selectedVersionId = parseInt(versionSelect.value);
-        downloadLessonFile(selectedVersionId);
-    }
 
-    // Download current version as PowerPoint
-    function downloadCurrentVersionPPT() {
-        const versionSelect = document.getElementById('versionSelect');
-        const selectedVersionId = parseInt(versionSelect.value);
-        downloadLessonPPT(selectedVersionId);
-    }
 
     // Download lesson as PowerPoint
     async function downloadLessonPPT(lessonId) {
@@ -3523,7 +3845,7 @@ async function initializeApp() {
                         <button onclick="closeAIVersioningModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
                             Cancel
                         </button>
-                        <button onclick="createAIVersion(${lessonId})" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
+                        <button onclick="createAIVersion(${lessonId}, event)" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
                             <i class="fas fa-magic mr-2"></i>Create AI Version
                         </button>
                     </div>
@@ -3544,7 +3866,7 @@ async function initializeApp() {
         }
     }
 
-    async function createAIVersion(lessonId) {
+    async function createAIVersion(lessonId, event) {
         try {
             const improvementPrompt = document.getElementById('improvementPrompt').value;
             
