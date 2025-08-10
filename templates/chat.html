@@ -174,7 +174,7 @@
             </div>
             
             <div class="flex items-center gap-2">
-                <button onclick="downloadCurrentChat()" class="w-10 h-10 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-colors">
+                <button id="chatDownloadBtn" onclick="downloadCurrentChat()" class="w-10 h-10 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-colors">
                     <i class="fas fa-download text-gray-500 text-sm"></i>
                 </button>
                 <button class="w-10 h-10 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-colors">
@@ -432,8 +432,12 @@
                                     name="lessonTitle"
                                     placeholder="Enter lesson title..."
                                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-sky-400"
+                                    oninput="validateLessonTitleInput()"
                                     required
                                 />
+                                <div id="titleValidationMessage" class="mt-2 text-sm hidden">
+                                    <span id="titleValidationText"></span>
+                                </div>
                             </div>
 
                             <!-- Learning Objective -->
@@ -788,47 +792,52 @@
 
   <!-- Ask Question Modal -->
   <div id="askQuestionModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center">
-    <div class="bg-white rounded-lg p-8 w-[600px] max-w-full mx-4" style="max-height:80vh; overflow-y:auto;">
+    <div class="bg-white rounded-lg p-8 w-[600px] max-w-full mx-4 transition-all duration-300 flex flex-col" style="max-height:80vh; overflow-y:auto;" id="askQuestionModalContent">
       <!-- Modal Header -->
       <div class="flex justify-between items-center mb-4">
         <div>
           <h3 class="text-lg font-semibold text-[#05B0FC]">Ask Question</h3>
           <p class="text-sm text-gray-600" id="modalLessonTitle">Loading...</p>
         </div>
-        <button onclick="closeAskQuestionModal()" class="text-gray-400 hover:text-gray-600">
-          <i class="fas fa-times text-xl"></i>
-        </button>
+        <div class="flex items-center gap-2">
+          <button onclick="toggleModalFullscreen('askQuestionModal')" class="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-100 transition-colors" title="Toggle Fullscreen">
+            <i class="fas fa-expand text-lg" id="askQuestionModalFullscreenIcon"></i>
+          </button>
+          <button onclick="closeAskQuestionModal()" class="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-100 transition-colors">
+            <i class="fas fa-times text-xl"></i>
+          </button>
+        </div>
       </div>
 
       <!-- Chat-like Q&A History Area -->
-      <div class="mb-4">
-        <div class="flex justify-between items-center mb-2">
+      <div class="mb-4 flex flex-col flex-1 min-h-0">
+        <div class="flex justify-between items-center mb-2 flex-shrink-0">
           <h4 class="text-sm font-semibold text-gray-700">Previous Questions</h4>
-          <button onclick="clearLessonChatHistory()" class="text-xs text-red-600 hover:text-red-800 px-2 py-1 rounded hover:bg-red-50">
+          <button onclick="clearLessonChatHistory()" class="text-xs text-red-600 hover:text-red-800 px-2 py-1 rounded hover:bg-red-50 transition-colors">
             <i class="fas fa-trash mr-1"></i>Clear History
           </button>
         </div>
-        <div id="lessonQnAHistory" class="max-h-72 overflow-y-auto bg-gray-50 rounded p-2 text-sm"></div>
+        <div id="lessonQnAHistory" class="h-80 max-h-80 overflow-y-auto bg-gray-50 rounded p-3 text-sm border border-gray-200 flex-1"></div>
       </div>
 
-      <!-- Modal Content -->
-      <div class="mb-4">
+      <!-- Modal Content & Question Input -->
+      <div class="flex-shrink-0">
         <p class="text-sm text-gray-600 mb-4" id="modalLessonHelper">Tell me how to help you understand this lesson...</p>
-      </div>
-
-      <!-- Question Input -->
-      <div class="mb-4">
-        <div class="relative">
-          <input
-            type="text"
-            id="questionInput"
-            placeholder="Type your Question about this Lesson"
-            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 pr-12"
-            onkeypress="if(event.key==='Enter'){submitQuestion();}"
-          />
-          <button onclick="submitQuestion()" class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-[#05B0FC] text-white p-2 rounded-lg hover:bg-blue-600 transition-colors">
-            <i class="fas fa-paper-plane"></i>
-          </button>
+        
+        <!-- Question Input -->
+        <div class="mb-4">
+          <div class="relative">
+            <input
+              type="text"
+              id="questionInput"
+              placeholder="Type your Question about this Lesson"
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 pr-12 transition-colors"
+              onkeypress="if(event.key==='Enter'){if(!isAITyping){submitQuestion();}else{showNotification('Please wait for AI to finish typing...', 'warning');}}"
+            />
+            <button onclick="if(!isAITyping){submitQuestion();}else{showNotification('Please wait for AI to finish typing...', 'warning');}" class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-[#05B0FC] text-white p-2 rounded-lg hover:bg-blue-600 transition-colors">
+              <i class="fas fa-paper-plane"></i>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1005,16 +1014,28 @@ async function initializeApp() {
                 
                 let rowIndex = 0;
                 groupedLessons.forEach((group, groupIndex) => {
-                    const mainLesson = group.lessons[0]; // Show the latest version as main
+                    const mainLesson = group.lessons[0]; // Show the original version (v1) as main
                     // Only show multiple versions if there are actually multiple lessons
                     const hasMultipleVersions = group.lessons.length > 1;
+                    // Get subsequent versions (excluding the main/original version)
+                    const subsequentVersions = group.lessons.slice(1);
+                    
+                    // Debug logging for the specific group
+                    if (group.title === 'agentic ai1' || group.title === 'reaseach') {
+                        console.log(`🔍 Teacher section - ${group.title} group:`, {
+                            mainLesson: {id: mainLesson.id, version: mainLesson.version, parent_lesson_id: mainLesson.parent_lesson_id},
+                            hasMultipleVersions: hasMultipleVersions,
+                            subsequentVersions: subsequentVersions.map(l => ({id: l.id, version: l.version, parent_lesson_id: l.parent_lesson_id})),
+                            allLessonsInGroup: group.lessons.map(l => ({id: l.id, version: l.version, parent_lesson_id: l.parent_lesson_id, title: l.title}))
+                        });
+                    }
                 
                 lessonsHtml += `
                     <div class="grid grid-cols-7 py-3 px-4 border-b hover:bg-gray-50">
                         <div class="flex items-center">${startIdx + rowIndex + 1}</div>
                         <div class="flex items-center font-medium text-gray-900">
                             ${mainLesson.title}
-                            ${mainLesson.version && mainLesson.version > 1 ? `<span class="ml-2 px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded">v${mainLesson.version}</span>` : ''}
+                            ${hasMultipleVersions ? `<span class="ml-2 px-2 py-1 bg-green-100 text-green-700 text-xs rounded">Original</span>` : ''}
                         </div>
                         <div class="flex items-center">
                             <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${mainLesson.focus_area || ''}</span>
@@ -1056,9 +1077,9 @@ async function initializeApp() {
                     lessonsHtml += `
                         <div id="versions-${group.title.replace(/[^a-zA-Z0-9]/g, '')}" class="hidden bg-gray-50 border-b">
                             <div class="px-4 py-3">
-                                <h4 class="font-semibold text-gray-700 mb-3">All Versions of "${group.title}"</h4>
+                                <h4 class="font-semibold text-gray-700 mb-3">Other Versions of "${group.title}"</h4>
                                 <div class="space-y-2">
-                                    ${group.lessons.map((lesson, versionIndex) => `
+                                    ${subsequentVersions.map((lesson, versionIndex) => `
                                         <div class="grid grid-cols-7 py-2 px-3 bg-white rounded border">
                                             <div class="flex items-center text-sm text-gray-500">v${lesson.version || 1}</div>
                                             <div class="flex items-center font-medium text-gray-900 text-sm">
@@ -1117,16 +1138,28 @@ async function initializeApp() {
             
             let rowIndex = 0;
             groupedLessons.forEach((group, groupIndex) => {
-                const mainLesson = group.lessons[0]; // Show the latest version as main
+                const mainLesson = group.lessons[0]; // Show the original version (v1) as main
                 // Only show multiple versions if there are actually multiple lessons
                 const hasMultipleVersions = group.lessons.length > 1;
+                // Get subsequent versions (excluding the main/original version)
+                const subsequentVersions = group.lessons.slice(1);
+                
+                // Debug logging for the specific group
+                if (group.title === 'agentic ai1' || group.title === 'reaseach') {
+                    console.log(`🔍 Student section - ${group.title} group:`, {
+                        mainLesson: {id: mainLesson.id, version: mainLesson.version, parent_lesson_id: mainLesson.parent_lesson_id},
+                        hasMultipleVersions: hasMultipleVersions,
+                        subsequentVersions: subsequentVersions.map(l => ({id: l.id, version: l.version, parent_lesson_id: l.parent_lesson_id})),
+                        allLessonsInGroup: group.lessons.map(l => ({id: l.id, version: l.version, parent_lesson_id: l.parent_lesson_id, title: l.title}))
+                    });
+                }
                 
                 lessonsHtml += `
                     <div class="grid grid-cols-7 py-3 px-4 border-b hover:bg-gray-50">
                         <div class="flex items-center">${startIdx + rowIndex + 1}</div>
                         <div class="flex items-center font-medium text-gray-900">
                             ${mainLesson.title}
-                            ${mainLesson.version && mainLesson.version > 1 ? `<span class="ml-2 px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded">v${mainLesson.version}</span>` : ''}
+                            ${hasMultipleVersions ? `<span class="ml-2 px-2 py-1 bg-green-100 text-green-700 text-xs rounded">Original</span>` : ''}
                         </div>
                         <div class="flex items-center">
                             <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${mainLesson.focus_area || ''}</span>
@@ -1136,6 +1169,9 @@ async function initializeApp() {
                         </div>
                         <div class="flex items-center text-gray-700">${mainLesson.teacher_name || ''}</div>
                         <div class="flex flex-row gap-1">
+                            <button onclick="viewLesson(${mainLesson.id}, '${mainLesson.title}')" class="px-2 py-2 text-purple-600 hover:bg-purple-50 rounded transition-colors" title="View Lesson">
+                                <i class="fas fa-eye"></i>
+                            </button>
                             <button onclick="downloadLessonFile(${mainLesson.id})" class="px-2 py-2 text-blue-600 hover:bg-blue-50 rounded transition-colors" title="Download DOCX">
                                 <i class="fas fa-download"></i>
                             </button>
@@ -1162,9 +1198,9 @@ async function initializeApp() {
                     lessonsHtml += `
                         <div id="versions-${group.title.replace(/[^a-zA-Z0-9]/g, '')}" class="hidden bg-gray-50 border-b">
                             <div class="px-4 py-3">
-                                <h4 class="font-semibold text-gray-700 mb-3">All Versions of "${group.title}"</h4>
+                                <h4 class="font-semibold text-gray-700 mb-3">Other Versions of "${group.title}"</h4>
                                 <div class="space-y-2">
-                                    ${group.lessons.map((lesson, versionIndex) => `
+                                    ${subsequentVersions.map((lesson, versionIndex) => `
                                         <div class="grid grid-cols-7 py-2 px-3 bg-white rounded border">
                                             <div class="flex items-center text-sm text-gray-500">v${lesson.version || 1}</div>
                                             <div class="flex items-center font-medium text-gray-900 text-sm">
@@ -1179,6 +1215,9 @@ async function initializeApp() {
                                             </div>
                                             <div class="flex items-center text-gray-700 text-sm">${lesson.teacher_name || ''}</div>
                                             <div class="flex flex-row gap-1">
+                                                <button onclick="viewLesson(${lesson.id}, '${lesson.title}')" class="px-2 py-1 text-purple-600 hover:bg-purple-50 rounded transition-colors text-xs" title="View Lesson">
+                                                    <i class="fas fa-eye"></i>
+                                                </button>
                                                 <button onclick="downloadLessonFile(${lesson.id})" class="px-2 py-1 text-blue-600 hover:bg-blue-50 rounded transition-colors text-xs" title="Download DOCX">
                                                     <i class="fas fa-download"></i>
                                                 </button>
@@ -1221,17 +1260,8 @@ async function initializeApp() {
         const groups = {};
         
         lessons.forEach(lesson => {
-            // For lessons with versions, group by the original lesson title
+            // Group lessons by title - all lessons with same title should be grouped together
             let baseTitle = lesson.title;
-            
-            // If this is a version (parent_lesson_id exists), we need to find the original lesson title
-            if (lesson.parent_lesson_id) {
-                // Find the original lesson to get its title
-                const originalLesson = lessons.find(l => l.id === lesson.parent_lesson_id);
-                if (originalLesson) {
-                    baseTitle = originalLesson.title;
-                }
-            }
             
             if (!groups[baseTitle]) {
                 groups[baseTitle] = {
@@ -1242,9 +1272,26 @@ async function initializeApp() {
             groups[baseTitle].lessons.push(lesson);
         });
         
-        // Sort lessons within each group by version (newest first)
+        // Sort lessons within each group: original lesson first (no parent_lesson_id), then by version
         Object.values(groups).forEach(group => {
-            group.lessons.sort((a, b) => (b.version || 1) - (a.version || 1));
+            group.lessons.sort((a, b) => {
+                // Original lessons (no parent_lesson_id) come first
+                if (!a.parent_lesson_id && b.parent_lesson_id) return -1;
+                if (a.parent_lesson_id && !b.parent_lesson_id) return 1;
+                
+                // If both are originals or both are versions, sort by version number
+                return (a.version || 1) - (b.version || 1);
+            });
+            
+            // Debug logging for groups with multiple versions
+            if (group.lessons.length > 1) {
+                console.log(`🔍 Group "${group.title}" after sorting:`, group.lessons.map(l => ({
+                    id: l.id, 
+                    version: l.version, 
+                    parent_lesson_id: l.parent_lesson_id,
+                    title: l.title
+                })));
+            }
         });
         
         // Only group lessons that actually have multiple versions
@@ -1303,6 +1350,14 @@ async function initializeApp() {
             if (response.ok) {
                 const data = await response.json();
                 availableLessons = data.lessons || [];
+                
+                // Debug logging
+                console.log('🔍 Raw lessons from backend:', availableLessons);
+                console.log('🔍 Lessons with same title "agentic ai1":', 
+                    availableLessons.filter(l => l.title === 'agentic ai1'));
+                console.log('🔍 Lessons with same title "reaseach":', 
+                    availableLessons.filter(l => l.title === 'reaseach'));
+                
                 displayLessonsBasedOnRole();
             } else {
                 console.error('Failed to load lessons');
@@ -1433,6 +1488,50 @@ async function initializeApp() {
         tableContainer.innerHTML = header + rows;
     }
 
+    // Add a function to render FAQ table HTML for the dashboard
+    function renderFAQTableHTML(faqs) {
+        if (!faqs || faqs.length === 0) {
+            return `
+                <div class="text-center py-16 text-gray-500">
+                    <i class="fas fa-question-circle text-6xl mb-4"></i>
+                    <p class="text-xl">No questions found</p>
+                    <p class="text-gray-400">No FAQs available</p>
+                </div>
+            `;
+        }
+        // Table header (4 columns)
+        let header = `
+            <div class="grid grid-cols-4 bg-[#05B0FC] text-white font-semibold py-4 px-6 rounded-t-lg">
+                <div>Lesson Title</div>
+                <div>Question Asked</div>
+                <div>Time Asked</div>
+                <div>Subject & Grade</div>
+            </div>
+        `;
+        // Table rows (4 columns)
+        let rows = faqs.map(faq => `
+            <div class="grid grid-cols-4 py-4 px-6 hover:bg-gray-50 transition-colors">
+                <div class="flex items-center">
+                    <span class="font-medium text-gray-900">${faq.lessonTitle || ''}</span>
+                </div>
+                <div class="flex items-center">
+                    <span class="text-gray-700">${faq.question}</span>
+                </div>
+                <div class="flex items-center">
+                    <div class="w-8 h-8 bg-[#05B0FC] text-white rounded-full flex items-center justify-center text-sm font-bold mr-3">
+                        ${faq.times_asked || faq.count || 1}
+                    </div>
+                    <span class="text-gray-600 ml-2">${faq.time_ago || 'Recently'}</span>
+                </div>
+                <div class="flex items-center">
+                    <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm mr-2">${faq.subject || ''}</span>
+                    <span class="text-gray-600">${faq.grade || ''}</span>
+                </div>
+            </div>
+        `).join('');
+        return header + rows;
+    }
+
     // Update viewLessonFAQs to always include lesson title, subject, and grade in each FAQ row
     async function viewLessonFAQs(lessonId, lessonTitle) {
         try {
@@ -1518,7 +1617,15 @@ async function initializeApp() {
     // Show frequently asked questions dashboard to teachers
     async function showFrequentlyAskedQuestions() {
         hideAllContentAreas();
-        document.getElementById('faqDashboard').classList.remove('hidden');
+        
+        // Hide download button for non-chat views
+        const downloadBtn = document.getElementById('chatDownloadBtn');
+        if (downloadBtn) {
+            downloadBtn.classList.add('hidden');
+        }
+        
+        // Show the most frequent questions view instead of the dashboard
+        document.getElementById('mostFrequentQuestionsView').classList.remove('hidden');
         currentView = 'faqDashboard';
         
         // Update chat header
@@ -1529,9 +1636,9 @@ async function initializeApp() {
         await loadFAQDashboard();
     }
 
-    // Update loadFAQDashboard to use the new renderFAQTable
+        // Update loadFAQDashboard to properly populate the most frequent questions table
     async function loadFAQDashboard() {
-        const dashboardContent = document.getElementById('faqDashboardContent');
+        const tableContainer = document.getElementById('mostFrequentQuestionsTable');
         try {
             const response = await fetch('/api/lessons/faq_dashboard', {
                 method: 'GET',
@@ -1539,12 +1646,7 @@ async function initializeApp() {
             });
             if (response.ok) {
                 const data = await response.json();
-                // Instead of the old dashboard, show the tabular FAQ interface
-                hideAllContentAreas();
-                document.getElementById('mostFrequentQuestionsView').classList.remove('hidden');
-                currentView = 'mostFrequentQuestions';
-                document.getElementById('chatTitle').textContent = 'FAQ Dashboard';
-                document.getElementById('chatStatus').textContent = 'Monitor Student Questions';
+                
                 // Flatten top_questions into a single array of FAQ rows
                 let faqs = [];
                 (data.top_questions || []).forEach(lesson => {
@@ -1559,14 +1661,21 @@ async function initializeApp() {
                         });
                     });
                 });
+                
+                // Use the existing renderFAQTable function to populate the table
                 renderFAQTable(faqs);
             } else {
                 throw new Error('Failed to load FAQ dashboard');
             }
         } catch (error) {
             console.error('Error loading FAQ dashboard:', error);
-            // Display error message in the FAQ table area
-            renderFAQTable([]);
+            tableContainer.innerHTML = `
+                <div class="text-center py-16 text-red-500">
+                    <i class="fas fa-exclamation-triangle text-6xl mb-4"></i>
+                    <p class="text-xl">Error loading FAQ data</p>
+                    <p class="text-gray-400">Please try again later</p>
+                </div>
+            `;
         }
     }
 
@@ -1577,6 +1686,62 @@ async function initializeApp() {
             return;
         }
         
+        // Check if there's an unfinished lesson to restore
+        if (currentLessonData && !currentLessonData.isFinalized) {
+            // Restore unfinished lesson state
+            restoreUnfinishedLesson();
+        } else {
+            // Start fresh lesson generation
+            resetLessonGenerator();
+        }
+        
+        // Hide all content areas
+        hideAllContentAreas();
+        
+        // Hide download button for non-chat views
+        const downloadBtn = document.getElementById('chatDownloadBtn');
+        if (downloadBtn) {
+            downloadBtn.classList.add('hidden');
+        }
+        
+        // Show lesson generator content
+        document.getElementById('lessonGeneratorContent').classList.remove('hidden');
+        currentView = 'lesson';
+        
+        // Update chat header
+        document.getElementById('chatTitle').textContent = 'Lesson Generator';
+        document.getElementById('chatStatus').textContent = currentLessonData && !currentLessonData.isFinalized ? 'Continue Lesson Creation' : 'Create New Lesson';
+    }
+
+    // Restore unfinished lesson state
+    function restoreUnfinishedLesson() {
+        if (!currentLessonData) return;
+        
+        // Show the lesson display step with existing content
+        showLessonStep('display');
+        
+        // Restore lesson content
+        const lessonSummary = document.getElementById('lessonSummary');
+        if (lessonSummary && currentLessonData.content) {
+            lessonSummary.innerHTML = `<pre class="whitespace-pre-wrap font-sans">${currentLessonData.content}</pre>`;
+        }
+        
+        // Restore additional notes if they exist
+        if (currentLessonData.additionalNotes) {
+            const additionalNotesDisplay = document.getElementById('additionalNotesDisplay');
+            const displayAdditionalNotes = document.getElementById('displayAdditionalNotes');
+            if (additionalNotesDisplay && displayAdditionalNotes) {
+                displayAdditionalNotes.textContent = currentLessonData.additionalNotes;
+                additionalNotesDisplay.classList.remove('hidden');
+            }
+        }
+        
+        // Show notification about restored lesson
+        showNotification('Unfinished lesson restored. You can continue editing or finalize it.', 'info');
+    }
+
+    // Reset lesson generator to fresh state
+    function resetLessonGenerator() {
         // Clear lesson completion page and reset state
         document.getElementById('lessonCompletionPage').classList.add('hidden');
         document.getElementById('completedLessonTitle').textContent = 'Sample Lesson from document.pdf';
@@ -1622,25 +1787,20 @@ async function initializeApp() {
         if (generateBtnText) generateBtnText.textContent = 'Generate Lesson';
         if (generateBtnLoader) generateBtnLoader.classList.add('hidden');
         
-        // Hide all content areas
-        hideAllContentAreas();
-        
-        // Show lesson generator content
-        document.getElementById('lessonGeneratorContent').classList.remove('hidden');
-        currentView = 'lesson';
-        
         // Reset to upload step
         showLessonStep('upload');
-        
-        // Update chat header
-        document.getElementById('chatTitle').textContent = 'Lesson Generator';
-        document.getElementById('chatStatus').textContent = 'Create New Lesson';
     }
 
     // Open view lessons from sidebar
     function openViewLessons() {
         // Hide all content areas
         hideAllContentAreas();
+        
+        // Hide download button for non-chat views
+        const downloadBtn = document.getElementById('chatDownloadBtn');
+        if (downloadBtn) {
+            downloadBtn.classList.add('hidden');
+        }
         
         // Show view lessons content
         document.getElementById('viewLessonsContent').classList.remove('hidden');
@@ -1721,14 +1881,98 @@ async function initializeApp() {
         showNotification('File uploaded successfully! Please fill in the lesson details.', 'success');
     }
 
+    // Check if lesson title already exists for the current teacher
+    async function checkDuplicateLessonTitle(title) {
+        if (!title || title.trim() === '') {
+            return false;
+        }
+        
+        try {
+            const response = await fetch(`/api/lessons/check_title_exists?title=${encodeURIComponent(title.trim())}`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                return data.exists || false;
+            }
+        } catch (error) {
+            console.error('Error checking duplicate title:', error);
+            // If there's an error checking, allow the submission to proceed
+            // The backend will handle the validation as well
+        }
+        
+        return false;
+    }
+
+    // Real-time validation for lesson title input
+    let titleValidationTimeout;
+    async function validateLessonTitleInput() {
+        const titleInput = document.getElementById('lessonTitle');
+        const validationMessage = document.getElementById('titleValidationMessage');
+        const validationText = document.getElementById('titleValidationText');
+        const title = titleInput.value.trim();
+        
+        // Clear previous timeout
+        if (titleValidationTimeout) {
+            clearTimeout(titleValidationTimeout);
+        }
+        
+        // Hide validation message if title is empty
+        if (!title) {
+            validationMessage.classList.add('hidden');
+            titleInput.classList.remove('border-red-500', 'border-green-500');
+            titleInput.classList.add('border-gray-300');
+            return;
+        }
+        
+        // Show loading state
+        validationMessage.classList.remove('hidden');
+        validationMessage.className = 'mt-2 text-sm text-gray-500';
+        validationText.textContent = 'Checking title availability...';
+        
+        // Add debouncing to avoid excessive API calls
+        titleValidationTimeout = setTimeout(async () => {
+            try {
+                const exists = await checkDuplicateLessonTitle(title);
+                if (exists) {
+                    // Title already exists - show error
+                    validationMessage.className = 'mt-2 text-sm text-red-600';
+                    validationText.innerHTML = '<i class="fas fa-exclamation-triangle mr-1"></i>This title is already used. Please choose a different title.';
+                    titleInput.classList.remove('border-gray-300', 'border-green-500');
+                    titleInput.classList.add('border-red-500');
+                } else {
+                    // Title is available - show success
+                    validationMessage.className = 'mt-2 text-sm text-green-600';
+                    validationText.innerHTML = '<i class="fas fa-check-circle mr-1"></i>Title is available.';
+                    titleInput.classList.remove('border-gray-300', 'border-red-500');
+                    titleInput.classList.add('border-green-500');
+                }
+            } catch (error) {
+                // Hide validation message on error
+                validationMessage.classList.add('hidden');
+                titleInput.classList.remove('border-red-500', 'border-green-500');
+                titleInput.classList.add('border-gray-300');
+            }
+        }, 500); // 500ms debounce
+    }
+
     async function generateLesson(event) {
         event.preventDefault();
         
         const formData = new FormData();
         const form = document.getElementById('lessonConfigForm');
         
+        // Check for duplicate lesson title
+        const lessonTitle = form.lessonTitle.value.trim();
+        if (await checkDuplicateLessonTitle(lessonTitle)) {
+            showNotification('This lesson title is already used. Please choose a different title.', 'error');
+            return;
+        }
+        
         // Add form fields with correct backend keys
-        formData.append('lessonTitle', form.lessonTitle.value);
+        formData.append('lessonTitle', lessonTitle);
         formData.append('learningObjective', form.learningObjective.value);
         formData.append('focusArea', form.focusArea.value);
         formData.append('gradeLevel', form.gradeLevel.value);
@@ -1830,10 +2074,12 @@ async function initializeApp() {
                     if (lessonResp.ok) {
                         const lessonData = await lessonResp.json();
                         currentLessonData = lessonData.lesson;
+                        // Mark lesson as not finalized when first created
+                        currentLessonData.isFinalized = false;
                         generatedLessonContent = currentLessonData.content;
                         displayGeneratedLesson();
                         showLessonStep('display');
-                        showNotification('Lesson generated successfully!', 'success');
+                        showNotification('Lesson generated successfully! You can continue editing or finalize it.', 'success');
                     } else {
                         showNotification('Failed to fetch full lesson content', 'error');
                     }
@@ -1872,8 +2118,10 @@ async function initializeApp() {
             if (currentLessonData.additionalNotes) {
                 const additionalNotesDisplay = document.getElementById('additionalNotesDisplay');
                 const displayAdditionalNotes = document.getElementById('displayAdditionalNotes');
-                displayAdditionalNotes.textContent = currentLessonData.additionalNotes;
-                additionalNotesDisplay.classList.remove('hidden');
+                if (additionalNotesDisplay && displayAdditionalNotes) {
+                    displayAdditionalNotes.textContent = currentLessonData.additionalNotes;
+                    additionalNotesDisplay.classList.remove('hidden');
+                }
             }
         }
     }
@@ -1902,6 +2150,9 @@ async function initializeApp() {
         if (editedContent.trim()) {
             generatedLessonContent = editedContent;
             currentLessonData.content = editedContent;
+            // Preserve the finalized state
+            const wasFinalized = currentLessonData.isFinalized;
+            currentLessonData.isFinalized = false; // Mark as not finalized since it was edited
             displayGeneratedLesson();
             showLessonStep('display');
             showNotification('Changes applied successfully!', 'success');
@@ -1960,6 +2211,8 @@ async function initializeApp() {
                 }
                 generatedLessonContent = newContent;
                 currentLessonData.content = newContent;
+                // Mark as not finalized since it was edited
+                currentLessonData.isFinalized = false;
                 displayGeneratedLesson();
                 showLessonStep('display');
                 showNotification('AI review applied successfully!', 'success');
@@ -2011,6 +2264,9 @@ async function initializeApp() {
                 showNotification('Error updating lesson in database.', 'error');
             }
 
+            // Mark lesson as finalized
+            currentLessonData.isFinalized = true;
+
             const completedTitle = document.getElementById('completedLessonTitle');
             completedTitle.textContent = `${currentLessonData.title}.docx`;
             showLessonStep('completion');
@@ -2051,7 +2307,9 @@ async function initializeApp() {
                 a.remove();
                 showNotification(`Lesson downloaded as ${format.toUpperCase()}!`, 'success');
             } else {
-                showNotification('Error downloading lesson', 'error');
+                const errorData = await response.json().catch(() => ({}));
+                const errorMessage = errorData.error || 'Error downloading lesson';
+                showNotification(errorMessage, 'error');
             }
         } catch (error) {
             showNotification('Error downloading lesson.', 'error');
@@ -2059,7 +2317,7 @@ async function initializeApp() {
     }
 
     function startNewLesson() {
-        // Reset lesson state
+        // Reset lesson state completely (including finalized state)
         currentLessonFile = null;
         currentLessonData = null;
         generatedLessonContent = '';
@@ -2149,6 +2407,16 @@ async function initializeApp() {
         // Hide all content areas
         hideAllContentAreas();
         
+        // Show/hide download button based on active tab
+        const downloadBtn = document.getElementById('chatDownloadBtn');
+        if (downloadBtn) {
+            if (tabType === 'chat') {
+                downloadBtn.classList.remove('hidden');
+            } else {
+                downloadBtn.classList.add('hidden');
+            }
+        }
+        
         // Show selected content area
         currentView = tabType;
         switch(tabType) {
@@ -2214,23 +2482,34 @@ async function initializeApp() {
         if (!qnaDiv) return;
         
         if (history.length === 0) {
-            qnaDiv.innerHTML = '<div class="text-gray-500 text-center py-4">No previous questions for this lesson</div>';
+            qnaDiv.innerHTML = '<div class="text-gray-500 text-center py-8 flex items-center justify-center h-full"><i class="fas fa-comments mr-2"></i>No previous questions for this lesson</div>';
             return;
         }
         
         let historyHtml = '';
-        history.forEach(item => {
+        history.forEach((item, index) => {
             historyHtml += `
-                <div class="mb-3 p-3 bg-white rounded border">
-                    <div class="mb-2">
-                        <span class="font-semibold text-blue-700">You:</span> 
-                        <span class="text-gray-800">${item.question}</span>
+                <div class="mb-4 p-4 bg-white rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                    <div class="mb-3">
+                        <div class="flex items-start gap-2">
+                            <i class="fas fa-user-circle text-blue-600 mt-0.5"></i>
+                            <div class="flex-1">
+                                <span class="font-semibold text-blue-700">You:</span> 
+                                <span class="text-gray-900 ml-1">${item.question}</span>
+                            </div>
+                        </div>
                     </div>
-                    <div>
-                        <span class="font-semibold text-green-700">AI:</span> 
-                        <span class="text-gray-800">${item.answer}</span>
+                    <div class="pl-6 border-l-2 border-blue-100">
+                        <div class="flex items-start gap-2">
+                            <i class="fas fa-robot text-green-600 mt-0.5"></i>
+                            <div class="flex-1">
+                                <span class="font-semibold text-green-700">AI:</span> 
+                                <div class="text-gray-800 ml-1 whitespace-pre-wrap">${item.answer}</div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="text-xs text-gray-500 mt-1">
+                    <div class="text-xs text-gray-400 mt-3 flex items-center justify-end">
+                        <i class="fas fa-clock mr-1"></i>
                         ${new Date(item.created_at).toLocaleString()}
                     </div>
                 </div>
@@ -2238,7 +2517,11 @@ async function initializeApp() {
         });
         
         qnaDiv.innerHTML = historyHtml;
-        qnaDiv.scrollTop = qnaDiv.scrollHeight;
+        
+        // Smooth scroll to bottom after content is loaded
+        setTimeout(() => {
+            qnaDiv.scrollTop = qnaDiv.scrollHeight;
+        }, 50);
     }
 
     // Clear lesson chat history
@@ -2271,8 +2554,67 @@ async function initializeApp() {
         }
     }
 
+    // Toggle modal fullscreen
+    function toggleModalFullscreen(modalId) {
+        const modal = document.getElementById(modalId);
+        const modalContent = document.getElementById(modalId + 'Content');
+        const fullscreenIcon = document.getElementById(modalId + 'FullscreenIcon');
+        const historyContainer = document.getElementById('lessonQnAHistory');
+        
+        if (!modal || !modalContent) return;
+        
+        const isFullscreen = modalContent.classList.contains('fullscreen');
+        
+        if (isFullscreen) {
+            // Exit fullscreen
+            modalContent.classList.remove('fullscreen');
+            modalContent.classList.remove('w-screen', 'h-screen', 'max-w-none', 'max-h-none', 'mx-0', 'rounded-none');
+            modalContent.classList.add('w-[600px]', 'max-w-full', 'mx-4', 'rounded-lg');
+            modalContent.style.maxHeight = '80vh';
+            modalContent.style.overflowY = 'auto';
+            
+            // Reset history container height for normal mode
+            if (historyContainer) {
+                historyContainer.className = 'h-80 max-h-80 overflow-y-auto bg-gray-50 rounded p-3 text-sm border border-gray-200';
+            }
+            
+            if (fullscreenIcon) {
+                fullscreenIcon.className = 'fas fa-expand text-lg';
+            }
+        } else {
+            // Enter fullscreen
+            modalContent.classList.add('fullscreen');
+            modalContent.classList.remove('w-[600px]', 'max-w-full', 'mx-4', 'rounded-lg');
+            modalContent.classList.add('w-screen', 'h-screen', 'max-w-none', 'max-h-none', 'mx-0', 'rounded-none');
+            modalContent.style.maxHeight = '100vh';
+            modalContent.style.overflowY = 'auto';
+            
+            // Expand history container height for fullscreen mode
+            if (historyContainer) {
+                historyContainer.className = 'flex-1 min-h-96 max-h-none overflow-y-auto bg-gray-50 rounded p-3 text-sm border border-gray-200';
+            }
+            
+            if (fullscreenIcon) {
+                fullscreenIcon.className = 'fas fa-compress text-lg';
+            }
+        }
+        
+        // Force scroll to bottom after layout change
+        setTimeout(() => {
+            if (historyContainer) {
+                historyContainer.scrollTop = historyContainer.scrollHeight;
+            }
+        }, 100);
+    }
+
     // Close Ask Question Modal
     function closeAskQuestionModal() {
+        // Exit fullscreen if active
+        const modalContent = document.getElementById('askQuestionModalContent');
+        if (modalContent && modalContent.classList.contains('fullscreen')) {
+            toggleModalFullscreen('askQuestionModal');
+        }
+        
         // Hide the modal
         document.getElementById('askQuestionModal').classList.add('hidden');
         
@@ -2290,6 +2632,9 @@ async function initializeApp() {
         currentQuestionLessonId = null;
     }
 
+    // Global variable to track if AI is currently typing
+    let isAITyping = false;
+
     // Submit Question
     async function submitQuestion() {
         const question = document.getElementById('questionInput').value.trim();
@@ -2302,8 +2647,26 @@ async function initializeApp() {
             return;
         }
         
+        // Prevent sending if AI is already typing
+        if (isAITyping) {
+            showNotification('Please wait for AI to finish typing...', 'warning');
+            return;
+        }
+        
+        // Set AI typing state
+        isAITyping = true;
+        
+        // Disable input and button while AI is typing
+        const questionInput = document.getElementById('questionInput');
+        const submitButton = document.querySelector('#askQuestionModal button[onclick*="submitQuestion"]');
+        if (questionInput) questionInput.disabled = true;
+        if (submitButton) submitButton.disabled = true;
+        
         // Store the lesson ID to ensure consistency throughout the request
         const lessonIdToSend = currentQuestionLessonId;
+        
+        // Generate unique ID for this question's loading state
+        const loadingId = 'lessonQnALoading_' + Date.now();
         
         // Append question to Q&A history
         const qnaDiv = document.getElementById('lessonQnAHistory');
@@ -2315,9 +2678,14 @@ async function initializeApp() {
                         <span class="font-semibold text-blue-700">You:</span> 
                         <span class="text-gray-800">${question}</span>
                     </div>
-                    <div id="lessonQnALoading">
+                    <div id="${loadingId}">
                         <span class="font-semibold text-green-700">AI:</span> 
-                        <span class="italic text-gray-400">Loading...</span>
+                        <span class="italic text-gray-400">
+                            <i class="fas fa-circle animate-pulse"></i>
+                            <i class="fas fa-circle animate-pulse" style="animation-delay: 0.2s;"></i>
+                            <i class="fas fa-circle animate-pulse" style="animation-delay: 0.4s;"></i>
+                            AI typing...
+                        </span>
                     </div>
                 </div>
             `;
@@ -2341,44 +2709,50 @@ async function initializeApp() {
             
             if (response.ok) {
                 const data = await response.json();
+                // Find the loading div by the specific ID we created
+                const loadingDiv = document.getElementById(loadingId);
+                if (loadingDiv) {
+                    loadingDiv.innerHTML = `
+                        <span class="font-semibold text-green-700">AI:</span> 
+                        <span class="text-gray-800">${data.answer}</span>
+                        <div class="text-xs text-gray-500 mt-1">
+                            ${new Date().toLocaleString()}
+                        </div>
+                    `;
+                }
                 if (qnaDiv) {
-                    const loadingDiv = document.getElementById('lessonQnALoading');
-                    if (loadingDiv) {
-                        loadingDiv.innerHTML = `
-                            <span class="font-semibold text-green-700">AI:</span> 
-                            <span class="text-gray-800">${data.answer}</span>
-                            <div class="text-xs text-gray-500 mt-1">
-                                ${new Date().toLocaleString()}
-                            </div>
-                        `;
-                    }
                     qnaDiv.scrollTop = qnaDiv.scrollHeight;
                 }
             } else {
                 const errorData = await response.json();
+                const loadingDiv = document.getElementById(loadingId);
+                if (loadingDiv) {
+                    loadingDiv.innerHTML = `
+                        <span class="font-semibold text-green-700">AI:</span> 
+                        <span class="text-red-600">Error: ${errorData.error || 'Failed to process your question'}</span>
+                    `;
+                }
                 if (qnaDiv) {
-                    const loadingDiv = document.getElementById('lessonQnALoading');
-                    if (loadingDiv) {
-                        loadingDiv.innerHTML = `
-                            <span class="font-semibold text-green-700">AI:</span> 
-                            <span class="text-red-600">Error: ${errorData.error || 'Failed to process your question'}</span>
-                        `;
-                    }
                     qnaDiv.scrollTop = qnaDiv.scrollHeight;
                 }
             }
         } catch (error) {
             console.error('Error submitting question:', error);
+            const loadingDiv = document.getElementById(loadingId);
+            if (loadingDiv) {
+                loadingDiv.innerHTML = `
+                    <span class="font-semibold text-green-700">AI:</span> 
+                    <span class="text-red-600">Error asking question. Please try again.</span>
+                `;
+            }
             if (qnaDiv) {
-                const loadingDiv = document.getElementById('lessonQnALoading');
-                if (loadingDiv) {
-                    loadingDiv.innerHTML = `
-                        <span class="font-semibold text-green-700">AI:</span> 
-                        <span class="text-red-600">Error asking question. Please try again.</span>
-                    `;
-                }
                 qnaDiv.scrollTop = qnaDiv.scrollHeight;
             }
+        } finally {
+            // Re-enable input and button after AI finishes typing
+            isAITyping = false;
+            if (questionInput) questionInput.disabled = false;
+            if (submitButton) submitButton.disabled = false;
         }
     }
 
@@ -2389,7 +2763,12 @@ async function initializeApp() {
             questionInput.addEventListener('keypress', function(event) {
                 if (event.key === 'Enter') {
                     event.preventDefault();
-                    submitQuestion();
+                    // Only submit if AI is not currently typing
+                    if (!isAITyping) {
+                        submitQuestion();
+                    } else {
+                        showNotification('Please wait for AI to finish typing...', 'warning');
+                    }
                 }
             });
         }
@@ -3495,12 +3874,17 @@ async function initializeApp() {
                 // Create modal content
                 let modalContent = `
                     <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                        <div class="bg-white rounded-lg p-6 max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                        <div class="bg-white rounded-lg p-6 max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto transition-all duration-300" id="lessonModalContent">
                             <div class="flex justify-between items-center mb-4">
                                 <h2 class="text-2xl font-bold text-gray-900">${currentVersion.title}</h2>
-                                <button onclick="closeLessonModal()" class="text-gray-500 hover:text-gray-700">
-                                    <i class="fas fa-times text-xl"></i>
-                                </button>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="toggleModalFullscreen('lessonModal')" class="text-gray-500 hover:text-gray-700 p-1 rounded" title="Toggle Fullscreen">
+                                        <i class="fas fa-expand text-lg" id="lessonModalFullscreenIcon"></i>
+                                    </button>
+                                    <button onclick="closeLessonModal()" class="text-gray-500 hover:text-gray-700">
+                                        <i class="fas fa-times text-xl"></i>
+                                    </button>
+                                </div>
                             </div>
                             
                             ${versions.length > 1 ? `
@@ -3556,10 +3940,11 @@ async function initializeApp() {
                             </div>
                             
                             <div class="flex justify-end gap-3 mt-6 pt-4 border-t">
-
-                                <button onclick="showAIVersioning(${currentVersion.id})" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
-                                    <i class="fas fa-magic mr-2"></i>AI Improve
-                                </button>
+                                ${userRole === 'teacher' ? `
+                                    <button onclick="showAIVersioning(${currentVersion.id})" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700">
+                                        <i class="fas fa-magic mr-2"></i>AI Improve
+                                    </button>
+                                ` : ''}
                                 <button onclick="closeLessonModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
                                     Close
                                 </button>
@@ -3677,12 +4062,17 @@ async function initializeApp() {
                 // Create comparison modal
                 const comparisonContent = `
                     <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                        <div class="bg-white rounded-lg p-6 max-w-7xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+                        <div class="bg-white rounded-lg p-6 max-w-7xl w-full mx-4 max-h-[90vh] overflow-y-auto transition-all duration-300" id="comparisonModalContent">
                             <div class="flex justify-between items-center mb-4">
                                 <h2 class="text-2xl font-bold text-gray-900">Version Comparison</h2>
-                                <button onclick="closeComparisonModal()" class="text-gray-500 hover:text-gray-700">
-                                    <i class="fas fa-times text-xl"></i>
-                                </button>
+                                <div class="flex items-center gap-2">
+                                    <button onclick="toggleModalFullscreen('comparisonModal')" class="text-gray-500 hover:text-gray-700 p-1 rounded" title="Toggle Fullscreen">
+                                        <i class="fas fa-expand text-lg" id="comparisonModalFullscreenIcon"></i>
+                                    </button>
+                                    <button onclick="closeComparisonModal()" class="text-gray-500 hover:text-gray-700">
+                                        <i class="fas fa-times text-xl"></i>
+                                    </button>
+                                </div>
                             </div>
                             
                             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -3735,6 +4125,12 @@ async function initializeApp() {
     }
 
     function closeComparisonModal() {
+        // Exit fullscreen if active
+        const modalContent = document.getElementById('comparisonModalContent');
+        if (modalContent && modalContent.classList.contains('fullscreen')) {
+            toggleModalFullscreen('comparisonModal');
+        }
+        
         const modal = document.getElementById('comparisonModal');
         if (modal) {
             modal.remove();
@@ -3742,6 +4138,12 @@ async function initializeApp() {
     }
 
     function closeLessonModal() {
+        // Exit fullscreen if active
+        const modalContent = document.getElementById('lessonModalContent');
+        if (modalContent && modalContent.classList.contains('fullscreen')) {
+            toggleModalFullscreen('lessonModal');
+        }
+        
         const modal = document.getElementById('lessonModal');
         if (modal) {
             modal.remove();
@@ -3754,6 +4156,13 @@ async function initializeApp() {
         
         // Switch to lesson generation view for editing
         hideAllContentAreas();
+        
+        // Hide download button for non-chat views
+        const downloadBtn = document.getElementById('chatDownloadBtn');
+        if (downloadBtn) {
+            downloadBtn.classList.add('hidden');
+        }
+        
         document.getElementById('lessonGeneratorContent').classList.remove('hidden');
         currentView = 'lessonGenerator';
         
@@ -3809,12 +4218,17 @@ async function initializeApp() {
     function showAIVersioning(lessonId) {
         const aiModalContent = `
             <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div class="bg-white rounded-lg p-6 max-w-2xl w-full mx-4">
+                <div class="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 transition-all duration-300" id="aiVersioningModalContent">
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-2xl font-bold text-gray-900">AI-Powered Lesson Improvement</h2>
-                        <button onclick="closeAIVersioningModal()" class="text-gray-500 hover:text-gray-700">
-                            <i class="fas fa-times text-xl"></i>
-                        </button>
+                        <div class="flex items-center gap-2">
+                            <button onclick="toggleModalFullscreen('aiVersioningModal')" class="text-gray-500 hover:text-gray-700 p-1 rounded" title="Toggle Fullscreen">
+                                <i class="fas fa-expand text-lg" id="aiVersioningModalFullscreenIcon"></i>
+                            </button>
+                            <button onclick="closeAIVersioningModal()" class="text-gray-500 hover:text-gray-700">
+                                <i class="fas fa-times text-xl"></i>
+                            </button>
+                        </div>
                     </div>
                     
                     <div class="space-y-4">
@@ -3860,6 +4274,12 @@ async function initializeApp() {
     }
 
     function closeAIVersioningModal() {
+        // Exit fullscreen if active
+        const modalContent = document.getElementById('aiVersioningModalContent');
+        if (modalContent && modalContent.classList.contains('fullscreen')) {
+            toggleModalFullscreen('aiVersioningModal');
+        }
+        
         const modal = document.getElementById('aiVersioningModal');
         if (modal) {
             modal.remove();
