@@ -217,8 +217,15 @@
 
   <!-- GROQ Modal -->
   <div id="groqModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-xl shadow-lg p-4 w-full max-w-lg">
-      <h2 class="text-xl font-bold text-iqbal-primary mb-3">Get GROQ API Key</h2>
+    <div class="bg-white rounded-xl shadow-lg p-4 w-full max-w-lg transition-all duration-300" id="groqModalContent">
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="text-xl font-bold text-iqbal-primary">Get GROQ API Key</h2>
+        <div class="flex items-center gap-2">
+          <button onclick="toggleModalFullscreen('groqModal')" class="text-gray-500 hover:text-gray-700 p-1 rounded" title="Toggle Fullscreen">
+            <i class="fas fa-expand text-lg" id="groqModalFullscreenIcon"></i>
+          </button>
+        </div>
+      </div>
       <div id="groqStep1" class="space-y-3">
         <p class="text-gray-600">Sign in with Google to get your GROQ API key.</p>
         <button class="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded flex items-center justify-center gap-2" onclick="openGroqAuth()">
@@ -245,6 +252,37 @@
   </div>
 
   <script>
+    // Toggle modal fullscreen
+    function toggleModalFullscreen(modalId) {
+        const modal = document.getElementById(modalId);
+        const modalContent = document.getElementById(modalId + 'Content');
+        const fullscreenIcon = document.getElementById(modalId + 'FullscreenIcon');
+        
+        if (!modal || !modalContent) return;
+        
+        const isFullscreen = modalContent.classList.contains('fullscreen');
+        
+        if (isFullscreen) {
+            // Exit fullscreen
+            modalContent.classList.remove('fullscreen');
+            modalContent.classList.remove('w-screen', 'h-screen', 'max-w-none', 'max-h-none', 'mx-0', 'rounded-none');
+            modalContent.classList.add('w-full', 'max-w-lg');
+            
+            if (fullscreenIcon) {
+                fullscreenIcon.className = 'fas fa-expand text-lg';
+            }
+        } else {
+            // Enter fullscreen
+            modalContent.classList.add('fullscreen');
+            modalContent.classList.remove('w-full', 'max-w-lg');
+            modalContent.classList.add('w-screen', 'h-screen', 'max-w-none', 'max-h-none', 'mx-0', 'rounded-none');
+            
+            if (fullscreenIcon) {
+                fullscreenIcon.className = 'fas fa-compress text-lg';
+            }
+        }
+    }
+
     function handleRoleChange() {
       const role = document.getElementById('role').value;
       const classStandardSection = document.getElementById('class-standard-section');
@@ -334,6 +372,12 @@
       document.getElementById('groqModal').classList.remove('hidden');
     }
     function closeGroqModal() {
+      // Exit fullscreen if active
+      const modalContent = document.getElementById('groqModalContent');
+      if (modalContent && modalContent.classList.contains('fullscreen')) {
+        toggleModalFullscreen('groqModal');
+      }
+      
       document.getElementById('groqModal').classList.add('hidden');
       resetGroqSteps();
     }

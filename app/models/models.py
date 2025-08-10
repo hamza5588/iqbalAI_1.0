@@ -9,6 +9,7 @@ import sqlite3
 from datetime import datetime
 import logging
 from app.utils.db import get_db
+from app.config import Config
 import pickle
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import httpx
@@ -203,24 +204,15 @@ class LessonModel:
 
     @staticmethod
     def get_lessons_by_teacher(teacher_id: int) -> List[Dict[str, Any]]:
-        """Get all lessons created by a specific teacher (only main lessons and latest versions)"""
+        """Get all lessons created by a specific teacher (including all versions)"""
         try:
             db = get_db()
-            # Get main lessons (parent_lesson_id IS NULL) and their latest versions
+            # Get all lessons for this teacher (originals and all versions)
             lessons = db.execute('''
                 SELECT l.* FROM lessons l
                 WHERE l.teacher_id = ?
-                AND (
-                    l.parent_lesson_id IS NULL 
-                    OR l.id = (
-                        SELECT MAX(id) 
-                        FROM lessons 
-                        WHERE parent_lesson_id = l.parent_lesson_id
-                        AND teacher_id = ?
-                    )
-                )
                 ORDER BY l.created_at DESC
-            ''', (teacher_id, teacher_id)).fetchall()
+            ''', (teacher_id,)).fetchall()
             return [dict(lesson) for lesson in lessons]
         except Exception as e:
             logger.error(f"Error retrieving lessons by teacher: {str(e)}")
@@ -228,22 +220,13 @@ class LessonModel:
 
     @staticmethod
     def get_public_lessons(grade_level: str = None, focus_area: str = None) -> List[Dict[str, Any]]:
-        """Get all public lessons with optional filtering (only main lessons and latest versions)"""
+        """Get all public lessons with optional filtering (including all versions)"""
         try:
             db = get_db()
             query = '''SELECT l.*, u.username as teacher_name 
                       FROM lessons l 
                       JOIN users u ON l.teacher_id = u.id 
-                      WHERE l.is_public = TRUE
-                      AND (
-                          l.parent_lesson_id IS NULL 
-                          OR l.id = (
-                              SELECT MAX(id) 
-                              FROM lessons 
-                              WHERE parent_lesson_id = l.parent_lesson_id
-                              AND is_public = TRUE
-                          )
-                      )'''
+                      WHERE l.is_public = TRUE'''
             params = []
             
             if grade_level:
@@ -264,23 +247,14 @@ class LessonModel:
 
     @staticmethod
     def search_lessons(search_term: str, grade_level: str = None) -> List[Dict[str, Any]]:
-        """Search lessons by title, content, or focus area (only main lessons and latest versions)"""
+        """Search lessons by title, content, or focus area (including all versions)"""
         try:
             db = get_db()
             query = '''SELECT l.*, u.username as teacher_name 
                       FROM lessons l 
                       JOIN users u ON l.teacher_id = u.id 
                       WHERE l.is_public = TRUE 
-                      AND (l.title LIKE ? OR l.content LIKE ? OR l.focus_area LIKE ?)
-                      AND (
-                          l.parent_lesson_id IS NULL 
-                          OR l.id = (
-                              SELECT MAX(id) 
-                              FROM lessons 
-                              WHERE parent_lesson_id = l.parent_lesson_id
-                              AND is_public = TRUE
-                          )
-                      )'''
+                      AND (l.title LIKE ? OR l.content LIKE ? OR l.focus_area LIKE ?)'''
             params = [f'%{search_term}%', f'%{search_term}%', f'%{search_term}%']
             
             if grade_level:
@@ -424,6 +398,26 @@ class LessonModel:
             return dict(lesson) if lesson else None
         except Exception as e:
             logger.error(f"Error retrieving latest version: {str(e)}")
+            raise
+
+    @staticmethod
+    def check_title_exists(teacher_id: int, title: str, exclude_lesson_id: int = None) -> bool:
+        """Check if a lesson title already exists for a teacher"""
+        try:
+            db = get_db()
+            query = '''SELECT COUNT(*) as count FROM lessons 
+                      WHERE teacher_id = ? AND LOWER(title) = LOWER(?)'''
+            params = [teacher_id, title.strip()]
+            
+            # Exclude a specific lesson ID (useful for updates/edits)
+            if exclude_lesson_id:
+                query += ' AND id != ?'
+                params.append(exclude_lesson_id)
+            
+            result = db.execute(query, params).fetchone()
+            return result['count'] > 0
+        except Exception as e:
+            logger.error(f"Error checking title existence: {str(e)}")
             raise
 
 # app/models/models.py (ChatModel part)

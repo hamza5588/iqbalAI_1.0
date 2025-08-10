@@ -34,6 +34,10 @@ def create_lesson():
         if not lesson_title or not learning_objective or not focus_area or not grade_level:
             return jsonify({'error': 'All required fields must be filled'}), 400
         
+        # Check if lesson title already exists for this teacher
+        if LessonModel.check_title_exists(session['user_id'], lesson_title):
+            return jsonify({'error': 'This lesson title is already used. Please choose a different title.'}), 400
+        
         # Check file type
         allowed_extensions = {'.pdf', '.doc', '.docx', '.txt'}
         file_ext = os.path.splitext(file.filename.lower())[1]
@@ -173,8 +177,11 @@ def view_lesson(lesson_id):
             return jsonify({'error': 'Lesson not found'}), 404
         
         # Check if user can access this lesson
-        user_model = UserModel(session['user_id'])
-        if lesson['teacher_id'] != session['user_id'] and not lesson['is_public']:
+        # Teachers can access their own lessons, students can access public lessons
+        user_role = session.get('role', 'student')
+        if user_role == 'teacher' and lesson['teacher_id'] != session['user_id']:
+            return jsonify({'error': 'Access denied'}), 403
+        elif user_role == 'student' and not lesson.get('is_public', True):
             return jsonify({'error': 'Access denied'}), 403
         
         # Get lesson versions
@@ -203,6 +210,12 @@ def update_lesson(lesson_id):
             return jsonify({'error': 'Access denied'}), 403
         
         data = request.get_json()
+        
+        # Check if new title already exists for this teacher (if title is being changed)
+        new_title = data.get('title')
+        if new_title and new_title != lesson['title'] and LessonModel.check_title_exists(session['user_id'], new_title, exclude_lesson_id=lesson_id):
+            return jsonify({'error': 'This lesson title is already used. Please choose a different title.'}), 400
+        
         lesson_model = LessonModel(lesson_id)
         
         success = lesson_model.update_lesson(
@@ -265,8 +278,11 @@ def download_lesson(lesson_id):
             return jsonify({'error': 'Lesson not found'}), 404
         
         # Check if user can access this lesson
-        user_model = UserModel(session['user_id'])
-        if lesson['teacher_id'] != session['user_id'] and not lesson['is_public']:
+        # Teachers can access their own lessons, students can access public lessons
+        user_role = session.get('role', 'student')
+        if user_role == 'teacher' and lesson['teacher_id'] != session['user_id']:
+            return jsonify({'error': 'Access denied'}), 403
+        elif user_role == 'student' and not lesson.get('is_public', True):
             return jsonify({'error': 'Access denied'}), 403
         
         # Create lesson structure for DOCX generation
@@ -307,14 +323,23 @@ def download_lesson(lesson_id):
         logger.error(f"Download error: {str(e)}", exc_info=True)
         return jsonify({'error': f'Failed to download lesson: {str(e)}'}), 500 
 
-@bp.route('/download_lesson_pdf/<int:lesson_id>', methods=['GET'])
+@bp.route('/download_lesson_ppt/<int:lesson_id>', methods=['GET'])
 @login_required
-def download_lesson_pdf(lesson_id):
+def download_lesson_ppt(lesson_id):
+    """Download lesson as PowerPoint presentation"""
     lesson = LessonModel.get_lesson_by_id(lesson_id)
     if not lesson:
         return jsonify({'error': 'Lesson not found'}), 404
 
-    # Generate DOCX first (reuse your existing logic)
+    # Check if user can access this lesson
+    # Teachers can access their own lessons, students can access public lessons
+    user_role = session.get('role', 'student')
+    if user_role == 'teacher' and lesson['teacher_id'] != session['user_id']:
+        return jsonify({'error': 'Access denied'}), 403
+    elif user_role == 'student' and not lesson.get('is_public', True):
+        return jsonify({'error': 'Access denied'}), 403
+
+    # Prepare lesson data for PPT generation
     lesson_data = {
         'title': lesson['title'],
         'summary': lesson['summary'] or '',
@@ -324,51 +349,210 @@ def download_lesson_pdf(lesson_id):
         'activities': [],
         'quiz': []
     }
+    
     # Get API key from session
     api_key = session.get('groq_api_key')
     if not api_key:
         return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
     
-    lesson_service = LessonService(api_key=api_key)
-    docx_bytes = lesson_service._create_docx(lesson_data)
-
-    # Save DOCX to temp file
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as docx_file:
-        docx_file.write(docx_bytes)
-        docx_path = docx_file.name
-
-    pdf_path = docx_path.replace('.docx', '.pdf')
     try:
-        import subprocess
-        # Use LibreOffice to convert DOCX to PDF
-        result = subprocess.run([
-            'libreoffice', '--headless', '--convert-to', 'pdf', '--outdir', os.path.dirname(pdf_path), docx_path
-        ], capture_output=True)
-        if result.returncode != 0:
-            raise Exception(f'LibreOffice conversion failed: {result.stderr.decode()}')
-        # LibreOffice names the output file as <docx_basename>.pdf
-        pdf_path = os.path.splitext(docx_path)[0] + '.pdf'
-
-        @after_this_request
-        def cleanup(response):
-            try:
-                os.remove(docx_path)
-            except Exception:
-                pass
-            try:
-                os.remove(pdf_path)
-            except Exception:
-                pass
-            return response
-
-        return send_file(pdf_path, as_attachment=True, download_name=lesson['title'] + '.pdf', mimetype='application/pdf')
+        lesson_service = LessonService(api_key=api_key)
+        ppt_bytes = lesson_service.create_ppt(lesson_data)
+        
+        # Create filename
+        filename = lesson['title'].replace(' ', '_') + '.pptx'
+        
+        # Create response
+        from io import BytesIO
+        ppt_buffer = BytesIO(ppt_bytes)
+        ppt_buffer.seek(0)
+        
+        return send_file(
+            ppt_buffer,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        )
     except Exception as e:
-        if os.path.exists(docx_path):
-            os.remove(docx_path)
-        if os.path.exists(pdf_path):
-            os.remove(pdf_path)
-        logger.error(f"PDF generation error: {str(e)}")
-        return jsonify({'error': 'Failed to generate PDF'}), 500
+        logger.error(f"PPT generation error: {str(e)}")
+        return jsonify({'error': f'Failed to generate PPT: {str(e)}'}), 500
+
+@bp.route('/download_lesson_pdf/<int:lesson_id>', methods=['GET'])
+@login_required
+def download_lesson_pdf(lesson_id):
+    """Download a lesson as PDF file"""
+    try:
+        lesson = LessonModel.get_lesson_by_id(lesson_id)
+        if not lesson:
+            return jsonify({'error': 'Lesson not found'}), 404
+
+        # Check if user can access this lesson
+        user_role = session.get('role', 'student')
+        if user_role == 'teacher' and lesson['teacher_id'] != session['user_id']:
+            return jsonify({'error': 'Access denied'}), 403
+        elif user_role == 'student' and not lesson.get('is_public', True):
+            return jsonify({'error': 'Access denied'}), 403
+
+        # Try to generate PDF using reportlab (preferred method)
+        try:
+            from reportlab.lib.pagesizes import A4
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import inch
+            from reportlab.lib.enums import TA_CENTER, TA_LEFT
+            
+            # Create PDF buffer
+            pdf_buffer = BytesIO()
+            
+            # Create PDF document
+            doc = SimpleDocTemplate(pdf_buffer, pagesize=A4)
+            styles = getSampleStyleSheet()
+            
+            # Define custom styles
+            title_style = ParagraphStyle(
+                'CustomTitle',
+                parent=styles['Heading1'],
+                fontSize=24,
+                spaceAfter=30,
+                alignment=TA_CENTER
+            )
+            
+            heading_style = ParagraphStyle(
+                'CustomHeading',
+                parent=styles['Heading2'],
+                fontSize=16,
+                spaceAfter=12,
+                spaceBefore=20
+            )
+            
+            content_style = ParagraphStyle(
+                'CustomContent',
+                parent=styles['Normal'],
+                fontSize=11,
+                spaceAfter=12,
+                alignment=TA_LEFT
+            )
+            
+            # Build PDF content
+            story = []
+            
+            # Add title
+            story.append(Paragraph(lesson['title'], title_style))
+            story.append(Spacer(1, 0.2*inch))
+            
+            # Add summary if available
+            if lesson.get('summary'):
+                story.append(Paragraph("Summary", heading_style))
+                story.append(Paragraph(lesson['summary'], content_style))
+                story.append(Spacer(1, 0.1*inch))
+            
+            # Add learning objectives if available
+            if lesson.get('learning_objectives'):
+                story.append(Paragraph("Learning Objectives", heading_style))
+                story.append(Paragraph(lesson['learning_objectives'], content_style))
+                story.append(Spacer(1, 0.1*inch))
+            
+            # Add focus area and grade level
+            if lesson.get('focus_area'):
+                story.append(Paragraph("Focus Area", heading_style))
+                story.append(Paragraph(lesson['focus_area'], content_style))
+                story.append(Spacer(1, 0.1*inch))
+            
+            if lesson.get('grade_level'):
+                story.append(Paragraph("Grade Level", heading_style))
+                story.append(Paragraph(lesson['grade_level'], content_style))
+                story.append(Spacer(1, 0.1*inch))
+            
+            # Add main content
+            if lesson.get('content'):
+                story.append(Paragraph("Lesson Content", heading_style))
+                # Split content by paragraphs and create Paragraph objects
+                content_paragraphs = lesson['content'].split('\n\n')
+                for para in content_paragraphs:
+                    if para.strip():
+                        story.append(Paragraph(para.strip(), content_style))
+                        story.append(Spacer(1, 0.05*inch))
+            
+            # Build PDF
+            doc.build(story)
+            pdf_buffer.seek(0)
+            
+            # Create filename
+            filename = lesson['title'].replace(' ', '_').replace('/', '_') + '.pdf'
+            
+            return send_file(
+                pdf_buffer,
+                as_attachment=True,
+                download_name=filename,
+                mimetype='application/pdf'
+            )
+            
+        except ImportError:
+            logger.warning("ReportLab not available, falling back to LibreOffice method")
+            # Fallback to LibreOffice method if reportlab is not available
+            pass
+
+        # Fallback: Generate DOCX first and convert with LibreOffice
+        lesson_data = {
+            'title': lesson['title'],
+            'summary': lesson['summary'] or '',
+            'learning_objectives': [lesson['learning_objectives']] if lesson['learning_objectives'] else [],
+            'sections': [{'heading': 'Lesson Content', 'content': lesson['content']}],
+            'key_concepts': [],
+            'activities': [],
+            'quiz': []
+        }
+        
+        # Get API key from session
+        api_key = session.get('groq_api_key')
+        if not api_key:
+            return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
+        
+        lesson_service = LessonService(api_key=api_key)
+        docx_bytes = lesson_service._create_docx(lesson_data)
+
+        # Save DOCX to temp file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.docx') as docx_file:
+            docx_file.write(docx_bytes)
+            docx_path = docx_file.name
+
+        pdf_path = os.path.splitext(docx_path)[0] + '.pdf'
+        try:
+            import subprocess
+            # Use LibreOffice to convert DOCX to PDF
+            result = subprocess.run([
+                'libreoffice', '--headless', '--convert-to', 'pdf', '--outdir', os.path.dirname(pdf_path), docx_path
+            ], capture_output=True, timeout=30)
+            
+            if result.returncode != 0:
+                raise Exception(f'LibreOffice conversion failed: {result.stderr.decode()}')
+
+            @after_this_request
+            def cleanup(response):
+                try:
+                    os.remove(docx_path)
+                except Exception:
+                    pass
+                try:
+                    os.remove(pdf_path)
+                except Exception:
+                    pass
+                return response
+
+            return send_file(pdf_path, as_attachment=True, download_name=lesson['title'].replace('/', '_') + '.pdf', mimetype='application/pdf')
+            
+        except Exception as e:
+            # Clean up files on error
+            if os.path.exists(docx_path):
+                os.remove(docx_path)
+            if os.path.exists(pdf_path):
+                os.remove(pdf_path)
+            logger.error(f"LibreOffice PDF generation error: {str(e)}")
+            return jsonify({'error': 'PDF generation failed. Please try downloading as DOCX instead.'}), 500
+            
+    except Exception as e:
+        logger.error(f"PDF generation error: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to generate PDF: {str(e)}'}), 500
 
 @bp.route('/ask_question', methods=['POST'])
 @student_required
@@ -447,6 +631,11 @@ def create_lesson_version(lesson_id):
         
         data = request.get_json()
         
+        # Check if new title already exists for this teacher (if title is being changed)
+        new_title = data.get('title', original_lesson_data['title'])
+        if new_title != original_lesson_data['title'] and LessonModel.check_title_exists(session['user_id'], new_title):
+            return jsonify({'error': 'This lesson title is already used. Please choose a different title.'}), 400
+        
         # Create new version, always using the original lesson ID
         new_lesson_id = LessonModel.create_new_version(
             original_lesson_id=original_lesson_id,
@@ -469,6 +658,24 @@ def create_lesson_version(lesson_id):
     except Exception as e:
         logger.error(f"Error creating lesson version: {str(e)}", exc_info=True)
         return jsonify({'error': f'Failed to create lesson version: {str(e)}'}), 500
+
+@bp.route('/check_title_exists', methods=['GET'])
+@teacher_required
+def check_title_exists():
+    """Check if a lesson title already exists for the current teacher"""
+    try:
+        title = request.args.get('title', '').strip()
+        if not title:
+            return jsonify({'exists': False})
+        
+        teacher_id = session['user_id']
+        exists = LessonModel.check_title_exists(teacher_id, title)
+        
+        return jsonify({'exists': exists})
+        
+    except Exception as e:
+        logger.error(f"Error checking title existence: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to check title: {str(e)}'}), 500
 
 @bp.route('/lesson/<int:lesson_id>/create_ai_version', methods=['POST'])
 @teacher_required
