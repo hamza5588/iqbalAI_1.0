@@ -1,63 +1,124 @@
-2025-08-10 23:25:25,878 INFO: Checking survey submission status for user_id: 12 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1316]
-2025-08-10 23:25:25,897 INFO: Survey check result: User 12 has not submitted a survey (count: 0) [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:1325]
-2025-08-10 23:25:49,635 INFO: Retrieved lesson ID 84 with title: 'reaseach' [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:196]
-2025-08-10 23:25:49,637 INFO: get_lesson_versions for lesson 84: found 1 versions [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:376]
-2025-08-10 23:25:49,637 INFO: Versions data: [{'id': 84, 'teacher_id': 12, 'title': 'reaseach', 'summary': 'This lesson discusses the treatment of diabetic foot ulcers using Matriderm, a dermal analogue, and its effectiveness compared to skin grafting.', 'learning_objectives': 'ai', 'focus_area': 'Other', 'grade_level': 'College', 'content': 'Here is the improved lesson content:\n\nDiabetic foot ulcer is a common and debilitating complication of diabetes that can lead to amputation if left untreated. The treatment of diabetic foot ulcers is challenging due to the impaired wound healing in diabetic patients, which can significantly impact their quality of life.\n\nDiabetic foot ulcers can be caused by a combination of factors, including peripheral neuropathy, peripheral vasculopathy, and impaired wound healing. The current treatment options for diabetic foot ulcers include debridement, wound dressing, and skin grafting, which often have limited success rates.\n\nMatriderm is a dermal analogue made from bovine collagen and elastin, specifically designed to improve wound healing outcomes. It is used as a scaffold for dermal regeneration and has been shown to significantly enhance wound healing in diabetic foot ulcers by promoting a favorable environment for tissue repair.\n\nA prospective study was conducted on 60 patients with diabetic foot ulcers to evaluate the efficacy of Matriderm in improving wound healing outcomes. The patients were divided into two groups: one received Matriderm and a split-thickness skin graft, and the other received only a split-thickness skin graft.\n\nThe results of the study showed that the group that received Matriderm had a significantly shorter hospital stay, shorter epithelialization period, and higher elasticity ratio compared to the group that received only a split-thickness skin graft. These findings suggest that Matriderm improves wound healing by enhancing tissue regeneration and elasticity.\n\nIn conclusion, Matriderm is a highly effective treatment option for diabetic foot ulcers, offering improved wound healing outcomes, reduced hospital stay, and enhanced elasticity compared to skin grafting alone. Its use can significantly improve the quality of life for patients with diabetic foot ulcers.', 'file_name': 'Jeon_Hyojin_Treatment_of_Diabetic_Foot_2013 (1).pdf', 'created_at': '2025-08-09 22:29:31', 'updated_at': '2025-08-09 22:29:31', 'is_public': 1, 'parent_lesson_id': 83, 'version': 2, 'teacher_name': 'hamza5588'}] [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:377]
-2025-08-10 23:26:45,721 INFO: Processing text of length: 33818 [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:591]
-2025-08-10 23:26:45,722 INFO: About to invoke LLM... [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:592]
-2025-08-10 23:26:46,495 ERROR: Error generating lesson: Error code: 413 - {'error': {'message': 'Request too large for model `llama3-70b-8192` in organization `org_01jypge90gfktrdgbzcr6p5m9q` service tier `on_demand` on tokens per minute (TPM): Limit 6000, Requested 9316, please reduce your message size and try again. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}} [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:613]
-Traceback (most recent call last):
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py", line 598, in _generate_structured_lesson
-    response = self.llm.invoke(self.lesson_prompt.format(text=prompt_text))
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\venv\Lib\site-packages\langchain_core\language_models\chat_models.py", line 378, in invoke
-    self.generate_prompt(
-    ~~~~~~~~~~~~~~~~~~~~^
-        [self._convert_input(input)],
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    ...<6 lines>...
-        **kwargs,
-        ^^^^^^^^^
-    ).generations[0][0],
-    ^
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\venv\Lib\site-packages\langchain_core\language_models\chat_models.py", line 963, in generate_prompt
-    return self.generate(prompt_messages, stop=stop, callbacks=callbacks, **kwargs)
-           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\venv\Lib\site-packages\langchain_core\language_models\chat_models.py", line 782, in generate
-    self._generate_with_cache(
-    ~~~~~~~~~~~~~~~~~~~~~~~~~^
-        m,
-        ^^
-    ...<2 lines>...
-        **kwargs,
-        ^^^^^^^^^
-    )
-    ^
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\venv\Lib\site-packages\langchain_core\language_models\chat_models.py", line 1028, in _generate_with_cache
-    result = self._generate(
-        messages, stop=stop, run_manager=run_manager, **kwargs
-    )
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\venv\Lib\site-packages\langchain_groq\chat_models.py", line 557, in _generate
-    response = self.client.create(messages=message_dicts, **params)
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\venv\Lib\site-packages\groq\resources\chat\completions.py", line 368, in create
-    return self._post(
-           ~~~~~~~~~~^
-        "/openai/v1/chat/completions",
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    ...<40 lines>...
-        stream_cls=Stream[ChatCompletionChunk],
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\venv\Lib\site-packages\groq\_base_client.py", line 1232, in post
-    return cast(ResponseT, self.request(cast_to, opts, stream=stream, stream_cls=stream_cls))
-                           ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\venv\Lib\site-packages\groq\_base_client.py", line 1034, in request
-    raise self._make_status_error_from_response(err.response) from None
-groq.APIStatusError: Error code: 413 - {'error': {'message': 'Request too large for model `llama3-70b-8192` in organization `org_01jypge90gfktrdgbzcr6p5m9q` service tier `on_demand` on tokens per minute (TPM): Limit 6000, Requested 9316, please reduce your message size and try again. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}
-2025-08-10 23:26:46,829 INFO: Saving lesson to database with title: 'medical reseach' [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:148]
-2025-08-10 23:26:46,886 INFO: Retrieved lesson ID 85 with title: 'medical reseach' [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:196]
-2025-08-10 23:27:21,214 INFO: Retrieved lesson ID 85 with title: 'medical reseach' [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:196]
-2025-08-10 23:27:22,786 INFO: Retrieved lesson ID 85 with title: 'medical reseach' [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:196]
-2025-08-10 23:28:34,489 INFO: Retrieved lesson ID 85 with title: 'medical reseach' [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:196]
-2025-08-10 23:28:34,492 INFO: get_lesson_versions for lesson 85: found 1 versions [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:376]
-2025-08-10 23:28:34,494 INFO: Versions data: [{'id': 85, 'teacher_id': 12, 'title': 'medical reseach', 'summary': '+ Models\nANNPLA-934; No.  of Pages 8\nPour citer cet article : Lamy J, et al.  Utilisation de Matriderm1 1 mm en chirurgie reconstructrice', 'learning_objectives': 'ai', 'focus_area': 'Other', 'grade_level': 'Adult', 'content': 'This lesson is based on the provided material and covers the essential concepts and ideas presented.\n\n+ Models\nANNPLA-934; No. of Pages 8\nPour citer cet article : Lamy J, et al. Utilisation de Matriderm1 1 mm en chirurgie reconstructrice. Série de 31 cas. Ann Chir Plast Esthet\n(2013), http://dx.doi.org/10.1016/j.anplas.2013.01.001\nARTICLE ORIGINAL\nUtilisation de Matriderm\nW 1 mm en chirurgie\nreconstructrice. Série de 31 cas\nUse of MatridermW 1 mm in reconstructive surgery. Series of 31 cases\nJ. Lamy a, A. Gourari a, M. Atlan b, G. Zakine a,*\na Service de chirurgie plastique reconstructrice et esthe´tique, centre de bruˆle´s, hoˆpital Trousseau, CHRU de Tours, avenue de\nLa-Re´publique, 37170 Chambray-le`s-Tours, France\nb Service de chirurgie plastique reconstructrice et esthe´tique, centre hospitalier Rene´-Dubos, 6, avenue de l’Ile-de-France, 95303\nPontoise cedex, France\nRec¸u le 2 novembre 2012 ; accepte´ le 4 janvier 2013\nMOTS CLÉS\nSubstitut dermique ;\nMatrice d’élastine et de\ncollagène ;\nChirurgie reconstructrice ;\nBrûlure ;\nRégénération tissulaire ;\nGreffe de peau\nRésumé\nIntroducti...\n\nThe main points and conclusions from this material provide valuable insights for understanding the topic.', 'file_name': 'Lamy_Use_of_Matriderm_1_mm_in_reconstructive_surgery.31_cases_french_original_2013 (1).pdf', 'created_at': '2025-08-10 18:26:46', 'updated_at': '2025-08-10 18:27:21', 'is_public': 1, 'parent_lesson_id': None, 'version': 1, 'teacher_name': 'hamza5588', 'is_original': True}] [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:377]
+2025-08-10 23:57:40,174 ERROR: Failed to parse FAQ JSON: Here are 5 FAQs that students might have based on the lesson content:
+
+```
+{
+    "faqs": [
+        {
+            "question": "What is Matriderm, and what is its role in reconstructive surgery?",
+            "answer": "Matriderm is a dermal substitute made of elastin and collagen, used to support tissue regeneration and skin grafting in reconstructive surgery."
+        },
+        {
+            "question": "What are the benefits of using Matriderm in burn care and reconstructive surgery?",
+            "answer": "Matriderm promotes tissue regeneration, reduces scarring, and improves skin elasticity, making it an effective tool in burn care and reconstructive surgery."
+        },
+        {
+            "question": "How does Matriderm support skin grafting in reconstructive surgery?",
+            "answer": "Matriderm provides a scaffold for skin cells to grow and regenerate, allowing for successful skin grafting and improved wound healing outcomes."
+        },
+        {
+            "question": "What is the significance of the 31-case series study mentioned in the article?",
+            "answer": "The 31-case series study demonstrates the effectiveness and safety of using Matriderm in reconstructive surgery, providing valuable insights for surgeons and clinicians."
+        },
+        {
+            "question": "What are the potential applications of Matriderm beyond burn care and reconstructive surgery?",
+            "answer": "Matriderm has potential applications in other areas of medicine, such as wound care, dermatology, and plastic surgery, due to its ability to support tissue regeneration and skin repair."
+        }
+    ]
+}
+```
+
+These FAQs address key concepts, common misconceptions, and important details from the lesson content, including the definition and role of Matriderm, its benefits and applications in reconstructive surgery, and the significance of the 31-case series study. [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:1204]
+2025-08-10 23:57:40,206 INFO: Retrieved lesson ID 85 with title: 'medical reseach' [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:196]
+2025-08-10 23:57:40,526 INFO: Retrieved lesson ID 85 with title: 'medical reseach' [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:196]
+2025-08-10 23:57:48,104 INFO: Retrieved lesson ID 85 with title: 'medical reseach' [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:196]
+2025-08-10 23:57:50,721 ERROR: Failed to parse FAQ JSON: Based on the provided lesson content, here are 5 frequently asked questions that students might have:
+
+```
+{
+    "faqs": [
+        {
+            "question": "What is Matriderm, and how is it used in reconstructive surgery?",
+            "answer": "Matriderm is a dermal substitute composed of elastin and collagen, used to promote tissue regeneration and skin grafting in reconstructive surgery, particularly in cases of burns."
+        },
+        {
+            "question": "What are the benefits of using Matriderm in reconstructive surgery?",
+            "answer": "The use of Matriderm in reconstructive surgery has been shown to promote tissue regeneration, improve wound healing, and reduce the risk of complications, as demonstrated in the series of 31 cases presented in the article."
+        },
+        {
+            "question": "How does Matriderm facilitate skin grafting in reconstructive surgery?",
+            "answer": "Matriderm provides a scaffold for skin cells to grow and regenerate, allowing for successful skin grafting and promoting wound closure in reconstructive surgery."
+        },
+        {
+            "question": "What are the potential applications of Matriderm beyond burn reconstruction?",
+            "answer": "While Matriderm has been primarily used in burn reconstruction, its potential applications extend to other areas of reconstructive surgery, such as scar revision and skin defects, due to its ability to promote tissue regeneration and wound healing."
+        },
+        {
+            "question": "What is the significance of the 31-case series presented in the article, and what insights does it provide into the use of Matriderm in reconstructive surgery?",
+            "answer": "The 31-case series provides valuable insights into the effectiveness and safety of Matriderm in reconstructive surgery, demonstrating its potential as a valuable tool in the treatment of complex wounds and skin defects."
+        }
+    ]
+}
+```
+
+These FAQs address key concepts, common misconceptions, and important details related to the use of Matriderm in reconstructive surgery, as presented in the lesson content. [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:1204]
+2025-08-10 23:57:51,762 INFO: Retrieved lesson ID 85 with title: 'medical reseach' [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:196]
+2025-08-10 23:57:54,201 ERROR: Failed to parse FAQ JSON: Based on the provided lesson content, here are 5 frequently asked questions that students might have:
+
+```
+{
+    "faqs": [
+        {
+            "question": "What is Matriderm, and how is it used in reconstructive surgery?",
+            "answer": "Matriderm is a dermal substitute made of elastin and collagen, used to promote tissue regeneration and skin grafting in reconstructive surgery, particularly in cases of burns."
+        },
+        {
+            "question": "What are the benefits of using Matriderm in reconstructive surgery?",
+            "answer": "The benefits of using Matriderm include improved tissue regeneration, reduced scarring, and enhanced skin grafting outcomes, leading to better patient outcomes in reconstructive surgery."
+        },
+        {
+            "question": "How does Matriderm promote tissue regeneration in reconstructive surgery?",
+            "answer": "Matriderm promotes tissue regeneration by providing a scaffold for cells to grow and differentiate, allowing for the formation of new tissue and promoting wound healing."
+        },
+        {
+            "question": "What is the significance of the 31-case series study mentioned in the article?",
+            "answer": "The 31-case series study provides valuable insights into the effectiveness and safety of using Matriderm in reconstructive surgery, demonstrating its potential as a valuable tool in this field."
+        },
+        {
+            "question": "What are the potential applications of Matriderm beyond reconstructive surgery for burns?",
+            "answer": "The potential applications of Matriderm extend beyond reconstructive surgery for burns to other areas, such as wound healing, skin regeneration, and tissue engineering, making it a promising biomaterial for various medical applications."
+        }
+    ]
+}
+```
+
+These FAQs address key concepts, common misconceptions, and important details related to the use of Matriderm in reconstructive surgery, tissue regeneration, and wound healing. [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:1204]
+2025-08-10 23:57:54,223 INFO: Retrieved lesson ID 85 with title: 'medical reseach' [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:196]
+2025-08-10 23:57:55,300 INFO: Retrieved lesson ID 85 with title: 'medical reseach' [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:196]
+2025-08-10 23:57:57,292 ERROR: Failed to parse FAQ JSON: Here are 5 frequently asked questions that students might have based on the lesson content:
+
+{
+    "faqs": [
+        {
+            "question": "What is Matriderm, and how is it used in reconstructive surgery?",
+            "answer": "Matriderm is a dermal substitute made of elastin and collagen, used to support tissue regeneration and skin grafting in reconstructive surgery, particularly in cases of burns."
+        },
+        {
+            "question": "What are the benefits of using Matriderm in reconstructive surgery?",
+            "answer": "Matriderm provides a scaffold for tissue regeneration, promotes skin graft take, and helps to improve wound healing outcomes in reconstructive surgery."
+        },
+        {
+            "question": "What is the significance of the 31-case series study mentioned in the article?",
+            "answer": "The 31-case series study demonstrates the effectiveness and safety of using Matriderm in reconstructive surgery, providing valuable insights for surgeons and researchers in the field."
+        },
+        {
+            "question": "How does Matriderm support tissue regeneration in wound healing?",
+            "answer": "Matriderm provides a matrix for cells to grow and differentiate, promoting tissue regeneration and supporting the body's natural healing process."
+        },
+        {
+            "question": "What are some potential applications of Matriderm beyond burn reconstruction?",
+            "answer": "Matriderm has potential applications in other areas of reconstructive surgery, such as scar revision, skin cancer reconstruction, and cosmetic surgery."
+        }
+    ]
+} [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\services\lesson_service.py:1204]
+2025-08-10 23:57:57,317 INFO: Retrieved lesson ID 85 with title: 'medical reseach' [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:196]
+2025-08-10 23:57:58,326 INFO: Retrieved lesson ID 85 with title: 'medical reseach' [in C:\Users\DCS\Desktop\New folder (10)\iqbalAI_1.0\app\models\models.py:196]

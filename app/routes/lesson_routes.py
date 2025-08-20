@@ -755,14 +755,51 @@ def create_ai_lesson_version(lesson_id):
 @bp.route('/faqs/<int:lesson_id>', methods=['GET'])
 @teacher_required
 def get_lesson_faqs(lesson_id):
-    # Get API key from session
-    api_key = session.get('groq_api_key')
-    if not api_key:
-        return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
-    
-    service = LessonService(api_key=api_key)
-    faqs = service.get_lesson_faqs(lesson_id)
-    return jsonify({'faqs': faqs}) 
+    try:
+        # Get lesson details first
+        lesson = LessonModel.get_lesson_by_id(lesson_id)
+        if not lesson:
+            return jsonify({'error': 'Lesson not found'}), 404
+        
+        # Read FAQs from the lesson_faq table (real student questions)
+        import sqlite3
+        conn = sqlite3.connect('instance/chatbot.db')
+        c = conn.cursor()
+        
+        # Get questions from lesson_faq table for this specific lesson
+        # This ensures we only get questions related to this specific lesson version
+        c.execute('SELECT question, count FROM lesson_faq WHERE lesson_id=? ORDER BY count DESC', (lesson_id,))
+        faq_rows = c.fetchall()
+        conn.close()
+        
+        # Format the FAQs to match the expected structure
+        faqs = []
+        for row in faq_rows:
+            # Determine version display text
+            version_text = ""
+            if lesson.get('parent_lesson_id'):
+                version_text = f"v{lesson.get('version', 1)}"
+            else:
+                version_text = "v1 (Original)"
+            
+            faqs.append({
+                'question': row[0],
+                'count': row[1],
+                'times_asked': row[1],  # For compatibility with frontend
+                'lessonTitle': f"{lesson.get('title', '')} {version_text}",
+                'subject': lesson.get('focus_area', ''),
+                'grade': lesson.get('grade_level', ''),
+                'time_ago': 'Recently',  # Placeholder since timestamps aren't tracked
+                'version': lesson.get('version', 1),
+                'is_version': lesson.get('parent_lesson_id') is not None,
+                'parent_lesson_id': lesson.get('parent_lesson_id')
+            })
+        
+        return jsonify({'faqs': faqs})
+        
+    except Exception as e:
+        logger.error(f"Error getting lesson FAQs: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Failed to load lesson FAQs'}), 500
 
 @bp.route('/faq_dashboard', methods=['GET'])
 @teacher_required
