@@ -209,7 +209,7 @@ def create_app():
     app.config.from_object(Config)
     
     # Configure session - UPDATED for CORS
-    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=1)
+    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
     app.config['SESSION_COOKIE_SECURE'] = False  # Set to True only in production with HTTPS
     app.config['SESSION_COOKIE_HTTPONLY'] = True 
     app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'

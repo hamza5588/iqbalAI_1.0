@@ -120,6 +120,37 @@ class Conversation:
             logger.error(f"Error retrieving conversations: {str(e)}")
             raise
     
+    def get_conversation_by_id(self, conversation_id: int) -> Dict:
+        """Get a specific conversation by ID"""
+        try:
+            db = get_db()
+            conversation = db.execute(
+                '''SELECT id, title, created_at 
+                   FROM conversations 
+                   WHERE id = ? AND user_id = ?''',
+                (conversation_id, self.user_id)
+            ).fetchone()
+            return dict(conversation) if conversation else None
+        except Exception as e:
+            logger.error(f"Error retrieving conversation: {str(e)}")
+            raise
+    
+    def update_conversation_title(self, conversation_id: int, new_title: str) -> bool:
+        """Update the title of a conversation"""
+        try:
+            db = get_db()
+            cursor = db.execute(
+                '''UPDATE conversations 
+                   SET title = ? 
+                   WHERE id = ? AND user_id = ?''',
+                (new_title, conversation_id, self.user_id)
+            )
+            db.commit()
+            return cursor.rowcount > 0
+        except Exception as e:
+            logger.error(f"Error updating conversation title: {str(e)}")
+            raise
+    
     def save_message(self, conversation_id: int, message: str, role: str) -> int:
         """Save a message to a conversation"""
         try:

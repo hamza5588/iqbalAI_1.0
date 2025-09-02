@@ -418,6 +418,22 @@ class ChatService:
         except Exception as e:
             logger.error(f"Error deleting conversation: {str(e)}")
             raise
+    
+    def update_conversation_title(self, conversation_id: int, new_title: str) -> bool:
+        """Update the title of a conversation"""
+        try:
+            return self.conversation_model.update_conversation_title(conversation_id, new_title)
+        except Exception as e:
+            logger.error(f"Error updating conversation title: {str(e)}")
+            raise
+    
+    def get_conversation_details(self, conversation_id: int) -> Dict[str, Any]:
+        """Get conversation details including title"""
+        try:
+            return self.conversation_model.get_conversation_by_id(conversation_id)
+        except Exception as e:
+            logger.error(f"Error retrieving conversation details: {str(e)}")
+            raise
 
     def clean_old_conversations(self, max_conversations: int = 50) -> None:
         """Clean up old conversations beyond the maximum limit"""

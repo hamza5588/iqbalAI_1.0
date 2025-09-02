@@ -408,7 +408,7 @@ class LessonService:
         try:
             self.llm = ChatGroq(
                 api_key=api_key,
-                model="llama3-70b-8192",
+                model="llama-3.3-70b-versatile",
                 temperature=0.3,
                 # max_tokens=4096  # Increased token limit
             )
