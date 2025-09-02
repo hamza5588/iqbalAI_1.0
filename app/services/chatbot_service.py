@@ -40,7 +40,7 @@ class DocumentChatBot:
         if not self.nomic_api_key:
             raise ValueError("NOMIC_API_KEY environment variable not set")
             
-        self.llm = ChatGroq(groq_api_key=self.groq_api_key, model_name="Llama3-8b-8192")
+        self.llm = ChatGroq(groq_api_key=self.groq_api_key, model_name="llama-3.3-70b-versatile")
         self.prompt = self._create_prompt()
         self.vectors = None
         self.embeddings = None

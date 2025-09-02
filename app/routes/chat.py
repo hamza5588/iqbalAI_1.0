@@ -152,6 +152,21 @@ def get_messages(conversation_id):
         logger.error(f"Error retrieving messages: {str(e)}")
         return jsonify({'error': 'Failed to retrieve messages'}), 500
 
+@bp.route('/get_conversation/<int:conversation_id>')
+@login_required
+def get_conversation(conversation_id):
+    """Get conversation details including title"""
+    try:
+        chat_service = ChatService(session['user_id'], session['groq_api_key'])
+        conversation = chat_service.get_conversation_details(conversation_id)
+        if conversation:
+            return jsonify(conversation)
+        else:
+            return jsonify({'error': 'Conversation not found'}), 404
+    except Exception as e:
+        logger.error(f"Error retrieving conversation: {str(e)}")
+        return jsonify({'error': 'Failed to retrieve conversation'}), 500
+
 @bp.route('/delete_conversation/<int:conversation_id>', methods=['DELETE'])
 @login_required
 def delete_conversation(conversation_id):
@@ -175,6 +190,29 @@ def delete_all_conversations():
     except Exception as e:
         logger.error(f"Error deleting all conversations: {str(e)}")
         return jsonify({'error': 'Failed to delete conversations'}), 500
+
+@bp.route('/update_conversation_title/<int:conversation_id>', methods=['PUT'])
+@login_required
+def update_conversation_title(conversation_id):
+    """Update the title of a conversation"""
+    try:
+        data = request.json
+        new_title = data.get('title', '').strip()
+        
+        if not new_title:
+            return jsonify({'error': 'Title cannot be empty'}), 400
+        
+        chat_service = ChatService(session['user_id'], session['groq_api_key'])
+        success = chat_service.update_conversation_title(conversation_id, new_title)
+        
+        if success:
+            return jsonify({'message': 'Title updated successfully', 'title': new_title})
+        else:
+            return jsonify({'error': 'Conversation not found or access denied'}), 404
+            
+    except Exception as e:
+        logger.error(f"Error updating conversation title: {str(e)}")
+        return jsonify({'error': 'Failed to update title'}), 500
 
 @bp.route('/download_chat/<int:conversation_id>')
 @login_required

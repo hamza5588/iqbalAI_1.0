@@ -141,6 +141,7 @@ def login():
                 session['user_id'] = user['id']
                 session['username'] = user['username']
                 session['groq_api_key'] = user['groq_api_key']
+                session.permanent = True  # Make session permanent for 24 hours
                 return redirect(url_for('chat.index'))
             return render_template('login.html', error="Invalid credentials")
         except Exception as e:
