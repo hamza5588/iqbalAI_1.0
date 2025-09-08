@@ -1,4 +1,5 @@
 import os
+import time
 from groq import Groq
 from langchain_nomic import NomicEmbeddings
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -142,39 +143,81 @@ class LessonModel:
     @staticmethod
     def create_lesson(teacher_id: int, title: str, summary: str, learning_objectives: str,
                      focus_area: str, grade_level: str, content: str, file_name: str = None,
-                     is_public: bool = True, parent_lesson_id: int = None) -> int:
+                     is_public: bool = True, parent_lesson_id: int = None, draft_content: str = None,
+                     lesson_id: str = None, version_number: int = 1, parent_version_id: int = None,
+                     original_content: str = None, status: str = "finalized") -> int:
         """Create a new lesson in the database"""
         try:
             logger.info(f"Saving lesson to database with title: '{title}'")
             db = get_db()
             
-            # If this is a new version of an existing lesson, get the next version number
-            version = 1
-            if parent_lesson_id:
-                # Get the highest version number for this parent lesson
-                # Only look at versions (where parent_lesson_id is set), not the original lesson
-                result = db.execute(
-                    '''SELECT MAX(version) as max_version FROM lessons 
-                       WHERE parent_lesson_id = ?''',
-                    (parent_lesson_id,)
-                ).fetchone()
-                if result and result['max_version']:
-                    version = result['max_version'] + 1
-                else:
-                    # If no versions exist yet, this is version 2
-                    version = 2
-                
-                logger.info(f"Creating new version for parent lesson {parent_lesson_id}, assigned version {version}")
-                logger.info(f"Max version found: {result['max_version'] if result else 'None'}")
+            # Generate lesson_id if not provided
+            if not lesson_id:
+                lesson_id = f"L{int(time.time() * 1000):06d}"  # Generate unique lesson_id
             
-            cursor = db.execute(
-                '''INSERT INTO lessons 
-                (teacher_id, title, summary, learning_objectives, focus_area, grade_level, content, file_name, is_public, parent_lesson_id, version) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                (teacher_id, title, summary, learning_objectives, focus_area, grade_level, content, file_name, is_public, parent_lesson_id, version)
-            )
-            db.commit()
-            return cursor.lastrowid
+            # Set original_content if not provided
+            if not original_content:
+                original_content = content
+            
+            # If this is a new version of an existing lesson, get the next version number
+            if parent_version_id:
+                # Get the parent lesson's lesson_id and version_number
+                parent_lesson = db.execute(
+                    'SELECT lesson_id, version_number FROM lessons WHERE id = ?',
+                    (parent_version_id,)
+                ).fetchone()
+                if parent_lesson:
+                    lesson_id = parent_lesson['lesson_id']  # Use same lesson_id as parent
+                    
+                    # Use atomic approach to get next version number
+                    # This ensures no race conditions by using a single query
+                    db.execute('BEGIN IMMEDIATE TRANSACTION')
+                    try:
+                        # Get the next available version number atomically
+                        next_version = db.execute(
+                            '''SELECT COALESCE(MAX(version_number), 0) + 1 as next_version 
+                               FROM lessons WHERE lesson_id = ?''',
+                            (lesson_id,)
+                        ).fetchone()
+                        
+                        version_number = next_version['next_version']
+                        logger.info(f"Creating new version {version_number} for lesson {lesson_id}")
+                        
+                        db.commit()
+                    except Exception as e:
+                        db.rollback()
+                        raise e
+            
+            # Retry logic for version number conflicts
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    cursor = db.execute(
+                        '''INSERT INTO lessons 
+                        (teacher_id, title, summary, learning_objectives, focus_area, grade_level, content, file_name, is_public, parent_lesson_id, version, draft_content, lesson_id, version_number, parent_version_id, original_content, status) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                        (teacher_id, title, summary, learning_objectives, focus_area, grade_level, content, file_name, is_public, parent_lesson_id, 1, draft_content, lesson_id, version_number, parent_version_id, original_content, status)
+                    )
+                    db.commit()
+                    return cursor.lastrowid
+                except sqlite3.IntegrityError as e:
+                    if "UNIQUE constraint failed" in str(e) and "lesson_id" in str(e) and "version_number" in str(e):
+                        # Version number conflict, get next available number
+                        if attempt < max_retries - 1:
+                            db.rollback()
+                            # Get the next available version number
+                            next_version = db.execute(
+                                '''SELECT COALESCE(MAX(version_number), 0) + 1 as next_version 
+                                   FROM lessons WHERE lesson_id = ?''',
+                                (lesson_id,)
+                            ).fetchone()
+                            version_number = next_version['next_version']
+                            logger.warning(f"Version conflict detected, retrying with version {version_number}")
+                            continue
+                        else:
+                            raise e
+                    else:
+                        raise e
         except Exception as e:
             logger.error(f"Error creating lesson: {str(e)}")
             raise
@@ -201,6 +244,34 @@ class LessonModel:
         except Exception as e:
             logger.error(f"Error retrieving lesson by ID: {str(e)}")
             raise
+
+    @staticmethod
+    def get_lessons_by_lesson_id(lesson_id: str) -> List[Dict[str, Any]]:
+        """Get all versions of a lesson by lesson_id"""
+        try:
+            db = get_db()
+            results = db.execute(
+                'SELECT * FROM lessons WHERE lesson_id = ? ORDER BY version_number ASC',
+                (lesson_id,)
+            ).fetchall()
+            return [dict(row) for row in results]
+        except Exception as e:
+            logger.error(f"Error getting lessons by lesson_id: {str(e)}")
+            return []
+
+    @staticmethod
+    def get_latest_version_by_lesson_id(lesson_id: str) -> Optional[Dict[str, Any]]:
+        """Get the latest version of a lesson by lesson_id"""
+        try:
+            db = get_db()
+            result = db.execute(
+                'SELECT * FROM lessons WHERE lesson_id = ? ORDER BY version_number DESC LIMIT 1',
+                (lesson_id,)
+            ).fetchone()
+            return dict(result) if result else None
+        except Exception as e:
+            logger.error(f"Error getting latest version by lesson_id: {str(e)}")
+            return None
 
     @staticmethod
     def get_lessons_by_teacher(teacher_id: int) -> List[Dict[str, Any]]:
@@ -332,7 +403,19 @@ class LessonModel:
         """Create a new version of an existing lesson"""
         try:
             logger.info(f"Creating new version of lesson {original_lesson_id} with title: '{title}'")
-            return LessonModel.create_lesson(
+            logger.info(f"DEBUG: create_new_version - content length: {len(content)}")
+            logger.info(f"DEBUG: create_new_version - content preview: {content[:100]}...")
+            
+            # Get the source lesson we are branching from (could be root or a child)
+            original_lesson = LessonModel.get_lesson_by_id(original_lesson_id)
+            if not original_lesson:
+                raise ValueError(f"Original lesson {original_lesson_id} not found")
+            
+            # Determine the root/original lesson id for grouping (parent_lesson_id should always point to root)
+            root_lesson_id = original_lesson.get('parent_lesson_id') or original_lesson_id
+            root_lesson = LessonModel.get_lesson_by_id(root_lesson_id)
+            
+            new_id = LessonModel.create_lesson(
                 teacher_id=teacher_id,
                 title=title,
                 summary=summary,
@@ -342,8 +425,25 @@ class LessonModel:
                 content=content,
                 file_name=file_name,
                 is_public=is_public,
-                parent_lesson_id=original_lesson_id
+                parent_lesson_id=root_lesson_id,
+                draft_content=None,  # New version starts with empty draft
+                lesson_id=root_lesson['lesson_id'],  # Use same lesson_id as root
+                parent_version_id=original_lesson_id  # Set parent version (the one we branched from)
             )
+
+            # Mark the specific source version (original_lesson_id) as having a child version
+            try:
+                db = get_db()
+                db.execute('UPDATE lessons SET has_child_version = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = ?', (original_lesson_id,))
+                # Also mark the root/original lesson as having a child (for UI consistency), if different
+                root_id = original_lesson.get('parent_lesson_id') or original_lesson_id
+                if root_id != original_lesson_id:
+                    db.execute('UPDATE lessons SET has_child_version = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = ?', (root_id,))
+                db.commit()
+            except Exception as flag_err:
+                logger.warning(f"Failed to set has_child_version flag for lesson {original_lesson_id}: {flag_err}")
+
+            return new_id
         except Exception as e:
             logger.error(f"Error creating new version: {str(e)}")
             raise
@@ -418,6 +518,103 @@ class LessonModel:
             return result['count'] > 0
         except Exception as e:
             logger.error(f"Error checking title existence: {str(e)}")
+            raise
+
+    @staticmethod
+    def save_draft_content(lesson_id: int, draft_content: str) -> bool:
+        """Save draft content for a lesson"""
+        try:
+            db = get_db()
+            db.execute(
+                'UPDATE lessons SET draft_content = ? WHERE id = ?',
+                (draft_content, lesson_id)
+            )
+            db.commit()
+            logger.info(f"Saved draft content for lesson {lesson_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Error saving draft content: {str(e)}")
+            return False
+
+    @staticmethod
+    def get_draft_content(lesson_id: int) -> str:
+        """Get draft content for a lesson"""
+        try:
+            db = get_db()
+            result = db.execute(
+                'SELECT draft_content FROM lessons WHERE id = ?',
+                (lesson_id,)
+            ).fetchone()
+            return result['draft_content'] if result and result['draft_content'] else ''
+        except Exception as e:
+            logger.error(f"Error getting draft content: {str(e)}")
+            return ''
+
+    @staticmethod
+    def clear_draft_content(lesson_id: int) -> bool:
+        """Clear draft content for a lesson"""
+        try:
+            db = get_db()
+            db.execute(
+                'UPDATE lessons SET draft_content = NULL WHERE id = ?',
+                (lesson_id,)
+            )
+            db.commit()
+            logger.info(f"Cleared draft content for lesson {lesson_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Error clearing draft content: {str(e)}")
+            return False
+
+    @staticmethod
+    def create_new_version_from_draft(original_lesson_id: int, teacher_id: int, title: str, summary: str, 
+                                     learning_objectives: str, focus_area: str, grade_level: str, 
+                                     draft_content: str, file_name: str = None, is_public: bool = True) -> int:
+        """Create a new version of a lesson using draft content"""
+        try:
+            logger.info(f"Creating new version from draft for lesson {original_lesson_id}")
+            
+            # Get the original lesson to get its lesson_id
+            original_lesson = LessonModel.get_lesson_by_id(original_lesson_id)
+            if not original_lesson:
+                raise ValueError(f"Original lesson {original_lesson_id} not found")
+            
+            # Determine the actual original lesson ID (root of the hierarchy)
+            actual_original_id = original_lesson.get('parent_lesson_id') or original_lesson_id
+            actual_original_lesson = LessonModel.get_lesson_by_id(actual_original_id)
+            
+            # Create new version with draft content as the main content
+            # The new version should start with empty draft content
+            new_lesson_id = LessonModel.create_lesson(
+                teacher_id=teacher_id,
+                title=title,
+                summary=summary,
+                learning_objectives=learning_objectives,
+                focus_area=focus_area,
+                grade_level=grade_level,
+                content=draft_content,  # Draft content becomes the new version's content
+                file_name=file_name,
+                is_public=is_public,
+                parent_lesson_id=actual_original_id,  # Always point to the root lesson
+                draft_content=None,  # New version starts with empty draft
+                lesson_id=actual_original_lesson['lesson_id'],  # Use same lesson_id as root
+                parent_version_id=original_lesson_id,  # Set parent version (the one we're creating from)
+                original_content=draft_content,  # Draft content becomes original content for new version
+                status="finalized"
+            )
+            # Mark the source version as having a child version
+            try:
+                db = get_db()
+                db.execute('UPDATE lessons SET has_child_version = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = ?', (original_lesson_id,))
+                # Also mark the root lesson as having a child
+                if actual_original_id != original_lesson_id:
+                    db.execute('UPDATE lessons SET has_child_version = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = ?', (actual_original_id,))
+                db.commit()
+            except Exception as flag_err:
+                logger.warning(f"Failed to set has_child_version flag for lesson {original_lesson_id}: {flag_err}")
+            return new_lesson_id
+        except Exception as e:
+            logger.error(f"Error creating new version from draft: {str(e)}")
             raise
 
 # app/models/models.py (ChatModel part)

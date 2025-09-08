@@ -123,3 +123,5 @@ To verify the fix is working:
 The fix updates all deprecated model references to use the currently supported `llama-3.3-70b-versatile` model. This resolves the 400 errors and ensures all AI-powered features continue to work correctly.
 
 The changes are minimal and focused, affecting only the model name parameter in the ChatGroq initialization calls. No other functionality is changed, ensuring backward compatibility while fixing the immediate issue.
+
+
