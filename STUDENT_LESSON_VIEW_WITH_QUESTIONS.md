@@ -157,3 +157,5 @@ if (userRole === 'teacher') {
 The student lesson view with ask question feature provides a seamless, integrated experience for students to view lesson content and ask questions in a single interface. This eliminates the need to switch between different modals and creates a more intuitive workflow for students while maintaining the existing teacher functionality.
 
 The implementation is robust, user-friendly, and leverages existing backend functionality without requiring any backend changes. The role-based approach ensures that both teachers and students get the appropriate interface for their needs.
+
+

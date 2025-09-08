@@ -152,3 +152,5 @@ The file clearing is designed to be safe:
 The file clear after finalization feature provides a clean, intuitive user experience by automatically clearing uploaded files at the appropriate moments. This prevents confusion and ensures users always start with a clean slate when creating new lessons.
 
 The implementation is robust, reusable, and maintains consistency across the application while providing a seamless workflow for lesson generation.
+
+

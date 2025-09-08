@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify, session, send_file, after_this_re
 from app.models.models import UserModel, LessonModel
 from app.services.lesson_service import LessonService
 from app.utils.decorators import login_required, teacher_required, student_required
+from app.utils.db import get_db
 from werkzeug.datastructures import FileStorage
 import logging
 import os
@@ -126,9 +127,9 @@ def browse_lessons():
         return jsonify({'error': f'Failed to browse lessons: {str(e)}'}), 500
 
 @bp.route('/search_lessons', methods=['GET'])
-@student_required
+@login_required
 def search_lessons():
-    """Search lessons for students"""
+    """Search lessons for both teachers and students"""
     try:
         search_term = request.args.get('q', '')
         grade_level = request.args.get('grade_level')
@@ -616,29 +617,28 @@ def create_lesson_version(lesson_id):
         if original_lesson['teacher_id'] != session['user_id']:
             return jsonify({'error': 'Access denied'}), 403
         
-        # Determine the actual original lesson ID
-        # If this lesson is a version (has parent_lesson_id), use the parent as the original
-        # Otherwise, use this lesson as the original
-        original_lesson_id = original_lesson.get('parent_lesson_id') or lesson_id
+        # Keep source_version_id as the lesson we're branching from (could be original or a child)
+        source_version_id = lesson_id
         
-        # If we're creating a version of a version, get the original lesson data
-        if original_lesson.get('parent_lesson_id'):
-            original_lesson_data = LessonModel.get_lesson_by_id(original_lesson_id)
-            if not original_lesson_data:
-                return jsonify({'error': 'Original lesson not found'}), 404
-        else:
-            original_lesson_data = original_lesson
+        # For display defaults, load the root/original lesson's data if needed
+        root_lesson_id = original_lesson.get('parent_lesson_id') or lesson_id
+        original_lesson_data = LessonModel.get_lesson_by_id(root_lesson_id) or original_lesson
         
         data = request.get_json()
+        
+        # Debug logging
+        logger.info(f"DEBUG: create_lesson_version - received data: {data}")
+        logger.info(f"DEBUG: create_lesson_version - content field: {data.get('content', 'NOT_PROVIDED')}")
+        logger.info(f"DEBUG: create_lesson_version - content length: {len(data.get('content', ''))}")
         
         # Check if new title already exists for this teacher (if title is being changed)
         new_title = data.get('title', original_lesson_data['title'])
         if new_title != original_lesson_data['title'] and LessonModel.check_title_exists(session['user_id'], new_title):
             return jsonify({'error': 'This lesson title is already used. Please choose a different title.'}), 400
         
-        # Create new version, always using the original lesson ID
+        # Create new version: pass source_version_id; model will attach to root and flag the source
         new_lesson_id = LessonModel.create_new_version(
-            original_lesson_id=original_lesson_id,
+            original_lesson_id=source_version_id,
             teacher_id=session['user_id'],
             title=data.get('title', original_lesson_data['title']),
             summary=data.get('summary', original_lesson_data['summary']),
@@ -690,18 +690,12 @@ def create_ai_lesson_version(lesson_id):
         if original_lesson['teacher_id'] != session['user_id']:
             return jsonify({'error': 'Access denied'}), 403
         
-        # Determine the actual original lesson ID
-        # If this lesson is a version (has parent_lesson_id), use the parent as the original
-        # Otherwise, use this lesson as the original
-        original_lesson_id = original_lesson.get('parent_lesson_id') or lesson_id
+        # Keep source_version_id as the lesson we're branching from (could be original or a child)
+        source_version_id = lesson_id
         
-        # If we're creating a version of a version, get the original lesson data
-        if original_lesson.get('parent_lesson_id'):
-            original_lesson_data = LessonModel.get_lesson_by_id(original_lesson_id)
-            if not original_lesson_data:
-                return jsonify({'error': 'Original lesson not found'}), 404
-        else:
-            original_lesson_data = original_lesson
+        # For display defaults, load the root/original lesson's data if needed
+        root_lesson_id = original_lesson.get('parent_lesson_id') or lesson_id
+        original_lesson_data = LessonModel.get_lesson_by_id(root_lesson_id) or original_lesson
         
         data = request.get_json()
         improvement_prompt = data.get('improvement_prompt', '')
@@ -716,14 +710,14 @@ def create_ai_lesson_version(lesson_id):
         
         # Generate improved lesson content
         improved_content = lesson_service.improve_lesson_content(
-            lesson_id=original_lesson_id,
+            lesson_id=lesson_id,
             current_content=original_lesson_data['content'],
             improvement_prompt=improvement_prompt
         )
         
         # Create new version with improved content, always using the original lesson ID
         new_lesson_id = LessonModel.create_new_version(
-            original_lesson_id=original_lesson_id,
+            original_lesson_id=lesson_id,
             teacher_id=session['user_id'],
             title=original_lesson_data['title'],
             summary=original_lesson_data['summary'],
@@ -912,4 +906,200 @@ def export_faq_dashboard():
         return response
     except Exception as e:
         logger.error(f"Error exporting FAQ dashboard: {str(e)}", exc_info=True)
-        return jsonify({'error': 'Failed to export FAQ dashboard'}), 500 
+        return jsonify({'error': 'Failed to export FAQ dashboard'}), 500
+
+@bp.route('/lesson/<int:lesson_id>/save_draft', methods=['POST'])
+@teacher_required
+def save_lesson_draft(lesson_id):
+    """Save draft content for a lesson"""
+    try:
+        # Check if lesson exists and belongs to the teacher
+        lesson = LessonModel.get_lesson_by_id(lesson_id)
+        if not lesson:
+            return jsonify({'error': 'Lesson not found'}), 404
+        
+        if lesson['teacher_id'] != session['user_id']:
+            return jsonify({'error': 'Access denied'}), 403
+        
+        data = request.get_json()
+        draft_content = data.get('draft_content', '')
+        
+        success = LessonModel.save_draft_content(lesson_id, draft_content)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Draft content saved successfully'
+            })
+        else:
+            return jsonify({'error': 'Failed to save draft content'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error saving draft content: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to save draft content: {str(e)}'}), 500
+
+@bp.route('/lesson/<int:lesson_id>/get_draft', methods=['GET'])
+@teacher_required
+def get_lesson_draft(lesson_id):
+    """Get draft content for a lesson"""
+    try:
+        # Check if lesson exists and belongs to the teacher
+        lesson = LessonModel.get_lesson_by_id(lesson_id)
+        if not lesson:
+            return jsonify({'error': 'Lesson not found'}), 404
+        
+        if lesson['teacher_id'] != session['user_id']:
+            return jsonify({'error': 'Access denied'}), 403
+        
+        draft_content = LessonModel.get_draft_content(lesson_id)
+        
+        # Get the original content from the first version of this lesson
+        original_content = lesson.get('original_content', lesson['content'])
+        if lesson.get('lesson_id'):
+            # Get the first version (version_number = 1) to get true original content
+            db = get_db()
+            first_version = db.execute(
+                'SELECT original_content FROM lessons WHERE lesson_id = ? AND version_number = 1',
+                (lesson['lesson_id'],)
+            ).fetchone()
+            if first_version:
+                original_content = first_version['original_content']
+        
+        return jsonify({
+            'success': True,
+            'draft_content': draft_content,
+            'current_content': lesson.get('original_content', lesson['content']),  # Current version's content
+            'original_content': original_content   # True original content from first version
+        })
+            
+    except Exception as e:
+        logger.error(f"Error getting draft content: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to get draft content: {str(e)}'}), 500
+
+@bp.route('/lesson/<int:lesson_id>/apply_prompt', methods=['POST'])
+@teacher_required
+def apply_prompt_to_lesson(lesson_id):
+    """Apply AI prompt to lesson content and save as draft"""
+    try:
+        # Check if lesson exists and belongs to the teacher
+        lesson = LessonModel.get_lesson_by_id(lesson_id)
+        if not lesson:
+            return jsonify({'error': 'Lesson not found'}), 404
+        
+        if lesson['teacher_id'] != session['user_id']:
+            return jsonify({'error': 'Access denied'}), 403
+        
+        data = request.get_json()
+        prompt = data.get('prompt', '')
+        
+        if not prompt.strip():
+            return jsonify({'error': 'Prompt is required'}), 400
+        
+        # Get API key from session
+        api_key = session.get('groq_api_key')
+        if not api_key:
+            return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
+        
+        # Get current content (use draft if available, otherwise original)
+        current_draft = LessonModel.get_draft_content(lesson_id)
+        content_to_edit = current_draft if current_draft else lesson.get('original_content', lesson['content'])
+        
+        # Use LessonService to apply the prompt
+        lesson_service = LessonService(api_key=api_key)
+        improved_content = lesson_service.improve_lesson_content(
+            lesson_id=lesson_id,
+            current_content=content_to_edit,
+            improvement_prompt=prompt
+        )
+        
+        # Save the improved content as draft
+        success = LessonModel.save_draft_content(lesson_id, improved_content)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'draft_content': improved_content,
+                'message': 'Prompt applied successfully'
+            })
+        else:
+            return jsonify({'error': 'Failed to save draft content'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error applying prompt: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to apply prompt: {str(e)}'}), 500
+
+@bp.route('/lesson/<int:lesson_id>/finalize_version', methods=['POST'])
+@teacher_required
+def finalize_lesson_version(lesson_id):
+    """Finalize draft content into a new lesson version"""
+    try:
+        # Check if lesson exists and belongs to the teacher
+        lesson = LessonModel.get_lesson_by_id(lesson_id)
+        if not lesson:
+            return jsonify({'error': 'Lesson not found'}), 404
+        
+        if lesson['teacher_id'] != session['user_id']:
+            return jsonify({'error': 'Access denied'}), 403
+        
+        # Get draft content
+        draft_content = LessonModel.get_draft_content(lesson_id)
+        
+        if not draft_content.strip():
+            return jsonify({'error': 'No draft content to finalize. Apply a prompt first.'}), 400
+        
+        # Determine the actual original lesson ID
+        original_lesson_id = lesson.get('parent_lesson_id') or lesson_id
+        
+        # Create new version using draft content: pass source_version_id; model will attach to root and flag the source
+        new_lesson_id = LessonModel.create_new_version_from_draft(
+            original_lesson_id=lesson_id,
+            teacher_id=session['user_id'],
+            title=lesson['title'],
+            summary=lesson['summary'],
+            learning_objectives=lesson['learning_objectives'],
+            focus_area=lesson['focus_area'],
+            grade_level=lesson['grade_level'],
+            draft_content=draft_content,
+            file_name=lesson.get('file_name'),
+            is_public=lesson.get('is_public', True)
+        )
+        
+        # Clear the draft content from the current lesson
+        LessonModel.clear_draft_content(lesson_id)
+        
+        return jsonify({
+            'success': True,
+            'new_lesson_id': new_lesson_id,
+            'message': 'New version created successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error finalizing version: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to finalize version: {str(e)}'}), 500
+
+@bp.route('/lesson/<int:lesson_id>/clear_draft', methods=['DELETE'])
+@teacher_required
+def clear_lesson_draft(lesson_id):
+    """Clear draft content for a lesson"""
+    try:
+        # Check if lesson exists and belongs to the teacher
+        lesson = LessonModel.get_lesson_by_id(lesson_id)
+        if not lesson:
+            return jsonify({'error': 'Lesson not found'}), 404
+        
+        if lesson['teacher_id'] != session['user_id']:
+            return jsonify({'error': 'Access denied'}), 403
+        
+        success = LessonModel.clear_draft_content(lesson_id)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': 'Draft content cleared successfully'
+            })
+        else:
+            return jsonify({'error': 'Failed to clear draft content'}), 500
+            
+    except Exception as e:
+        logger.error(f"Error clearing draft content: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to clear draft content: {str(e)}'}), 500 

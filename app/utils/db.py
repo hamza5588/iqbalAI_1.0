@@ -152,6 +152,7 @@ def init_db(app):
                     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                     is_public BOOLEAN DEFAULT TRUE,
+                    has_child_version BOOLEAN DEFAULT FALSE,
                     parent_lesson_id INTEGER,
                     version INTEGER DEFAULT 1,
                     FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -169,6 +170,93 @@ def init_db(app):
                 db.execute('ALTER TABLE lessons ADD COLUMN version INTEGER DEFAULT 1')
             except:
                 pass  # Column already exists
+            
+            # Add has_child_version flag if it doesn't exist
+            try:
+                db.execute('ALTER TABLE lessons ADD COLUMN has_child_version BOOLEAN DEFAULT FALSE')
+            except:
+                pass  # Column already exists
+                
+                    # Add new columns for proper lesson versioning
+        try:
+            db.execute('ALTER TABLE lessons ADD COLUMN lesson_id TEXT')
+        except:
+            pass  # Column already exists
+            
+        try:
+            db.execute('ALTER TABLE lessons ADD COLUMN version_number INTEGER DEFAULT 1')
+        except:
+            pass  # Column already exists
+            
+        try:
+            db.execute('ALTER TABLE lessons ADD COLUMN parent_version_id INTEGER')
+        except:
+            pass  # Column already exists
+            
+        try:
+            db.execute('ALTER TABLE lessons ADD COLUMN original_content TEXT')
+        except:
+            pass  # Column already exists
+            
+        try:
+            db.execute('ALTER TABLE lessons ADD COLUMN draft_content TEXT')
+        except:
+            pass  # Column already exists
+            
+        try:
+            db.execute('ALTER TABLE lessons ADD COLUMN status TEXT DEFAULT "finalized"')
+        except:
+            pass  # Column already exists
+            
+        # Migrate existing lessons to new schema
+        try:
+            # Generate lesson_id for existing lessons that don't have one
+            existing_lessons = db.execute('SELECT id FROM lessons WHERE lesson_id IS NULL').fetchall()
+            for lesson in existing_lessons:
+                lesson_id = f"L{lesson['id']:06d}"  # Generate lesson_id like L000001
+                db.execute('UPDATE lessons SET lesson_id = ? WHERE id = ?', (lesson_id, lesson['id']))
+            
+            # Set original_content for existing lessons
+            db.execute('UPDATE lessons SET original_content = content WHERE original_content IS NULL')
+            
+            # Set version_number for existing lessons
+            db.execute('UPDATE lessons SET version_number = 1 WHERE version_number IS NULL')
+            
+            # Set status for existing lessons
+            db.execute('UPDATE lessons SET status = "finalized" WHERE status IS NULL')
+            
+            # Ensure has_child_version defaults are set (if the column exists)
+            try:
+                db.execute('UPDATE lessons SET has_child_version = COALESCE(has_child_version, FALSE)')
+            except:
+                pass
+            
+            # Add unique constraint to prevent duplicate version numbers for the same lesson_id
+            try:
+                # First, remove any existing duplicates by keeping only the one with the lowest ID
+                db.execute('''
+                    DELETE FROM lessons 
+                    WHERE id NOT IN (
+                        SELECT MIN(id) 
+                        FROM lessons 
+                        GROUP BY lesson_id, version_number
+                    )
+                ''')
+                
+                # Create unique index to prevent future duplicates
+                db.execute('''
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_lesson_version_unique 
+                    ON lessons(lesson_id, version_number)
+                ''')
+                logger.info("Added unique constraint on lesson_id and version_number")
+            except Exception as e:
+                logger.warning(f"Could not add unique constraint: {e}")
+                pass
+
+            db.commit()
+        except Exception as e:
+            print(f"Migration error: {e}")
+            pass
             
             # Create conversations table
             db.execute('''
