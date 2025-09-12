@@ -163,19 +163,14 @@
                     </div>
                     
                     <!-- Update API Key Button -->
-                    <button onclick="changeTab(null, 'settings')"
-                        class="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-xs font-semibold text-gray-700">
-                        <img src="{{ url_for('static', filename='images/key.png') }}" alt="" class="w-3.5 h-3.5">
-                        <span>Update API Key</span>
+                    <button onclick="openApiKeyModal()"
+                        class="flex items-center justify-center w-8 h-8 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors" title="Update API Key">
+                        <img src="{{ url_for('static', filename='images/key.png') }}" alt="" class="w-4 h-4">
                     </button>
                     
                     <button id="chatDownloadBtn" onclick="downloadCurrentChat()"
                         class="w-8 h-8 sm:w-10 sm:h-10 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-colors">
                         <i class="fas fa-download text-gray-500 text-xs sm:text-sm"></i>
-                </button>
-                    <button
-                        class="w-8 h-8 sm:w-10 sm:h-10 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-colors">
-                        <i class="fas fa-ellipsis-h text-gray-500 text-xs sm:text-sm"></i>
                 </button>
             </div>
         </div>
@@ -459,10 +454,6 @@
                                                     <button type="button" onclick="startNewLesson()" 
                                                         class="w-full text-left px-2 py-1 text-xs text-gray-600 hover:bg-white hover:text-[#05B0FC] rounded transition-colors">
                                                         <i class="fas fa-plus mr-1"></i>Start Fresh Lesson
-                                                    </button>
-                                                    <button type="button" onclick="clearForm()" 
-                                                        class="w-full text-left px-2 py-1 text-xs text-gray-600 hover:bg-white hover:text-red-500 rounded transition-colors">
-                                                        <i class="fas fa-undo mr-1"></i>Clear Form
                                                     </button>
                                                 </div>
                                             </div>
@@ -1143,8 +1134,6 @@ async function initializeApp() {
                         <div class="flex items-center">${startIdx + rowIndex + 1}</div>
                         <div class="flex items-center font-medium text-gray-900">
                             ${mainLesson.title}
-                            ${hasMultipleVersions ? `<span class="ml-2 px-2 py-1 bg-green-100 text-green-700 text-xs rounded">Original</span>` : ''}
-                            ${mainLesson.parent_lesson_id ? `<span class="ml-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">Version</span>` : ''}
                         </div>
                         <div class="flex items-center">
                             <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${mainLesson.focus_area || ''}</span>
@@ -1173,14 +1162,13 @@ async function initializeApp() {
                         <div class="flex items-center">
                             ${hasMultipleVersions ? 
                                 `<button onclick="toggleLessonVersions('${group.lesson_id}')" class="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm" data-version-count="${group.lessons.length}">
-                                    <i class="fas fa-chevron-down mr-1"></i>${group.lessons.length} version${group.lessons.length !== 1 ? 's' : ''}
+                                    <i class="fas fa-chevron-down mr-1"></i>${group.lessons.length}
                                 </button>` : 
-                                `<span class="text-gray-400 text-sm">1 version</span>`
+                                `<span class="text-gray-400 text-sm">1</span>`
                             }
                             ${!mainLesson.parent_lesson_id && group.lessons.some(l => l.parent_lesson_id === mainLesson.id) ? 
                                 `` : ''
                             }
-                            ${mainLesson.has_child_version ? `<span class="ml-2 px-2 py-1 bg-red-100 text-red-700 text-xs rounded" title="Locked: already spawned a version">Locked</span>` : ''}
                         </div>
                     </div>
                 `;
@@ -1190,7 +1178,7 @@ async function initializeApp() {
                     lessonsHtml += `
                         <div id="versions-${group.lesson_id.replace(/[^a-zA-Z0-9]/g, '')}" class="hidden bg-gray-50 border-b">
                             <div class="px-4 py-3">
-                                <h4 class="font-semibold text-gray-700 mb-3">Version Tree for "${group.title}"</h4>
+                                <h4 class="font-semibold text-gray-700 mb-3">Versions</h4>
                                 <div class="space-y-2">
                                     ${buildVersionTree(subsequentVersions, 0)}
                                 </div>
@@ -1237,8 +1225,6 @@ async function initializeApp() {
                         <div class="flex items-center">${startIdx + rowIndex + 1}</div>
                         <div class="flex items-center font-medium text-gray-900">
                             ${mainLesson.title}
-                            ${hasMultipleVersions ? `<span class="ml-2 px-2 py-1 bg-green-100 text-green-700 text-xs rounded">Original</span>` : ''}
-                            ${mainLesson.parent_lesson_id ? `<span class="ml-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">Version</span>` : ''}
                         </div>
                         <div class="flex items-center">
                             <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${mainLesson.focus_area || ''}</span>
@@ -1255,9 +1241,9 @@ async function initializeApp() {
                         <div class="flex items-center">
                             ${hasMultipleVersions ? 
                                 `<button onclick="toggleLessonVersions('${group.lesson_id}')" class="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors text-sm" data-version-count="${group.lessons.length}">
-                                    <i class="fas fa-chevron-down mr-1"></i>${group.lessons.length} version${group.lessons.length !== 1 ? 's' : ''}
+                                    <i class="fas fa-chevron-down mr-1"></i>${group.lessons.length}
                                 </button>` : 
-                                `<span class="text-gray-400 text-sm">1 version</span>`
+                                `<span class="text-gray-400 text-sm">1</span>`
                             }
                             ${!mainLesson.parent_lesson_id && group.lessons.some(l => l.parent_lesson_id === mainLesson.id) ? 
                                 `` : ''
@@ -1271,15 +1257,13 @@ async function initializeApp() {
                     lessonsHtml += `
                         <div id="versions-${group.lesson_id.replace(/[^a-zA-Z0-9]/g, '')}" class="hidden bg-gray-50 border-b">
                             <div class="px-4 py-3">
-                                <h4 class="font-semibold text-gray-700 mb-3">Other Versions of "${group.title}"</h4>
+                                <h4 class="font-semibold text-gray-700 mb-3">Versions</h4>
                                 <div class="space-y-2">
                                     ${subsequentVersions.map((lesson, versionIndex) => `
                                         <div class="grid grid-cols-7 py-2 px-3 bg-white rounded border">
                                             <div class="flex items-center text-sm text-gray-500">v${lesson.version_number || 1}</div>
                                             <div class="flex items-center font-medium text-gray-900 text-sm">
                                                 ${lesson.title}
-                                                <span class="ml-2 px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded">v${lesson.version_number || 1}</span>
-                                                ${lesson.has_child_version ? '<span class="ml-2 px-2 py-1 bg-red-100 text-red-700 text-xs rounded" title="Locked: already spawned a version">Locked</span>' : ''}
                                             </div>
                                             <div class="flex items-center">
                                                 <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${lesson.focus_area || ''}</span>
@@ -1400,13 +1384,10 @@ async function initializeApp() {
             let html = `
                 <div class="grid grid-cols-7 py-2 px-3 bg-white rounded border ml-${depth * 4}" style="margin-left: ${depth * 16}px;">
                     <div class="flex items-center text-sm text-gray-500">
-                        ${indent}${isChild ? '└─ ' : ''}v${lesson.version_number || 1}
+                        v${lesson.version_number || 1}
                     </div>
                     <div class="flex items-center font-medium text-gray-900 text-sm">
                         ${lesson.title}
-                        <span class="ml-2 px-2 py-1 bg-gray-200 text-gray-700 text-xs rounded">v${lesson.version_number || 1}</span>
-                        ${isChild ? '<span class="ml-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">Child</span>' : ''}
-                        ${locked ? '<span class="ml-2 px-2 py-1 bg-red-100 text-red-700 text-xs rounded" title="Locked: already spawned a version">Locked</span>' : ''}
                     </div>
                     <div class="flex items-center">
                         <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${lesson.focus_area || ''}</span>
@@ -1467,11 +1448,11 @@ async function initializeApp() {
             
             if (isHidden) {
                 versionsDiv.classList.remove('hidden');
-                button.innerHTML = `<i class="fas fa-chevron-up mr-1"></i>${versionCount} version${versionCount !== '1' ? 's' : ''}`;
+                button.innerHTML = `<i class="fas fa-chevron-up mr-1"></i>${versionCount}`;
                 button.classList.add('bg-blue-200');
             } else {
                 versionsDiv.classList.add('hidden');
-                button.innerHTML = `<i class="fas fa-chevron-down mr-1"></i>${versionCount} version${versionCount !== '1' ? 's' : ''}`;
+                button.innerHTML = `<i class="fas fa-chevron-down mr-1"></i>${versionCount}`;
                 button.classList.remove('bg-blue-200');
             }
         }
@@ -1735,74 +1716,44 @@ async function initializeApp() {
         // View FAQs for a specific lesson version
     async function viewLessonFAQs(lessonId, lessonTitle) {
         try {
-                console.log(`🔍 viewLessonFAQs called with lessonId: ${lessonId}, lessonTitle: ${lessonTitle}`);
+            console.log(`🔍 viewLessonFAQs called with lessonId: ${lessonId}, lessonTitle: ${lessonTitle}`);
 
-                // First, let's test if we can show the view at all
-                console.log(`🔍 Testing view display first...`);
-                hideAllContentAreas();
+            // Show loading notification
+            showNotification(`Loading FAQs for "${lessonTitle}"...`, 'info');
 
-                const faqView = document.getElementById('mostFrequentQuestionsView');
-                console.log(`🔍 FAQ view element:`, faqView);
-                if (faqView) {
-                    faqView.classList.remove('hidden');
-                    console.log(`🔍 FAQ view is now visible`);
+            // Update modal title
+            document.getElementById('faqModalTitle').textContent = `FAQs - ${lessonTitle}`;
 
-                    // Update view state immediately
-                    currentView = 'mostFrequentQuestions';
-                    document.getElementById('chatTitle').textContent = `FAQs - ${lessonTitle}`;
-                    document.getElementById('chatStatus').textContent = 'Loading questions...';
-
-                } else {
-                    console.error(`❌ FAQ view element not found!`);
-                    return;
-                }
-
-                // Show loading notification
-                showNotification(`Loading FAQs for "${lessonTitle}"...`, 'info');
+            // Show modal
+            document.getElementById('faqModal').classList.remove('hidden');
 
             const response = await fetch(`/api/lessons/faqs/${lessonId}`, {
                 method: 'GET',
                 credentials: 'include'
             });
+
             if (response.ok) {
                 const data = await response.json();
-                    console.log(`🔍 API response data:`, data);
+                console.log(`🔍 API response data:`, data);
                 let faqs = data.faqs || [];
-                    console.log(`🔍 FAQs found: ${faqs.length}`);
+                console.log(`🔍 FAQs found: ${faqs.length}`);
 
-                    // If no FAQs found for this specific lesson
-                    if (faqs.length === 0) {
-                        showNotification(`No student questions found for "${lessonTitle}"`, 'info');
-                        // Still show the view but with empty state
-                        hideAllContentAreas();
-                        document.getElementById('mostFrequentQuestionsView').classList.remove('hidden');
-                        currentView = 'mostFrequentQuestions';
-
-                        // Update the main chat header
-                        document.getElementById('chatTitle').textContent = `FAQs - ${lessonTitle}`;
-                        document.getElementById('chatStatus').textContent = 'No questions asked yet for this lesson version';
-
-                        // Update the FAQ view header to be lesson-specific
-                        const faqViewTitle = document.getElementById('faqViewTitle');
-                        const faqViewDescription = document.getElementById('faqViewDescription');
-                        if (faqViewTitle) {
-                            faqViewTitle.textContent = `FAQs - ${lessonTitle}`;
-                        }
-                        if (faqViewDescription) {
-                            faqViewDescription.innerHTML = `
-                            <div class="text-center">
-                                <p class="text-gray-600 mb-2">No student questions have been asked for this lesson version yet.</p>
-                                <p class="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg inline-block">
-                                    <i class="fas fa-info-circle mr-2"></i>
-                                    This could indicate that the lesson is new or students haven't encountered any difficulties yet.
-                                </p>
-                            </div>
-                        `;
-                        }
-
-                        renderFAQTable([]);
-                        return;
-                    }
+                // If no FAQs found for this specific lesson
+                if (faqs.length === 0) {
+                    showNotification(`No student questions found for "${lessonTitle}"`, 'info');
+                    document.getElementById('faqModalContent').innerHTML = `
+                        <div class="text-center py-8">
+                            <i class="fas fa-question-circle text-6xl text-gray-300 mb-4"></i>
+                            <h3 class="text-xl font-semibold text-gray-700 mb-2">No Questions Yet</h3>
+                            <p class="text-gray-600 mb-4">No student questions have been asked for this lesson version yet.</p>
+                            <p class="text-sm text-blue-600 bg-blue-50 px-4 py-2 rounded-lg inline-block">
+                                <i class="fas fa-info-circle mr-2"></i>
+                                This could indicate that the lesson is new or students haven't encountered any difficulties yet.
+                            </p>
+                        </div>
+                    `;
+                    return;
+                }
 
                 // If subject/grade missing, fetch lesson info
                 let subject = '';
@@ -1830,55 +1781,193 @@ async function initializeApp() {
                     subject: faq.subject || subject,
                     grade: faq.grade || grade
                 }));
-                    // Show table with lesson-specific FAQs
-                    console.log(`🔍 Updating FAQ view headers and rendering table`);
 
-                    // Update the main chat header
-                    document.getElementById('chatTitle').textContent = `FAQs - ${lessonTitle}`;
-                    document.getElementById('chatStatus').textContent = `Showing ${faqs.length} student questions from this lesson version`;
+                // Render FAQ content in modal
+                renderFAQModalContent(faqs, lessonTitle);
 
-                    // Update the FAQ view header to be lesson-specific
-                    const faqViewTitle = document.getElementById('faqViewTitle');
-                    const faqViewDescription = document.getElementById('faqViewDescription');
-                    if (faqViewTitle) {
-                        faqViewTitle.textContent = `FAQs - ${lessonTitle}`;
-                    }
-                    if (faqViewDescription) {
-                        faqViewDescription.innerHTML = `
-                        <div class="text-center">
-                            <p class="text-gray-600 mb-2">Viewing <strong>${faqs.length} real student questions</strong> asked for this specific lesson version.</p>
-                            <p class="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg inline-block">
-                                <i class="fas fa-users mr-2"></i>
-                                These are actual questions asked by students, not AI-generated content
-                            </p>
-                        </div>
-                    `;
-                    }
-
-                    console.log(`🔍 Rendering FAQ table with ${faqs.length} FAQs`);
-                renderFAQTable(faqs);
-
-                    // Show success notification
-                    showNotification(`Loaded ${faqs.length} student questions for "${lessonTitle}"`, 'success');
+                // Show success notification
+                showNotification(`Loaded ${faqs.length} student questions for "${lessonTitle}"`, 'success');
             } else {
-                    const errorData = await response.json().catch(() => ({}));
-                    const errorMsg = errorData.error || 'Unknown error';
-                    console.error(`❌ API error: ${errorMsg}`);
-                    showNotification(`Failed to load FAQs: ${errorMsg}`, 'error');
+                const errorData = await response.json().catch(() => ({}));
+                const errorMsg = errorData.error || 'Unknown error';
+                console.error(`❌ API error: ${errorMsg}`);
+                showNotification(`Failed to load FAQs: ${errorMsg}`, 'error');
 
-                    // Even if API fails, show the view with an error message
-                    document.getElementById('chatStatus').textContent = `Error loading FAQs: ${errorMsg}`;
-                    document.getElementById('faqViewDescription').textContent = `Unable to load questions due to an error. Please try again later.`;
-                    renderFAQTable([]);
+                document.getElementById('faqModalContent').innerHTML = `
+                    <div class="text-center py-8">
+                        <i class="fas fa-exclamation-triangle text-6xl text-red-300 mb-4"></i>
+                        <h3 class="text-xl font-semibold text-gray-700 mb-2">Error Loading FAQs</h3>
+                        <p class="text-gray-600 mb-4">Unable to load questions due to an error. Please try again later.</p>
+                        <p class="text-sm text-red-600 bg-red-50 px-4 py-2 rounded-lg inline-block">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            ${errorMsg}
+                        </p>
+                    </div>
+                `;
             }
         } catch (error) {
-                console.error('❌ JavaScript error in viewLessonFAQs:', error);
-                showNotification('Error loading lesson FAQs. Please try again.', 'error');
+            console.error('❌ JavaScript error in viewLessonFAQs:', error);
+            showNotification('Error loading lesson FAQs. Please try again.', 'error');
 
-                // Even if there's a JavaScript error, show the view with an error message
-                document.getElementById('chatStatus').textContent = 'Error occurred while loading FAQs';
-                document.getElementById('faqViewDescription').textContent = 'An unexpected error occurred. Please try again later.';
-                renderFAQTable([]);
+            document.getElementById('faqModalContent').innerHTML = `
+                <div class="text-center py-8">
+                    <i class="fas fa-exclamation-triangle text-6xl text-red-300 mb-4"></i>
+                    <h3 class="text-xl font-semibold text-gray-700 mb-2">Unexpected Error</h3>
+                    <p class="text-gray-600 mb-4">An unexpected error occurred. Please try again later.</p>
+                    <p class="text-sm text-red-600 bg-red-50 px-4 py-2 rounded-lg inline-block">
+                        <i class="fas fa-info-circle mr-2"></i>
+                        Please refresh the page and try again.
+                    </p>
+                </div>
+            `;
+        }
+    }
+
+    // Render FAQ content in modal
+    function renderFAQModalContent(faqs, lessonTitle) {
+        const modalContent = document.getElementById('faqModalContent');
+        
+        if (faqs.length === 0) {
+            modalContent.innerHTML = `
+                <div class="text-center py-8">
+                    <i class="fas fa-question-circle text-6xl text-gray-300 mb-4"></i>
+                    <h3 class="text-xl font-semibold text-gray-700 mb-2">No Questions Yet</h3>
+                    <p class="text-gray-600 mb-4">No student questions have been asked for this lesson version yet.</p>
+                </div>
+            `;
+            return;
+        }
+
+        // Create FAQ table
+        const tableHTML = `
+            <div class="mb-4">
+                <div class="text-center mb-4">
+                    <p class="text-gray-600 mb-2">Viewing <strong>${faqs.length} real student questions</strong> asked for this specific lesson version.</p>
+                    <p class="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg inline-block">
+                        <i class="fas fa-users mr-2"></i>
+                        These are actual questions asked by students, not AI-generated content
+                    </p>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow-md overflow-hidden overflow-x-auto">
+                <div class="divide-y divide-gray-200 min-w-full">
+                    ${faqs.map((faq, index) => `
+                        <div class="grid grid-cols-12 py-3 px-4 hover:bg-gray-50 transition-colors">
+                            <div class="col-span-1 flex items-center text-sm text-gray-500">${index + 1}</div>
+                            <div class="col-span-6 flex items-center font-medium text-gray-900 text-sm">
+                                ${faq.question}
+                                ${faq.is_version ? `<span class="ml-2 px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">v${faq.version}</span>` : `<span class="ml-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">Original</span>`}
+                            </div>
+                            <div class="col-span-2 flex items-center">
+                                <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${faq.subject || ''}</span>
+                            </div>
+                            <div class="col-span-2 flex items-center">
+                                <span class="px-2 py-1 text-blue-800 text-xs">${faq.grade || ''}</span>
+                            </div>
+                            <div class="col-span-1 flex items-center text-center">
+                                <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-semibold">${faq.count}</span>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        
+        modalContent.innerHTML = tableHTML;
+    }
+
+    // Close FAQ modal
+    function closeFaqModal() {
+        document.getElementById('faqModal').classList.add('hidden');
+        document.getElementById('faqModalContent').innerHTML = '';
+    }
+
+    // Close modal when clicking outside of it
+    document.addEventListener('click', function(event) {
+        const faqModal = document.getElementById('faqModal');
+        const apiKeyModal = document.getElementById('apiKeyModal');
+        if (event.target === faqModal) {
+            closeFaqModal();
+        }
+        if (event.target === apiKeyModal) {
+            closeApiKeyModal();
+        }
+    });
+
+    // API Key Modal Functions
+    function openApiKeyModal() {
+        document.getElementById('apiKeyModal').classList.remove('hidden');
+        document.getElementById('apiKeyModalInput').value = '';
+    }
+
+    function closeApiKeyModal() {
+        document.getElementById('apiKeyModal').classList.add('hidden');
+        document.getElementById('apiKeyModalInput').value = '';
+    }
+
+    function toggleApiKeyModalVisibility() {
+        const input = document.getElementById('apiKeyModalInput');
+        const icon = document.getElementById('apiKeyModalToggleIcon');
+        
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('fa-eye');
+            icon.classList.add('fa-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.remove('fa-eye-slash');
+            icon.classList.add('fa-eye');
+        }
+    }
+
+    function clearApiKeyModal() {
+        document.getElementById('apiKeyModalInput').value = '';
+        showNotification('API key field cleared', 'info');
+    }
+
+    async function saveApiKeyModal() {
+        const apiKeyInput = document.getElementById('apiKeyModalInput');
+        const saveBtn = document.getElementById('saveApiKeyModalBtn');
+        const newApiKey = apiKeyInput.value.trim();
+
+        if (!newApiKey) {
+            showNotification('Please enter an API key', 'error');
+            return;
+        }
+
+        // Show loading state
+        const originalText = saveBtn.textContent;
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Saving...';
+
+        try {
+            const response = await fetch('/update_api_key', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ api_key: newApiKey }),
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    showNotification('API key updated successfully', 'success');
+                    closeApiKeyModal();
+                } else {
+                    showNotification(data.error || 'Failed to update API key', 'error');
+                }
+            } else {
+                const errorData = await response.json();
+                showNotification(errorData.error || 'Failed to update API key', 'error');
+            }
+        } catch (error) {
+            console.error('Error updating API key:', error);
+            showNotification('Error updating API key', 'error');
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.textContent = originalText;
         }
     }
 
@@ -2259,8 +2348,6 @@ async function initializeApp() {
         if (validationMessage) {
             validationMessage.classList.add('hidden');
         }
-        
-        showNotification('Form cleared successfully', 'success');
     }
 
     function proceedToLessonConfig() {
@@ -2350,6 +2437,64 @@ async function initializeApp() {
             }, 500); // 500ms debounce
     }
 
+    // Function to disable all sidebar tabs during actions
+    function disableSidebarTabs() {
+        const tabsToDisable = [
+            'startNewChat',
+            'resetChat', 
+            'openLessonGenerator',
+            'openViewLessons',
+            'toggleVoiceRecording',
+            'logout'
+        ];
+        
+        tabsToDisable.forEach(tabFunction => {
+            const buttons = document.querySelectorAll(`button[onclick*="${tabFunction}"]`);
+            buttons.forEach(button => {
+                button.disabled = true;
+                button.classList.add('opacity-50', 'cursor-not-allowed');
+                button.style.pointerEvents = 'none';
+            });
+        });
+        
+        // Also disable chat history dropdown
+        const historyBtn = document.querySelector('button[onclick="toggleDropdown()"]');
+        if (historyBtn) {
+            historyBtn.disabled = true;
+            historyBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            historyBtn.style.pointerEvents = 'none';
+        }
+    }
+    
+    // Function to re-enable all sidebar tabs after actions
+    function enableSidebarTabs() {
+        const tabsToEnable = [
+            'startNewChat',
+            'resetChat', 
+            'openLessonGenerator',
+            'openViewLessons',
+            'toggleVoiceRecording',
+            'logout'
+        ];
+        
+        tabsToEnable.forEach(tabFunction => {
+            const buttons = document.querySelectorAll(`button[onclick*="${tabFunction}"]`);
+            buttons.forEach(button => {
+                button.disabled = false;
+                button.classList.remove('opacity-50', 'cursor-not-allowed');
+                button.style.pointerEvents = 'auto';
+            });
+        });
+        
+        // Also re-enable chat history dropdown
+        const historyBtn = document.querySelector('button[onclick="toggleDropdown()"]');
+        if (historyBtn) {
+            historyBtn.disabled = false;
+            historyBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            historyBtn.style.pointerEvents = 'auto';
+        }
+    }
+
     async function generateLesson(event) {
         event.preventDefault();
         
@@ -2394,6 +2539,9 @@ async function initializeApp() {
         if (loadingIcon) {
             loadingIcon.className = 'fas fa-spinner fa-spin mr-2';
         }
+        
+        // Disable all sidebar tabs during lesson generation
+        disableSidebarTabs();
         
         try {
             let endpoint = '/api/lessons/create_lesson';
@@ -2508,6 +2656,9 @@ async function initializeApp() {
             if (loadingIcon) {
                 loadingIcon.className = 'fas fa-magic mr-2';
             }
+            
+            // Re-enable all sidebar tabs after lesson generation completes
+            enableSidebarTabs();
         }
     }
 
@@ -2593,6 +2744,9 @@ async function initializeApp() {
         applyBtnText.textContent = 'Processing...';
         applyBtnLoader.classList.remove('hidden');
         
+        // Disable all sidebar tabs during AI review processing
+        disableSidebarTabs();
+        
         try {
             const response = await fetch('/edit_lesson_with_prompt', {
                 method: 'POST',
@@ -2635,6 +2789,9 @@ async function initializeApp() {
             applyBtnText.textContent = 'Apply AI Changes';
             applyBtnLoader.classList.add('hidden');
             document.getElementById('aiReviewPrompt').value = '';
+            
+            // Re-enable all sidebar tabs after AI review processing completes
+            enableSidebarTabs();
         }
     }
 
@@ -2855,9 +3012,9 @@ async function initializeApp() {
                 if (chatInputArea) {
                     chatInputArea.classList.remove('hidden');
                 }
-                // Only set to 'New Chat' if no current chat is loaded or title is empty
+                // Reset header to New Chat when starting a new chat
                 const chatTitleElement = document.getElementById('chatTitle');
-                if (!currentChatId || chatTitleElement.textContent === '') {
+                if (!currentChatId || chatTitleElement.textContent === '' || chatTitleElement.textContent === 'Lesson Generator' || chatTitleElement.textContent === 'My Lessons' || chatTitleElement.textContent === 'Browse Lessons') {
                     chatTitleElement.textContent = 'New Chat';
                 }
                 document.getElementById('chatStatus').textContent = 'Online';
@@ -3344,6 +3501,10 @@ async function initializeApp() {
             currentChatId = Date.now();
         }
 
+            // Reset header to New Chat
+            document.getElementById('chatTitle').textContent = 'New Chat';
+            document.getElementById('chatStatus').textContent = 'Online';
+            
             changeTab(null, 'chat');
         
         const chatMessages = document.getElementById('chatMessages');
@@ -3910,8 +4071,8 @@ async function initializeApp() {
         sidebar.innerHTML = `
             <div class="flex justify-between items-center">
                 <img src="{{ url_for('static', filename='images/logo.png') }}" class="w-20 sm:w-24 lg:w-28 xl:w-32 h-6 sm:h-8 lg:h-10" alt="">
-                <button onclick="hideSidebar()" class="mt-1 hover:bg-gray-100 p-1 rounded">
-                    <img src="{{ url_for('static', filename='images/slider.png') }}" alt="" class="w-4 h-4">
+                <button onclick="hideSidebar()" class="mt-2 sm:mt-4 hover:bg-gray-100 p-1 rounded">
+                    <img src="{{ url_for('static', filename='images/slider.png') }}" alt="">
                 </button>
             </div>
             
@@ -3938,11 +4099,6 @@ async function initializeApp() {
                     <span id="viewLessonsLabel">View Lessons</span>
                 </button>
 
-                <button onclick="changeTab(null, 'settings')" class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors">
-                    <img src="{{ url_for('static', filename='images/key.png') }}" alt="" class="w-3.5 h-3.5">
-                    <span>Update API Key</span>
-                </button>
-
                 <button onclick="toggleVoiceRecording()" class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors">
                     <i class="fas fa-microphone w-3.5 h-3.5"></i>
                     <span>Real Time Chat</span>
@@ -3965,16 +4121,19 @@ async function initializeApp() {
                     <!-- Chat history items will be populated here -->
                 </div>
 
+                <!-- Voice Recording Indicator -->
+                <div id="voiceRecordingIndicator" class="hidden px-4 sm:px-6 py-2 bg-red-50 border-l-4 border-red-500">
+                    <div class="flex items-center gap-2">
+                        <div class="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                        <span class="text-red-700 font-medium text-sm sm:text-base">Recording... Click to stop</span>
+                        <button onclick="stopRecording()" class="ml-auto text-red-700 hover:text-red-900">
+                            <i class="fas fa-stop-circle text-lg sm:text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Logout Button -->
                 <button onclick="logout()" class="fixed bottom-4 w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center justify-center gap-1.5 font-semibold text-xs text-gray-700 bg-white shadow rounded hover:bg-gray-50 transition-colors">
-                    <i class="fas fa-sign-out-alt text-[#F50D0D] w-3 h-3"></i>
-                    <span class="text-[#F50D0D]">Log out</span>
-                </button>
-
-
-
-                <!-- Logout Button -->
-                <button onclick="logout()" class="fixed bottom-4 w-[160px] h-[28px] px-2 flex items-center justify-center gap-1.5 font-semibold text-xs text-gray-700 bg-white shadow rounded hover:bg-gray-50 transition-colors">
                     <i class="fas fa-sign-out-alt text-[#F50D0D] w-3 h-3"></i>
                     <span class="text-[#F50D0D]">Log out</span>
                 </button>
@@ -5638,6 +5797,9 @@ async function initializeApp() {
                 applyBtn.disabled = true;
                 applyBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Applying...';
             }
+            
+            // Disable all sidebar tabs during AI prompt application
+            disableSidebarTabs();
 
             try {
                 const response = await fetch(`/api/lessons/lesson/${lessonId}/apply_prompt`, {
@@ -5675,6 +5837,9 @@ async function initializeApp() {
                     applyBtn.disabled = false;
                     applyBtn.innerHTML = '<i class="fas fa-magic mr-2"></i>Apply Prompt';
                 }
+                
+                // Re-enable all sidebar tabs after AI prompt application completes
+                enableSidebarTabs();
             }
         }
 
@@ -5696,6 +5861,9 @@ async function initializeApp() {
                 finalizeBtn.disabled = true;
                 finalizeBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Finalizing...';
             }
+            
+            // Disable all sidebar tabs during version finalization
+            disableSidebarTabs();
 
             try {
                 const response = await fetch(`/api/lessons/lesson/${lessonId}/finalize_version`, {
@@ -5725,6 +5893,9 @@ async function initializeApp() {
                     finalizeBtn.disabled = false;
                     finalizeBtn.innerHTML = 'Finalize New Version';
                 }
+                
+                // Re-enable all sidebar tabs after version finalization completes
+                enableSidebarTabs();
             }
     }
 
@@ -6109,6 +6280,85 @@ async function initializeApp() {
       }
     }
   </style>
+
+  <!-- FAQ Modal -->
+  <div id="faqModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+      <!-- Modal Header -->
+      <div class="bg-gradient-to-r from-[#05B0FC] to-blue-600 px-6 py-4 flex justify-between items-center">
+        <h3 class="text-xl font-semibold text-white flex items-center">
+          <i class="fas fa-question-circle mr-3"></i>
+          <span id="faqModalTitle">Frequently Asked Questions</span>
+        </h3>
+        <button onclick="closeFaqModal()" class="text-white hover:text-gray-200 transition-colors">
+          <i class="fas fa-times text-xl"></i>
+        </button>
+      </div>
+      
+      <!-- Modal Content -->
+      <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+        <div id="faqModalContent">
+          <!-- FAQ content will be populated here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- API Key Modal -->
+  <div id="apiKeyModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+      <!-- Modal Header -->
+      <div class="bg-gradient-to-r from-[#05B0FC] to-blue-600 px-6 py-4 flex justify-between items-center">
+        <h3 class="text-xl font-semibold text-white flex items-center">
+          <i class="fas fa-key mr-3"></i>
+          Update API Key
+        </h3>
+        <button onclick="closeApiKeyModal()" class="text-white hover:text-gray-200 transition-colors">
+          <i class="fas fa-times text-xl"></i>
+        </button>
+      </div>
+      
+      <!-- Modal Content -->
+      <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+        <div class="text-gray-600 space-y-3 mb-6">
+          <h4 class="font-semibold text-gray-800">How to get your GROQ API Key:</h4>
+          <p class="text-sm">1. Visit <a href="https://console.groq.com/" target="_blank" class="text-blue-600 hover:underline">console.groq.com</a></p>
+          <p class="text-sm">2. Sign up or log in to your account</p>
+          <p class="text-sm">3. Go to the API Keys section</p>
+          <p class="text-sm">4. Click "Create API Key"</p>
+          <p class="text-sm">5. Copy your API key and paste it below</p>
+          <p class="text-xs text-gray-500">Your API key should start with "gsk_"</p>
+        </div>
+        
+        <div class="mb-6">
+          <label for="apiKeyModalInput" class="block text-sm font-medium text-gray-700 mb-2">
+            API Key
+          </label>
+          <div class="relative">
+            <input type="password" id="apiKeyModalInput" placeholder="Enter your GROQ API key..."
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 pr-12 text-sm" />
+            <button onclick="toggleApiKeyModalVisibility()"
+              class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700">
+              <i class="fas fa-eye" id="apiKeyModalToggleIcon"></i>
+            </button>
+          </div>
+        </div>
+        
+        <!-- Action Buttons -->
+        <div class="flex gap-3">
+          <button onclick="clearApiKeyModal()" 
+            class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
+            Clear
+          </button>
+          <button onclick="saveApiKeyModal()" id="saveApiKeyModalBtn"
+            class="flex-1 px-4 py-2 bg-gradient-to-r from-[#05B0FC] to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-[#05B0FC] transition-all duration-200 font-semibold">
+            Save API Key
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
 </body>
 
 </html>
