@@ -416,69 +416,113 @@ class LessonService:
             logger.error(f"Failed to initialize ChatGroq: {str(e)}")
             raise ValueError(f"Failed to initialize AI model: {str(e)}")
 
-        # FIXED: Improved prompt with clearer instructions
+        # Prof. Potter's Enhanced Lesson Generation Prompt
         self.lesson_prompt = ChatPromptTemplate.from_template("""
-You are an expert teacher. Create a comprehensive lesson plan from the following document content.
+You are Prof. Potter, an experienced teacher who helps faculty prepare creative, engaging lessons for their students. You follow Prof. Potter's teaching methodology and guidelines.
 
 Document Content:
 {text}
 
+PROF. POTTER'S TEACHING APPROACH:
+- Break complex lessons into simpler short lectures that build upon each other
+- Use creative vocabulary appropriate for the student's grade level
+- Emphasize creative lesson generation and innovative teaching approaches
+- For STEM subjects: Apply contextual analysis, equation mapping, and context preservation
+- Ensure each section is self-explanatory and builds student understanding progressively
+- Focus on practical applications and real-world connections
+
 CRITICAL: You must respond with ONLY a valid JSON object. Do not include any text before or after the JSON.
 
-Return this exact JSON structure:
+Return this exact JSON structure following Prof. Potter's methodology:
 
 {{
-    "title": "Clear and descriptive lesson title",
-    "summary": "Brief 2-3 sentence summary of the lesson",
+    "title": "Clear and descriptive lesson title that sparks student interest",
+    "summary": "Brief 2-3 sentence summary emphasizing the creative and practical aspects of the lesson",
     "learning_objectives": [
-        "Specific learning objective 1",
-        "Specific learning objective 2",
-        "Specific learning objective 3"
+        "Specific learning objective 1 (written for student understanding)",
+        "Specific learning objective 2 (emphasizing practical application)",
+        "Specific learning objective 3 (focusing on creative thinking)"
+    ],
+    "background_prerequisites": [
+        "Essential background knowledge students need before this lesson",
+        "Previous concepts that should be reviewed",
+        "Foundational skills required"
     ],
     "sections": [
         {{
-            "heading": "Introduction (use a clear, bolded heading)",
-            "content": "Detailed explanation with examples and key concepts"
+            "heading": "1. Introduction: Setting the Foundation",
+            "content": "Engaging introduction that connects to students' prior knowledge and sparks curiosity. Use creative, grade-appropriate vocabulary."
         }},
         {{
-            "heading": "Main Content (use a clear, bolded heading)",
-            "content": "Core lesson material with detailed explanations"
+            "heading": "2. Core Concept Development",
+            "content": "Main lesson content broken into digestible parts. For STEM subjects, explain individual terms before showing relationships. Use simple, creative explanations."
         }},
         {{
-            "heading": "Conclusion (use a clear, bolded heading)",
-            "content": "Summary and key takeaways"
+            "heading": "3. Practical Applications",
+            "content": "Real-world examples and applications that help students see the relevance and creativity in the subject matter."
+        }},
+        {{
+            "heading": "4. Synthesis and Connection",
+            "content": "How all the simpler short lectures combine to form the complete understanding. Connect concepts together."
+        }},
+        {{
+            "heading": "5. Conclusion and Next Steps",
+            "content": "Summary of key takeaways and preparation for future learning. Encourage continued creative exploration."
         }}
     ],
     "key_concepts": [
-        "Important concept 1",
-        "Important concept 2",
-        "Important concept 3"
+        "Important concept 1 (explained simply)",
+        "Important concept 2 (with creative connection)",
+        "Important concept 3 (emphasizing practical value)"
     ],
-    "activities": [
+    "creative_activities": [
         {{
-            "name": "Activity name",
-            "description": "How to perform the activity",
-            "duration": "15 minutes"
+            "name": "Creative activity name that engages students",
+            "description": "Step-by-step creative approach that encourages student participation and innovative thinking",
+            "duration": "15-20 minutes",
+            "learning_purpose": "What students will gain from this creative approach"
         }}
     ],
-    "quiz": [
+    "stem_equations": [
         {{
-            "question": "Multiple choice question",
+            "equation": "Relevant equation (if applicable to STEM subjects)",
+            "term_explanations": [
+                "Explanation of each term in simple language",
+                "Physical meaning of each component",
+                "Real-world significance"
+            ],
+            "mathematical_operations": "How operations transform the terms",
+            "complete_equation_significance": "What the complete equation tells us about the physical world"
+        }}
+    ],
+    "assessment_quiz": [
+        {{
+            "question": "Creative question that tests understanding, not just memorization",
             "options": ["Option A", "Option B", "Option C", "Option D"],
             "answer": "A",
-            "explanation": "Brief explanation of why this is correct"
+            "explanation": "Clear explanation that reinforces learning and encourages further thinking"
         }}
+    ],
+    "teacher_notes": [
+        "Suggestions for adapting to different student levels",
+        "Creative teaching strategies",
+        "Ways to challenge advanced students",
+        "Support strategies for struggling students"
     ]
 }}
 
-IMPORTANT:
+PROF. POTTER'S REQUIREMENTS:
 - Return ONLY the JSON object
-- No markdown code blocks
-- No additional text or explanations
+- No markdown code blocks or additional text
 - Ensure all JSON strings are properly escaped
 - Answer field must be only "A", "B", "C", or "D"
-- **All section headings must be clear, bold, and numbered (e.g., '1. Introduction', '2. Main Content', '3. Conclusion')**
-- Do NOT omit any section headings. Every section must have a heading.
+- Use creative, engaging language appropriate for the target grade level
+- Break complex concepts into simpler, digestible parts
+- Emphasize practical applications and real-world connections
+- Include background prerequisites to ensure student readiness
+- For STEM subjects, follow the equation-based teaching protocol
+- Encourage creative thinking and innovative approaches
+- Provide teacher notes for differentiated instruction
 """)
 
     def allowed_file(self, filename: str) -> bool:
@@ -680,49 +724,81 @@ IMPORTANT:
         return json_part
 
     def _validate_and_fix_lesson(self, lesson_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Validate and fix lesson structure"""
-        # Ensure required fields exist with defaults
+        """Validate and fix lesson structure following Prof. Potter's methodology"""
+        # Ensure required fields exist with defaults following Prof. Potter's approach
         default_lesson = {
-            "title": "Generated Lesson",
-            "summary": "A comprehensive lesson based on the provided content.",
+            "title": "Creative Learning Adventure",
+            "summary": "An engaging lesson that breaks complex concepts into simpler, digestible parts while emphasizing creative thinking and practical applications.",
             "learning_objectives": [
-                "Understand the main concepts",
-                "Apply the knowledge learned",
-                "Analyze the key points"
+                "Understand the main concepts through creative exploration",
+                "Apply knowledge in practical, real-world contexts",
+                "Develop creative thinking and problem-solving skills"
+            ],
+            "background_prerequisites": [
+                "Basic understanding of foundational concepts",
+                "Previous knowledge that builds to this lesson",
+                "Essential skills needed for success"
             ],
             "sections": [
                 {
-                    "heading": "Introduction",
-                    "content": "This lesson covers the key concepts from the provided material."
+                    "heading": "1. Introduction: Setting the Foundation",
+                    "content": "Welcome to our creative learning journey! This lesson connects to what you already know and sparks your curiosity about new discoveries."
                 },
                 {
-                    "heading": "Main Content",
-                    "content": "The core material and important points are discussed here."
+                    "heading": "2. Core Concept Development",
+                    "content": "Let's explore the main ideas step by step, breaking them into simple, understandable parts that build your knowledge."
                 },
                 {
-                    "heading": "Conclusion",
-                    "content": "Summary of the key takeaways and next steps."
+                    "heading": "3. Practical Applications",
+                    "content": "See how these concepts apply to real life! Discover the creative and practical ways this knowledge helps us understand our world."
+                },
+                {
+                    "heading": "4. Synthesis and Connection",
+                    "content": "Now let's connect all the pieces together to see the complete picture and understand how everything works as a whole."
+                },
+                {
+                    "heading": "5. Conclusion and Next Steps",
+                    "content": "Great work! Let's summarize what we've learned and prepare for your continued creative exploration of this fascinating topic."
                 }
             ],
             "key_concepts": [
-                "Key concept 1",
-                "Key concept 2",
-                "Key concept 3"
+                "Essential concept explained simply",
+                "Important idea with creative connection",
+                "Core principle emphasizing practical value"
             ],
-            "activities": [
+            "creative_activities": [
                 {
-                    "name": "Discussion Activity",
-                    "description": "Discuss the main points with peers",
-                    "duration": "15 minutes"
+                    "name": "Creative Exploration Activity",
+                    "description": "Engage in hands-on creative exploration that encourages innovative thinking and active participation",
+                    "duration": "15-20 minutes",
+                    "learning_purpose": "Develop understanding through creative engagement and practical application"
                 }
             ],
-            "quiz": [
+            "stem_equations": [
                 {
-                    "question": "What is the main topic of this lesson?",
-                    "options": ["Option A", "Option B", "Option C", "Option D"],
-                    "answer": "A",
-                    "explanation": "This covers the primary subject matter."
+                    "equation": "Relevant equation (if applicable)",
+                    "term_explanations": [
+                        "Simple explanation of each term",
+                        "Real-world meaning of components",
+                        "Practical significance"
+                    ],
+                    "mathematical_operations": "How operations transform terms",
+                    "complete_equation_significance": "What the complete equation reveals about our world"
                 }
+            ],
+            "assessment_quiz": [
+                {
+                    "question": "What creative approach helps you understand this lesson best?",
+                    "options": ["Hands-on exploration", "Visual connections", "Real-world examples", "All of the above"],
+                    "answer": "D",
+                    "explanation": "The best learning happens when we combine multiple creative approaches to build understanding."
+                }
+            ],
+            "teacher_notes": [
+                "Adapt activities to different learning styles",
+                "Encourage creative thinking and innovation",
+                "Provide additional challenges for advanced students",
+                "Offer support strategies for students who need extra help"
             ]
         }
         
@@ -743,11 +819,27 @@ IMPORTANT:
                 if "content" not in section:
                     section["content"] = "Content for this section."
         
-        # Validate quiz structure
-        if not isinstance(lesson_data.get("quiz"), list):
-            lesson_data["quiz"] = default_lesson["quiz"]
+        # Validate creative_activities structure (replaces old activities)
+        if not isinstance(lesson_data.get("creative_activities"), list):
+            lesson_data["creative_activities"] = default_lesson["creative_activities"]
         else:
-            for question in lesson_data["quiz"]:
+            for activity in lesson_data["creative_activities"]:
+                if not isinstance(activity, dict):
+                    continue
+                if "name" not in activity:
+                    activity["name"] = "Creative Activity"
+                if "description" not in activity:
+                    activity["description"] = "Engaging creative activity"
+                if "duration" not in activity:
+                    activity["duration"] = "15-20 minutes"
+                if "learning_purpose" not in activity:
+                    activity["learning_purpose"] = "Develop understanding through creative engagement"
+        
+        # Validate assessment_quiz structure (replaces old quiz)
+        if not isinstance(lesson_data.get("assessment_quiz"), list):
+            lesson_data["assessment_quiz"] = default_lesson["assessment_quiz"]
+        else:
+            for question in lesson_data["assessment_quiz"]:
                 if not isinstance(question, dict):
                     continue
                 if "question" not in question:
@@ -759,64 +851,120 @@ IMPORTANT:
                 if "explanation" not in question:
                     question["explanation"] = "Explanation for the answer."
         
+        # Validate background_prerequisites
+        if not isinstance(lesson_data.get("background_prerequisites"), list):
+            lesson_data["background_prerequisites"] = default_lesson["background_prerequisites"]
+        
+        # Validate stem_equations
+        if not isinstance(lesson_data.get("stem_equations"), list):
+            lesson_data["stem_equations"] = default_lesson["stem_equations"]
+        else:
+            for equation in lesson_data["stem_equations"]:
+                if not isinstance(equation, dict):
+                    continue
+                if "equation" not in equation:
+                    equation["equation"] = "Relevant equation"
+                if "term_explanations" not in equation:
+                    equation["term_explanations"] = ["Simple explanation of terms"]
+                if "mathematical_operations" not in equation:
+                    equation["mathematical_operations"] = "How operations work"
+                if "complete_equation_significance" not in equation:
+                    equation["complete_equation_significance"] = "What the equation reveals"
+        
+        # Validate teacher_notes
+        if not isinstance(lesson_data.get("teacher_notes"), list):
+            lesson_data["teacher_notes"] = default_lesson["teacher_notes"]
+        
         return lesson_data
 
     def _create_fallback_lesson(self, text: str) -> Dict[str, Any]:
-        """Create a basic lesson structure when AI generation fails"""
+        """Create a basic lesson structure following Prof. Potter's methodology when AI generation fails"""
         
         # Extract first few sentences for summary
         sentences = text.split('.')[:3]
         summary = '. '.join(sentences).strip()
         if not summary:
-            summary = "A lesson based on the provided content."
+            summary = "An engaging creative learning adventure based on the provided content."
         
-        # Create basic lesson structure
+        # Create basic lesson structure following Prof. Potter's approach
         return {
-            "title": "Generated Lesson",
+            "title": "Creative Learning Adventure",
             "summary": summary,
             "learning_objectives": [
-                "Understand the main concepts from the material",
-                "Identify key points and themes",
-                "Apply the knowledge in practical contexts"
+                "Understand the main concepts through creative exploration",
+                "Identify key points and themes with practical applications",
+                "Develop creative thinking and problem-solving skills"
+            ],
+            "background_prerequisites": [
+                "Basic understanding of foundational concepts",
+                "Previous knowledge that builds to this lesson",
+                "Essential skills needed for success"
             ],
             "sections": [
                 {
-                    "heading": "Introduction",
-                    "content": "This lesson is based on the provided material and covers the essential concepts and ideas presented."
+                    "heading": "1. Introduction: Setting the Foundation",
+                    "content": "Welcome to our creative learning journey! This lesson connects to what you already know and sparks your curiosity about new discoveries."
                 },
                 {
-                    "heading": "Main Content",
+                    "heading": "2. Core Concept Development",
                     "content": text[:1000] + "..." if len(text) > 1000 else text
                 },
                 {
-                    "heading": "Key Takeaways",
-                    "content": "The main points and conclusions from this material provide valuable insights for understanding the topic."
+                    "heading": "3. Practical Applications",
+                    "content": "See how these concepts apply to real life! Discover the creative and practical ways this knowledge helps us understand our world."
+                },
+                {
+                    "heading": "4. Synthesis and Connection",
+                    "content": "Now let's connect all the pieces together to see the complete picture and understand how everything works as a whole."
+                },
+                {
+                    "heading": "5. Conclusion and Next Steps",
+                    "content": "Great work! Let's summarize what we've learned and prepare for your continued creative exploration of this fascinating topic."
                 }
             ],
             "key_concepts": [
-                "Primary topic concepts",
-                "Supporting ideas and details",
-                "Practical applications"
+                "Essential concept explained simply",
+                "Important idea with creative connection",
+                "Core principle emphasizing practical value"
             ],
-            "activities": [
+            "creative_activities": [
                 {
-                    "name": "Content Review",
-                    "description": "Review and discuss the main points covered in this lesson",
-                    "duration": "20 minutes"
+                    "name": "Creative Content Exploration",
+                    "description": "Engage in hands-on creative exploration of the main concepts through discussion and practical application",
+                    "duration": "20 minutes",
+                    "learning_purpose": "Develop understanding through creative engagement and practical application"
                 }
             ],
-            "quiz": [
+            "stem_equations": [
                 {
-                    "question": "What is the main focus of this lesson content?",
-                    "options": [
-                        "Understanding core concepts",
-                        "Memorizing details",
-                        "Completing exercises",
-                        "Reading additional material"
+                    "equation": "Relevant equation (if applicable)",
+                    "term_explanations": [
+                        "Simple explanation of each term",
+                        "Real-world meaning of components",
+                        "Practical significance"
                     ],
-                    "answer": "A",
-                    "explanation": "The lesson focuses on understanding the core concepts presented in the material."
+                    "mathematical_operations": "How operations transform terms",
+                    "complete_equation_significance": "What the complete equation reveals about our world"
                 }
+            ],
+            "assessment_quiz": [
+                {
+                    "question": "What creative approach helps you understand this lesson best?",
+                    "options": [
+                        "Hands-on exploration",
+                        "Visual connections", 
+                        "Real-world examples",
+                        "All of the above"
+                    ],
+                    "answer": "D",
+                    "explanation": "The best learning happens when we combine multiple creative approaches to build understanding."
+                }
+            ],
+            "teacher_notes": [
+                "Adapt activities to different learning styles",
+                "Encourage creative thinking and innovation",
+                "Provide additional challenges for advanced students",
+                "Offer support strategies for students who need extra help"
             ]
         }
 
@@ -866,12 +1014,20 @@ IMPORTANT:
                     p.add_run(str(concept))
                 doc.add_paragraph()
             
-            # Add activities with clear formatting
-            if lesson_data.get("activities"):
-                doc.add_heading(self._sanitize_heading("Activities"), level=2)
-                for i, activity in enumerate(lesson_data["activities"], 1):
+            # Add background prerequisites
+            if lesson_data.get("background_prerequisites"):
+                doc.add_heading(self._sanitize_heading("Background Prerequisites"), level=2)
+                for prereq in lesson_data["background_prerequisites"]:
+                    p = doc.add_paragraph(style='ListBullet')
+                    p.add_run(str(prereq))
+                doc.add_paragraph()
+            
+            # Add creative activities with clear formatting
+            if lesson_data.get("creative_activities"):
+                doc.add_heading(self._sanitize_heading("Creative Activities"), level=2)
+                for i, activity in enumerate(lesson_data["creative_activities"], 1):
                     activity_title = doc.add_heading(level=3)
-                    activity_title.add_run(self._sanitize_heading(f"Activity {i}: {activity.get('name', 'Unnamed Activity')}")) .bold = True
+                    activity_title.add_run(self._sanitize_heading(f"Activity {i}: {activity.get('name', 'Unnamed Activity')}")).bold = True
                     
                     desc = doc.add_paragraph()
                     desc.add_run("Description: ").bold = True
@@ -882,12 +1038,48 @@ IMPORTANT:
                         duration.add_run("Duration: ").bold = True
                         duration.add_run(str(activity['duration']))
                     
+                    if activity.get('learning_purpose'):
+                        purpose = doc.add_paragraph()
+                        purpose.add_run("Learning Purpose: ").bold = True
+                        purpose.add_run(str(activity['learning_purpose']))
+                    
                     doc.add_paragraph()
             
-            # Add quiz with clear question/answer formatting
-            if lesson_data.get("quiz"):
-                doc.add_heading(self._sanitize_heading("Quiz"), level=2)
-                for i, question in enumerate(lesson_data["quiz"], 1):
+            # Add STEM equations if present
+            if lesson_data.get("stem_equations"):
+                doc.add_heading(self._sanitize_heading("STEM Equations"), level=2)
+                for i, equation_data in enumerate(lesson_data["stem_equations"], 1):
+                    if equation_data.get("equation"):
+                        eq_title = doc.add_heading(level=3)
+                        eq_title.add_run(self._sanitize_heading(f"Equation {i}")).bold = True
+                        
+                        eq_para = doc.add_paragraph()
+                        eq_para.add_run("Equation: ").bold = True
+                        eq_para.add_run(str(equation_data['equation']))
+                        
+                        if equation_data.get("term_explanations"):
+                            terms = doc.add_paragraph()
+                            terms.add_run("Term Explanations: ").bold = True
+                            for term in equation_data["term_explanations"]:
+                                term_p = doc.add_paragraph(style='ListBullet')
+                                term_p.add_run(str(term))
+                        
+                        if equation_data.get("mathematical_operations"):
+                            ops = doc.add_paragraph()
+                            ops.add_run("Mathematical Operations: ").bold = True
+                            ops.add_run(str(equation_data['mathematical_operations']))
+                        
+                        if equation_data.get("complete_equation_significance"):
+                            sig = doc.add_paragraph()
+                            sig.add_run("Complete Equation Significance: ").bold = True
+                            sig.add_run(str(equation_data['complete_equation_significance']))
+                        
+                        doc.add_paragraph()
+            
+            # Add assessment quiz with clear question/answer formatting
+            if lesson_data.get("assessment_quiz"):
+                doc.add_heading(self._sanitize_heading("Assessment Quiz"), level=2)
+                for i, question in enumerate(lesson_data["assessment_quiz"], 1):
                     q = doc.add_paragraph()
                     q.add_run(f"Question {i}: ").bold = True
                     q.add_run(str(question.get('question', '')))
@@ -910,6 +1102,14 @@ IMPORTANT:
                         exp.add_run(str(question['explanation']))
                     
                     doc.add_paragraph()
+            
+            # Add teacher notes
+            if lesson_data.get("teacher_notes"):
+                doc.add_heading(self._sanitize_heading("Teacher Notes"), level=2)
+                for note in lesson_data["teacher_notes"]:
+                    p = doc.add_paragraph(style='ListBullet')
+                    p.add_run(str(note))
+                doc.add_paragraph()
             
             # Save to bytes buffer
             buffer = BytesIO()
@@ -1058,24 +1258,53 @@ IMPORTANT:
                 for kc in lesson_data['key_concepts']:
                     body.add_paragraph().text = str(kc)
             
-            # Activities
-            if lesson_data.get('activities'):
+            # Background Prerequisites
+            if lesson_data.get('background_prerequisites'):
                 slide = prs.slides.add_slide(prs.slide_layouts[1])
-                slide.shapes.title.text = 'Activities'
+                slide.shapes.title.text = 'Background Prerequisites'
                 body = slide.shapes.placeholders[1].text_frame
-                for act in lesson_data['activities']:
-                    body.add_paragraph().text = f"{act.get('name', '')}: {act.get('description', '')} ({act.get('duration', '')})"
+                for prereq in lesson_data['background_prerequisites']:
+                    body.add_paragraph().text = str(prereq)
             
-            # Quiz
-            if lesson_data.get('quiz'):
+            # Creative Activities
+            if lesson_data.get('creative_activities'):
                 slide = prs.slides.add_slide(prs.slide_layouts[1])
-                slide.shapes.title.text = 'Quiz'
+                slide.shapes.title.text = 'Creative Activities'
                 body = slide.shapes.placeholders[1].text_frame
-                for q in lesson_data['quiz']:
+                for act in lesson_data['creative_activities']:
+                    body.add_paragraph().text = f"{act.get('name', '')}: {act.get('description', '')} ({act.get('duration', '')})"
+                    if act.get('learning_purpose'):
+                        body.add_paragraph().text = f"Purpose: {act.get('learning_purpose', '')}"
+            
+            # STEM Equations
+            if lesson_data.get('stem_equations'):
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = 'STEM Equations'
+                body = slide.shapes.placeholders[1].text_frame
+                for eq_data in lesson_data['stem_equations']:
+                    if eq_data.get('equation'):
+                        body.add_paragraph().text = f"Equation: {eq_data.get('equation', '')}"
+                    if eq_data.get('complete_equation_significance'):
+                        body.add_paragraph().text = f"Significance: {eq_data.get('complete_equation_significance', '')}"
+            
+            # Assessment Quiz
+            if lesson_data.get('assessment_quiz'):
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = 'Assessment Quiz'
+                body = slide.shapes.placeholders[1].text_frame
+                for q in lesson_data['assessment_quiz']:
                     body.add_paragraph().text = f"Q: {q.get('question', '')}"
                     for i, opt in enumerate(q.get('options', [])):
                         body.add_paragraph().text = f"{chr(65+i)}. {opt}"
                     body.add_paragraph().text = f"Answer: {q.get('answer', '')}"
+            
+            # Teacher Notes
+            if lesson_data.get('teacher_notes'):
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = 'Teacher Notes'
+                body = slide.shapes.placeholders[1].text_frame
+                for note in lesson_data['teacher_notes']:
+                    body.add_paragraph().text = str(note)
             
             # If we only have a title slide, add a content slide
             if len(prs.slides) == 1 and lesson_data.get('content'):
