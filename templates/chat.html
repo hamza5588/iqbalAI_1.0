@@ -494,9 +494,24 @@
                     <div class="">
                         <div class="mb-2">
                                 <div class="p-2 sm:p-3 rounded-lg border border-blue-500 shadow-lg">
+                                    <!-- Read-only lesson content display -->
                                     <div id="lessonSummary"
                                         class="text-gray-700 leading-relaxed max-h-80 sm:max-h-96 lg:max-h-[436px] overflow-y-auto text-sm sm:text-base">
                                     <p>Your generated lesson content will appear here...</p>
+                                </div>
+                                
+                                <!-- Inline editing textarea (hidden by default) -->
+                                <textarea id="inlineEditTextarea"
+                                    class="hidden w-full px-3 sm:px-4 py-2 sm:py-3 border border-[#05B0FC] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-80 sm:min-h-96 max-h-96 sm:max-h-[436px] overflow-y-auto resize-none text-xs sm:text-sm font-mono"
+                                    placeholder="Edit your lesson content here..."></textarea>
+                                
+                                <!-- AI prompt input (hidden by default) -->
+                                <div id="inlineAIPromptContainer" class="hidden mt-4">
+                                    <label class="block text-[#05B0FC] text-xs sm:text-sm font-bold mb-2" for="inlineAIPrompt">
+                                        Enter your prompt to modify the lesson:
+                                    </label>
+                                    <textarea id="inlineAIPrompt" placeholder="Describe what changes you want AI to make..."
+                                        class="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 min-h-20 sm:min-h-24 max-h-32 sm:max-h-40 overflow-y-auto resize-none text-sm sm:text-base"></textarea>
                                 </div>
                             </div>
                         </div>
@@ -512,7 +527,8 @@
 
                     <!-- Action Buttons -->
                         <div class="p-2 sm:p-3">
-                            <div class="flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4">
+                            <!-- Default review buttons -->
+                            <div id="defaultReviewButtons" class="flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4">
                                 <button onclick="reviewWithHuman()"
                                     class="w-full sm:w-auto px-6 sm:px-8 py-2 sm:py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-blue-600 transition-colors font-medium flex items-center justify-center gap-2 text-sm sm:text-base">
                                 Review with Human
@@ -520,6 +536,31 @@
                                 <button onclick="reviewWithAI()"
                                     class="w-full sm:w-auto px-6 sm:px-8 py-2 sm:py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-blue-600 transition-colors font-medium flex items-center justify-center gap-2 text-sm sm:text-base">
                                 Review with AI
+                            </button>
+                        </div>
+                        
+                        <!-- Inline editing buttons (hidden by default) -->
+                        <div id="inlineEditButtons" class="hidden flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4">
+                            <button onclick="saveInlineEdit()"
+                                class="w-full sm:w-auto px-6 sm:px-8 py-2 sm:py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center gap-2 text-sm sm:text-base">
+                                <i class="fas fa-save mr-2"></i>Save Changes
+                            </button>
+                            <button onclick="cancelInlineEdit()"
+                                class="w-full sm:w-auto px-6 sm:px-8 py-2 sm:py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium flex items-center justify-center gap-2 text-sm sm:text-base">
+                                <i class="fas fa-times mr-2"></i>Cancel
+                            </button>
+                        </div>
+                        
+                        <!-- Inline AI review buttons (hidden by default) -->
+                        <div id="inlineAIButtons" class="hidden flex flex-col sm:flex-row justify-center items-center gap-3 sm:gap-4">
+                            <button onclick="applyInlineAI()" id="applyInlineAIBtn"
+                                class="w-full sm:w-auto px-6 sm:px-8 py-2 sm:py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-blue-600 transition-colors font-medium flex items-center justify-center gap-2 text-sm sm:text-base">
+                                <span id="applyInlineAIText">Apply AI Changes</span>
+                                <i id="applyInlineAILoader" class="fas fa-spinner fa-spin ml-2 hidden"></i>
+                            </button>
+                            <button onclick="cancelInlineAI()"
+                                class="w-full sm:w-auto px-6 sm:px-8 py-2 sm:py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors font-medium flex items-center justify-center gap-2 text-sm sm:text-base">
+                                <i class="fas fa-times mr-2"></i>Cancel
                             </button>
                         </div>
                             <div class="flex flex-col sm:flex-row justify-center mt-3 sm:mt-4 gap-3 sm:gap-4">
@@ -2025,14 +2066,27 @@ async function initializeApp() {
             return;
         }
         
-            // Check if there's an unfinished lesson to restore
-            if (currentLessonData && !currentLessonData.isFinalized) {
-                // Restore unfinished lesson state
-                restoreUnfinishedLesson();
-            } else {
-                // Start fresh lesson generation
-                resetLessonGenerator();
-            }
+        // Debug logging
+        console.log('DEBUG: openLessonGenerator - currentLessonData:', currentLessonData);
+        console.log('DEBUG: openLessonGenerator - generatedLessonContent:', generatedLessonContent);
+        console.log('DEBUG: openLessonGenerator - currentLessonData?.content:', currentLessonData?.content);
+        console.log('DEBUG: openLessonGenerator - currentLessonData?.isFinalized:', currentLessonData?.isFinalized);
+        
+        // Check if there's generated lesson content to show
+        if ((generatedLessonContent && generatedLessonContent.trim()) || 
+            (currentLessonData && currentLessonData.content && currentLessonData.content.trim())) {
+            // Show the generated lesson content if it exists
+            console.log('DEBUG: Showing generated lesson');
+            showGeneratedLesson();
+        } else if (currentLessonData && !currentLessonData.isFinalized) {
+            // Restore unfinished lesson state (for lessons in progress without content)
+            console.log('DEBUG: Restoring unfinished lesson');
+            restoreUnfinishedLesson();
+        } else {
+            // Start fresh lesson generation
+            console.log('DEBUG: Starting fresh lesson generation');
+            resetLessonGenerator();
+        }
 
             // Hide all content areas
             hideAllContentAreas();
@@ -2091,6 +2145,55 @@ async function initializeApp() {
             showNotification('Unfinished lesson restored. You can continue editing or finalize it.', 'info');
         }
 
+        // Show generated lesson content without the form
+        function showGeneratedLesson() {
+            // Hide all content areas
+            hideAllContentAreas();
+
+            // Hide download button for non-chat views
+            const downloadBtn = document.getElementById('chatDownloadBtn');
+            if (downloadBtn) {
+                downloadBtn.classList.add('hidden');
+            }
+
+            // Show lesson generator content
+            document.getElementById('lessonGeneratorContent').classList.remove('hidden');
+            currentView = 'lessonGenerator';
+
+            // Hide chat input area
+            const chatInputArea = document.getElementById('chatInputArea');
+            if (chatInputArea) {
+                chatInputArea.classList.add('hidden');
+            }
+
+            // Update chat header
+            document.getElementById('chatTitle').textContent = 'Lesson Generator';
+            document.getElementById('chatStatus').textContent = 'Generated Lesson';
+
+            // Hide the form and show the lesson display
+            document.getElementById('lessonFormStep').classList.add('hidden');
+            document.getElementById('lessonDisplayArea').classList.remove('hidden');
+
+            // Display the generated lesson content
+            const lessonSummary = document.getElementById('lessonSummary');
+            const contentToShow = generatedLessonContent || (currentLessonData && currentLessonData.content) || '';
+            
+            // Update generatedLessonContent if we got content from currentLessonData
+            if (!generatedLessonContent && currentLessonData && currentLessonData.content) {
+                generatedLessonContent = currentLessonData.content;
+            }
+            
+            if (lessonSummary && contentToShow) {
+                lessonSummary.innerHTML = `<pre class="whitespace-pre-wrap font-sans">${contentToShow}</pre>`;
+            }
+
+            // Show the review buttons
+            const defaultButtons = document.getElementById('defaultReviewButtons');
+            if (defaultButtons) {
+                defaultButtons.classList.remove('hidden');
+            }
+        }
+
         // Reset lesson generator to fresh state
         function resetLessonGenerator() {
         // Clear lesson completion page and reset state
@@ -2107,6 +2210,35 @@ async function initializeApp() {
         const lessonSummary = document.getElementById('lessonSummary');
         if (lessonSummary) {
             lessonSummary.innerHTML = '';
+        }
+        
+        // Reset inline editing elements
+        const inlineEditTextarea = document.getElementById('inlineEditTextarea');
+        const inlineAIPromptContainer = document.getElementById('inlineAIPromptContainer');
+        const inlineEditButtons = document.getElementById('inlineEditButtons');
+        const inlineAIButtons = document.getElementById('inlineAIButtons');
+        const defaultButtons = document.getElementById('defaultReviewButtons');
+        
+        if (inlineEditTextarea) {
+            inlineEditTextarea.classList.add('hidden');
+            inlineEditTextarea.value = '';
+        }
+        if (inlineAIPromptContainer) {
+            inlineAIPromptContainer.classList.add('hidden');
+        }
+        if (inlineEditButtons) {
+            inlineEditButtons.classList.add('hidden');
+        }
+        if (inlineAIButtons) {
+            inlineAIButtons.classList.add('hidden');
+        }
+        if (defaultButtons) {
+            defaultButtons.classList.remove('hidden');
+        }
+        
+        const inlineAIPrompt = document.getElementById('inlineAIPrompt');
+        if (inlineAIPrompt) {
+            inlineAIPrompt.value = '';
         }
         
         // Clear review interfaces
@@ -2144,6 +2276,12 @@ async function initializeApp() {
         
         // Show the single form step
         document.getElementById('lessonFormStep').classList.remove('hidden');
+        
+        // Hide the lesson display area to show only the form
+        const lessonDisplayArea = document.getElementById('lessonDisplayArea');
+        if (lessonDisplayArea) {
+            lessonDisplayArea.classList.add('hidden');
+        }
         
         // Clear the form
         clearForm();
@@ -2322,6 +2460,9 @@ async function initializeApp() {
 
         // Function to start a completely new lesson (clears everything including file)
         function startNewLesson() {
+            // Clear generated content
+            generatedLessonContent = '';
+            
             // Clear uploaded file using the dedicated function
             clearUploadedFile();
 
@@ -2668,7 +2809,7 @@ async function initializeApp() {
         if (currentLessonData) {
             const lessonSummary = document.getElementById('lessonSummary');
             // Show content, fallback to summary if content is missing
-            const content = currentLessonData.content || currentLessonData.summary || 'No content available.';
+            const content = generatedLessonContent || currentLessonData.content || currentLessonData.summary || 'No content available.';
             lessonSummary.innerHTML = `<pre class="whitespace-pre-wrap font-sans">${content}</pre>`;
             
             // Show additional notes if provided
@@ -2683,22 +2824,245 @@ async function initializeApp() {
         }
     }
 
-    // Review Functions
+    // Review Functions - Updated for inline editing
     function reviewWithHuman() {
-        // Show the human review interface and populate the textarea with the lesson content
-        document.getElementById('humanReviewContent').value = generatedLessonContent || currentLessonData.content || '';
-        showLessonStep('humanReview');
+        // Switch to inline editing mode
+        const lessonSummary = document.getElementById('lessonSummary');
+        const inlineEditTextarea = document.getElementById('inlineEditTextarea');
+        const defaultButtons = document.getElementById('defaultReviewButtons');
+        const inlineEditButtons = document.getElementById('inlineEditButtons');
+        const aiPromptContainer = document.getElementById('inlineAIPromptContainer');
+        const inlineAIButtons = document.getElementById('inlineAIButtons');
+        
+        // Hide AI prompt container if it's visible
+        if (aiPromptContainer) aiPromptContainer.classList.add('hidden');
+        if (inlineAIButtons) inlineAIButtons.classList.add('hidden');
+        
+        // Populate textarea with current lesson content
+        const content = generatedLessonContent || (currentLessonData && currentLessonData.content) || '';
+        inlineEditTextarea.value = content;
+        
+        // Switch to editing mode
+        lessonSummary.classList.add('hidden');
+        inlineEditTextarea.classList.remove('hidden');
+        defaultButtons.classList.add('hidden');
+        inlineEditButtons.classList.remove('hidden');
     }
 
     function reviewWithAI() {
-        const content = generatedLessonContent || (currentLessonData && currentLessonData.content) || '';
-        console.log('DEBUG: AI Review content:', content, generatedLessonContent, currentLessonData);
-        document.getElementById('currentLessonPreview').textContent = content;
-        showLessonStep('aiReview');
+        // Switch to inline AI prompt mode
+        const lessonSummary = document.getElementById('lessonSummary');
+        const inlineEditTextarea = document.getElementById('inlineEditTextarea');
+        const defaultButtons = document.getElementById('defaultReviewButtons');
+        const inlineEditButtons = document.getElementById('inlineEditButtons');
+        const aiPromptContainer = document.getElementById('inlineAIPromptContainer');
+        const inlineAIButtons = document.getElementById('inlineAIButtons');
+        
+        // Hide editing elements if they're visible
+        if (inlineEditTextarea) inlineEditTextarea.classList.add('hidden');
+        if (inlineEditButtons) inlineEditButtons.classList.add('hidden');
+        
+        // Clear previous prompt
+        const aiPrompt = document.getElementById('inlineAIPrompt');
+        if (aiPrompt) aiPrompt.value = '';
+        
+        // Show AI prompt interface
+        lessonSummary.classList.remove('hidden');
+        aiPromptContainer.classList.remove('hidden');
+        defaultButtons.classList.add('hidden');
+        inlineAIButtons.classList.remove('hidden');
     }
 
     function cancelHumanReview() {
         showLessonStep('display');
+    }
+
+    // New inline editing functions
+    function saveInlineEdit() {
+        const editedContent = document.getElementById('inlineEditTextarea').value;
+        
+        if (editedContent.trim()) {
+            // Update the lesson content
+            generatedLessonContent = editedContent;
+            if (currentLessonData) {
+                currentLessonData.content = editedContent;
+                // Mark as not finalized since it was edited
+                currentLessonData.isFinalized = false;
+            }
+            
+            // Update the display
+            document.getElementById('lessonSummary').innerHTML = `<pre class="whitespace-pre-wrap font-sans">${editedContent}</pre>`;
+            
+            // Switch back to default view
+            cancelInlineEdit();
+            
+            showNotification('Lesson updated successfully!', 'success');
+        } else {
+            showNotification('Please enter some content before saving.', 'error');
+        }
+    }
+
+    function cancelInlineEdit() {
+        const lessonSummary = document.getElementById('lessonSummary');
+        const inlineEditTextarea = document.getElementById('inlineEditTextarea');
+        const defaultButtons = document.getElementById('defaultReviewButtons');
+        const inlineEditButtons = document.getElementById('inlineEditButtons');
+        
+        // Switch back to default view
+        lessonSummary.classList.remove('hidden');
+        inlineEditTextarea.classList.add('hidden');
+        defaultButtons.classList.remove('hidden');
+        inlineEditButtons.classList.add('hidden');
+    }
+
+    // Function to disable/enable other buttons during AI processing
+    function toggleOtherButtons(disable) {
+        // Disable/Enable Generate Lesson buttons
+        const generateLessonBtn = document.getElementById('generateLessonBtn');
+        const generateLessonTopBtn = document.getElementById('generateLessonTopBtn');
+        const generateLessonFormBtn = document.getElementById('generateLessonFormBtn');
+        
+        if (generateLessonBtn) generateLessonBtn.disabled = disable;
+        if (generateLessonTopBtn) generateLessonTopBtn.disabled = disable;
+        if (generateLessonFormBtn) generateLessonFormBtn.disabled = disable;
+        
+        // Disable/Enable New Lesson buttons
+        const newLessonButtons = document.querySelectorAll('button[onclick="startNewLesson()"]');
+        newLessonButtons.forEach(btn => btn.disabled = disable);
+        
+        // Disable/Enable API Key button
+        const apiKeyBtn = document.querySelector('button[onclick="openApiKeyModal()"]');
+        if (apiKeyBtn) apiKeyBtn.disabled = disable;
+        
+        // Disable/Enable Finalize and Download button
+        const finalizeBtn = document.querySelector('button[onclick="proceedToCompletion()"]');
+        if (finalizeBtn) finalizeBtn.disabled = disable;
+        
+        // Disable/Enable Sidebar navigation buttons
+        const newChatBtn = document.querySelector('button[onclick="startNewChat()"]');
+        const viewLessonsBtn = document.getElementById('viewLessonsBtn');
+        const resetChatBtn = document.querySelector('button[onclick="resetChat()"]');
+        const voiceRecordingBtn = document.querySelector('button[onclick="toggleVoiceRecording()"]');
+        const chatHistoryBtn = document.querySelector('button[onclick="toggleDropdown()"]');
+        
+        if (newChatBtn) newChatBtn.disabled = disable;
+        if (viewLessonsBtn) viewLessonsBtn.disabled = disable;
+        if (resetChatBtn) resetChatBtn.disabled = disable;
+        if (voiceRecordingBtn) voiceRecordingBtn.disabled = disable;
+        if (chatHistoryBtn) chatHistoryBtn.disabled = disable;
+    }
+
+    async function applyInlineAI() {
+        const prompt = document.getElementById('inlineAIPrompt').value.trim();
+        
+        if (!prompt) {
+            showNotification('Please enter a prompt for the AI.', 'error');
+            return;
+        }
+        
+        const lessonContent = generatedLessonContent || (currentLessonData && currentLessonData.content) || '';
+        if (!lessonContent) {
+            showNotification('No lesson content available for AI review.', 'error');
+            return;
+        }
+        
+        // Show loading state
+        const applyBtn = document.getElementById('applyInlineAIBtn');
+        const applyText = document.getElementById('applyInlineAIText');
+        const applyLoader = document.getElementById('applyInlineAILoader');
+        
+        applyBtn.disabled = true;
+        applyText.textContent = 'Processing...';
+        applyLoader.classList.remove('hidden');
+        
+        // Disable other buttons during AI processing
+        toggleOtherButtons(true);
+        
+        try {
+            const response = await fetch('/edit_lesson_with_prompt', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    lesson_text: lessonContent,
+                    user_prompt: prompt
+                })
+            });
+            
+            if (response.ok) {
+                const result = await response.json();
+                const newContent = result.lesson_markdown;
+                
+                if (newContent && newContent.trim()) {
+                    // Update the lesson content
+                    generatedLessonContent = newContent;
+                    if (currentLessonData) {
+                        currentLessonData.content = newContent;
+                        // Mark as not finalized since it was edited
+                        currentLessonData.isFinalized = false;
+                    }
+                    
+                    // Update the display
+                    document.getElementById('lessonSummary').innerHTML = `<pre class="whitespace-pre-wrap font-sans">${newContent}</pre>`;
+                    
+                    // Reset button state before switching views
+                    applyBtn.disabled = false;
+                    applyText.textContent = 'Apply AI Changes';
+                    applyLoader.classList.add('hidden');
+                    
+                    // Re-enable other buttons
+                    toggleOtherButtons(false);
+                    
+                    // Switch back to default view
+                    cancelInlineAI();
+                    
+                    showNotification('AI changes applied successfully!', 'success');
+                } else {
+                    // Reset button state for error case
+                    applyBtn.disabled = false;
+                    applyText.textContent = 'Apply AI Changes';
+                    applyLoader.classList.add('hidden');
+                    // Re-enable other buttons
+                    toggleOtherButtons(false);
+                    showNotification('AI did not return any content. Please try a different prompt.', 'error');
+                }
+            } else {
+                // Reset button state for error case
+                applyBtn.disabled = false;
+                applyText.textContent = 'Apply AI Changes';
+                applyLoader.classList.add('hidden');
+                // Re-enable other buttons
+                toggleOtherButtons(false);
+                showNotification('Failed to apply AI changes. Please try again.', 'error');
+            }
+        } catch (error) {
+            console.error('Error applying AI changes:', error);
+            // Reset button state for error case
+            applyBtn.disabled = false;
+            applyText.textContent = 'Apply AI Changes';
+            applyLoader.classList.add('hidden');
+            // Re-enable other buttons
+            toggleOtherButtons(false);
+            showNotification('Error applying AI changes. Please try again.', 'error');
+        }
+    }
+
+    function cancelInlineAI() {
+        const lessonSummary = document.getElementById('lessonSummary');
+        const defaultButtons = document.getElementById('defaultReviewButtons');
+        const aiPromptContainer = document.getElementById('inlineAIPromptContainer');
+        const inlineAIButtons = document.getElementById('inlineAIButtons');
+        
+        // Clear the prompt
+        const aiPrompt = document.getElementById('inlineAIPrompt');
+        if (aiPrompt) aiPrompt.value = '';
+        
+        // Switch back to default view
+        lessonSummary.classList.remove('hidden');
+        aiPromptContainer.classList.add('hidden');
+        defaultButtons.classList.remove('hidden');
+        inlineAIButtons.classList.add('hidden');
     }
 
     function saveHumanReview() {
@@ -2853,6 +3217,9 @@ async function initializeApp() {
 
                 // Mark lesson as finalized
                 currentLessonData.isFinalized = true;
+                
+                // Clear generated content so form shows for next lesson
+                generatedLessonContent = '';
 
             showNotification('Lesson finalized successfully!', 'success');
                 
