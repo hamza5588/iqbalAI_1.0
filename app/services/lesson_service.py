@@ -1365,9 +1365,14 @@ PROF. POTTER'S REQUIREMENTS:
         
         # Use LLM to answer with lesson-specific context
         answer = self.llm_answer(content, question, lesson_title)
-        # Log the question
-        LessonFAQ.log_question(lesson_id, question)
-        return {'answer': answer}
+
+        # Canonicalize the question and log to FAQ using semantic matching
+        try:
+            canonical = self.canonicalize_question(lesson_id, question)
+        except Exception:
+            canonical = question
+        LessonFAQ.log_question(lesson_id, canonical)
+        return {'answer': answer, 'canonical_question': canonical}
 
     def llm_answer(self, lesson_content, question, lesson_title="this lesson"):
         # Use Groq LLM (already implemented in the project)
@@ -1390,6 +1395,76 @@ Answer as a helpful teacher, being specific to the "{lesson_title}" lesson conte
                 return str(response).strip()
         except Exception as e:
             return f"[Error from LLM: {e}]"
+
+    def canonicalize_question(self, lesson_id: int, question: str) -> str:
+        """Return a canonical phrasing for the question using semantic similarity.
+
+        - Fetch existing canonical questions for the lesson
+        - If any are semantically similar above a threshold, reuse that canonical
+        - Otherwise, create a concise canonical phrasing via the LLM
+        """
+        try:
+            import sqlite3
+            from langchain_community.embeddings import HuggingFaceEmbeddings
+
+            conn = sqlite3.connect('instance/chatbot.db')
+            c = conn.cursor()
+            c.execute('''CREATE TABLE IF NOT EXISTS lesson_faq (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                lesson_id INTEGER,
+                question TEXT,
+                count INTEGER DEFAULT 1,
+                canonical_question TEXT
+            )''')
+            c.execute('SELECT COALESCE(canonical_question, question) FROM lesson_faq WHERE lesson_id = ?', (lesson_id,))
+            existing = [row[0] for row in c.fetchall() if row and row[0]]
+            conn.close()
+
+            if not existing:
+                # No prior questions; generate a canonical phrasing
+                return self._generate_canonical(question)
+
+            # Embed existing and incoming question
+            embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+            existing_vectors = embeddings.embed_documents(existing)
+            query_vector = embeddings.embed_query(question)
+
+            # Compute cosine similarity
+            def cosine(a, b):
+                import math
+                dot = sum(x*y for x, y in zip(a, b))
+                na = math.sqrt(sum(x*x for x in a))
+                nb = math.sqrt(sum(y*y for y in b))
+                return (dot / (na * nb)) if na and nb else 0.0
+
+            sims = [cosine(vec, query_vector) for vec in existing_vectors]
+            best_idx, best_sim = (max(enumerate(sims), key=lambda t: t[1]) if sims else (-1, 0.0))
+
+            # Threshold tuned for paraphrase equivalence for MiniLM embeddings
+            if best_sim >= 0.82:
+                return existing[best_idx]
+
+            # Otherwise, produce a concise canonical phrasing
+            return self._generate_canonical(question)
+        except Exception:
+            # On any error, fall back to original question
+            return question
+
+    def _generate_canonical(self, question: str) -> str:
+        """Use the LLM to produce a short canonical phrasing for a question."""
+        try:
+            prompt = (
+                "Rewrite the following student question into a short, neutral, canonical phrasing (max 12 words).\n"
+                "Keep the meaning identical. Do not include quotes or extra commentary.\n\n"
+                f"Question: {question}\n\nCanonical:"
+            )
+            response = self.llm.invoke(prompt)
+            text = response.content.strip() if hasattr(response, 'content') else str(response).strip()
+            # Clean up extraneous punctuation/quotes
+            text = text.strip('"\'\u201c\u201d ')
+            return text or question
+        except Exception:
+            return question
 
     def get_lesson_faqs(self, lesson_id, limit=5):
         """Get frequently asked questions for a lesson"""
