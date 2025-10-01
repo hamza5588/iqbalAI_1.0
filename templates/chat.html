@@ -36,7 +36,7 @@
             class="w-52 sm:w-60 lg:w-68 xl:w-[220px] bg-white shadow-md p-2 sm:p-3 fixed md:static top-0 left-0 h-full md:h-auto transform -translate-x-full md:translate-x-0 transition-transform duration-300 z-40">
       <div class="flex justify-between items-center">
                 <img src="{{ url_for('static', filename='images/logo.png') }}"
-                    class="w-24 sm:w-32 lg:w-36 xl:w-[150px] h-auto" alt="">
+                    class="w-20 sm:w-24 lg:w-28 xl:w-32 h-6 sm:h-8 lg:h-10" alt="">
                 <button onclick="hideSidebar()" class="mt-2 sm:mt-4 hover:bg-gray-100 p-1 rounded">
           <img src="{{ url_for('static', filename='images/slider.png') }}" alt="">
         </button>
@@ -153,20 +153,23 @@
             </div>
             
             <div class="flex items-center gap-2">
-                    <!-- Token Usage Meter -->
-                    <div id="tokenMeter" class="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer" title="Token Usage">
+                    <!-- Token Usage + API Key (joined) -->
+                    <div class="flex items-stretch">
+                        <div id="tokenMeter" class="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-l-lg border border-blue-200 shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer" title="Token Usage">
                         <i class="fas fa-chart-line text-blue-600 text-sm flex-shrink-0"></i>
                         <div class="flex flex-col leading-tight min-w-0 flex-1">
                             <span id="tokenUsageText" class="text-xs text-gray-700 font-medium truncate">Loading…</span>
                             <span id="tokenResetText" class="text-xs text-gray-500 truncate"></span>
                         </div>
+                        </div>
+                        
+                        <!-- Update API Key Button (joined, no space) -->
+                        <button onclick="openApiKeyModal()"
+                            class="flex flex-col items-center justify-center px-2 py-1 bg-white border border-gray-200 border-l-0 rounded-r-lg -ml-px hover:bg-gray-50 transition-colors" title="Update API Key">
+                            <img src="{{ url_for('static', filename='images/key.png') }}" alt="" class="w-4 h-4">
+                            <span class="text-[10px] text-gray-500 leading-none mt-0.5">apikey</span>
+                        </button>
                     </div>
-                    
-                    <!-- Update API Key Button -->
-                    <button onclick="openApiKeyModal()"
-                        class="flex items-center justify-center w-8 h-8 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors" title="Update API Key">
-                        <img src="{{ url_for('static', filename='images/key.png') }}" alt="" class="w-4 h-4">
-                    </button>
                     
                     <button id="chatDownloadBtn" onclick="downloadCurrentChat()"
                         class="w-8 h-8 sm:w-10 sm:h-10 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-colors">
@@ -895,6 +898,34 @@
     let currentLessonForFAQ = null;
     let availableLessons = [];
     let lessonFAQs = {};
+
+    // Initialize FAQ count badges on FAQ buttons
+    async function initializeFAQBadges() {
+        const buttons = document.querySelectorAll('button[title="View FAQs"][data-lesson-id]');
+        if (!buttons || buttons.length === 0) return;
+        const fetches = Array.from(buttons).map(async (btn) => {
+            const lessonId = btn.getAttribute('data-lesson-id');
+            const badge = document.getElementById(`faq-count-${lessonId}`);
+            if (!lessonId || !badge) return;
+            try {
+                // Use lightweight counts endpoint accessible to all logged-in users
+                const resp = await fetch(`/api/lessons/faqs_count/${lessonId}`);
+                if (!resp.ok) throw new Error('Failed to fetch');
+                const data = await resp.json();
+                const total = Number(data.total_count) || 0;
+                if (total > 0) {
+                    badge.textContent = total > 99 ? '99+' : String(total);
+                    badge.style.display = 'inline-block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            } catch (e) {
+                // Hide on error
+                badge.style.display = 'none';
+            }
+        });
+        await Promise.all(fetches);
+    }
     // Pagination state
     let currentLessonPage = 1;
     const lessonGroupsPerPage = 3; // Show max 3 lesson groups per page
@@ -1198,8 +1229,9 @@ async function initializeApp() {
                             <button onclick="downloadLessonPPT(${mainLesson.id})" class="px-2 py-2 text-orange-600 hover:bg-orange-50 rounded transition-colors" title="Download PPT">
                                 <i class="fas fa-file-powerpoint"></i>
                             </button>
-                            <button onclick="viewLessonFAQs(${mainLesson.id}, '${mainLesson.title}')" class="px-2 py-2 text-purple-600 hover:bg-purple-50 rounded transition-colors" title="View FAQs">
+                            <button onclick="viewLessonFAQs(${mainLesson.id}, '${mainLesson.title}')" class="px-2 py-2 text-purple-600 hover:bg-purple-50 rounded transition-colors" title="View FAQs" data-lesson-id="${mainLesson.id}" style="position: relative;">
                                 <img src="../static/images/faqs.png" alt="">
+                                <span id="faq-count-${mainLesson.id}" style="position: absolute; top: -4px; right: -4px; background: #ef4444; color: #fff; font-size: 10px; line-height: 1; padding: 2px 5px; border-radius: 9999px; min-width: 16px; text-align: center; display: none;"></span>
                             </button>
                         </div>
                         <div class="flex items-center">
@@ -1345,6 +1377,8 @@ async function initializeApp() {
         `;
 
         lessonsDisplayContainer.innerHTML = lessonsHtml;
+        // After rendering lessons, populate FAQ badges
+        try { initializeFAQBadges(); } catch (e) { console.warn('FAQ badge init failed', e); }
     }
 
     // Group lessons by title to handle multiple versions
@@ -1419,13 +1453,13 @@ async function initializeApp() {
             }
             processedIds.add(lesson.id);
             
-            const indent = '  '.repeat(depth); // Visual indentation
+            const indent = '  '.repeat(depth); // Visual indentation (no CSS margin from ml- classes)
             const isChild = lesson.parent_version_id !== null;
             const childVersions = versions.filter(v => v.parent_version_id === lesson.id && !processedIds.has(v.id));
             const locked = lesson.has_child_version === true;
             
             let html = `
-                <div class="grid grid-cols-7 py-2 px-3 bg-white rounded border ml-${depth * 4}" style="margin-left: ${depth * 16}px;">
+                <div class="grid grid-cols-7 py-2 px-3 bg-white rounded border" style="margin-left: 0px;">
                     <div class="flex items-center text-sm text-gray-500">
                         v${lesson.version_number || 1}
                     </div>
@@ -1452,8 +1486,9 @@ async function initializeApp() {
                         <button onclick="downloadLessonPPT(${lesson.id})" class="px-2 py-1 text-orange-600 hover:bg-orange-50 rounded transition-colors text-xs" title="Download PPT">
                             <i class="fas fa-file-powerpoint"></i>
                         </button>
-                        <button onclick="viewLessonFAQs(${lesson.id}, '${lesson.title}')" class="px-2 py-1 text-purple-600 hover:bg-purple-50 rounded transition-colors text-xs" title="View FAQs">
+                        <button onclick="viewLessonFAQs(${lesson.id}, '${lesson.title}')" class="px-2 py-1 text-purple-600 hover:bg-purple-50 rounded transition-colors text-xs" title="View FAQs" data-lesson-id="${lesson.id}" style="position: relative;">
                             <img src="../static/images/faqs.png" alt="" class="w-4 h-4">
+                            <span id="faq-count-${lesson.id}" style="position: absolute; top: -4px; right: -4px; background: #ef4444; color: #fff; font-size: 9px; line-height: 1; padding: 2px 4px; border-radius: 9999px; min-width: 14px; text-align: center; display: none;"></span>
                         </button>
                     </div>
                     <div class="flex items-center text-xs text-gray-500">
@@ -1761,13 +1796,24 @@ async function initializeApp() {
         try {
             console.log(`🔍 viewLessonFAQs called with lessonId: ${lessonId}, lessonTitle: ${lessonTitle}`);
 
-            // Show loading notification
+            // Show loading notification (non-blocking)
             showNotification(`Loading FAQs for "${lessonTitle}"...`, 'info');
 
-            // Update modal title
+            // Update modal title and prefill content with a loading skeleton (prevents flicker)
             document.getElementById('faqModalTitle').textContent = `FAQs - ${lessonTitle}`;
+            const faqContentEl = document.getElementById('faqModalContent');
+            if (faqContentEl) {
+                faqContentEl.innerHTML = `
+                    <div class="py-10 text-center">
+                        <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-50">
+                            <i class="fas fa-spinner fa-spin text-[#05B0FC]"></i>
+                        </div>
+                        <p class="mt-4 text-gray-600">Loading FAQs...</p>
+                    </div>
+                `;
+            }
 
-            // Show modal
+            // Show modal after content placeholder is set
             document.getElementById('faqModal').classList.remove('hidden');
 
             const response = await fetch(`/api/lessons/faqs/${lessonId}`, {
@@ -1895,21 +1941,29 @@ async function initializeApp() {
             <div class="bg-white rounded-lg shadow-md overflow-hidden overflow-x-auto">
                 <div class="divide-y divide-gray-200 min-w-full">
                     ${faqs.map((faq, index) => `
-                        <div class="grid grid-cols-12 py-3 px-4 hover:bg-gray-50 transition-colors">
-                            <div class="col-span-1 flex items-center text-sm text-gray-500">${index + 1}</div>
-                            <div class="col-span-6 flex items-center font-medium text-gray-900 text-sm">
-                                ${faq.question}
-                                ${faq.is_version ? `<span class="ml-2 px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">v${faq.version}</span>` : `<span class="ml-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">Original</span>`}
+                        <div class="py-3 px-4 hover:bg-gray-50 transition-colors">
+                            <div class="grid grid-cols-12 gap-2">
+                                <div class="col-span-1 flex items-center text-sm text-gray-500">${index + 1}</div>
+                                <div class="col-span-6 flex items-center font-medium text-gray-900 text-sm">
+                                    ${faq.question}
+                                    ${faq.is_version ? `<span class="ml-2 px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">v${faq.version}</span>` : `<span class="ml-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">Original</span>`}
+                                </div>
+                                <div class="col-span-2 flex items-center">
+                                    <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${faq.subject || ''}</span>
+                                </div>
+                                <div class="col-span-2 flex items-center">
+                                    <span class="px-2 py-1 text-blue-800 text-xs">${faq.grade || ''}</span>
+                                </div>
+                                <div class="col-span-1 flex items-center justify-center">
+                                    <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-semibold">${faq.count}</span>
+                                </div>
                             </div>
-                            <div class="col-span-2 flex items-center">
-                                <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${faq.subject || ''}</span>
-                            </div>
-                            <div class="col-span-2 flex items-center">
-                                <span class="px-2 py-1 text-blue-800 text-xs">${faq.grade || ''}</span>
-                            </div>
-                            <div class="col-span-1 flex items-center text-center">
-                                <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-semibold">${faq.count}</span>
-                            </div>
+                            ${faq.answer ? `
+                                <div class="mt-2 ml-8 mr-2 p-3 bg-gray-50 rounded border border-gray-200">
+                                    <div class="text-xs uppercase tracking-wide text-gray-500 mb-1">Latest Answer</div>
+                                    <div class="text-sm text-gray-800 whitespace-pre-wrap">${faq.answer}</div>
+                                </div>
+                            ` : ''}
                         </div>
                     `).join('')}
                 </div>
@@ -2064,6 +2118,10 @@ async function initializeApp() {
         if (userRole !== 'teacher') {
             showNotification('Only teachers can create lessons', 'error');
             return;
+        }
+        // Stop any ongoing speech when switching to Lesson Generator
+        if (typeof stopSpeech === 'function') {
+            stopSpeech();
         }
         
         // Debug logging
@@ -2309,6 +2367,10 @@ async function initializeApp() {
 
     // Open view lessons from sidebar
     function openViewLessons() {
+        // Stop any ongoing speech when switching to View Lessons
+        if (typeof stopSpeech === 'function') {
+            stopSpeech();
+        }
         // Hide all content areas
         hideAllContentAreas();
 
@@ -2338,6 +2400,10 @@ async function initializeApp() {
 
     // Hide all content areas
     function hideAllContentAreas() {
+        // Ensure any speech playback is cancelled when switching sections
+        if (typeof stopSpeech === 'function') {
+            stopSpeech();
+        }
         document.getElementById('chatMessages').classList.add('hidden');
         document.getElementById('lessonGeneratorContent').classList.add('hidden');
         document.getElementById('viewLessonsContent').classList.add('hidden');
@@ -2952,6 +3018,38 @@ async function initializeApp() {
         if (chatHistoryBtn) chatHistoryBtn.disabled = disable;
     }
 
+    // Hide/Show finalize button and modal close buttons during processing
+    function setFinalizeAndModalCloseVisibility(hidden) {
+        const finalizeBtn = document.querySelector('button[onclick="proceedToCompletion()"]');
+        if (finalizeBtn) finalizeBtn.style.visibility = hidden ? 'hidden' : '';
+
+        // Also handle AI Versioning finalize button if present
+        const versionFinalizeBtn = document.getElementById('finalizeAIVersionBtn');
+        if (versionFinalizeBtn) versionFinalizeBtn.style.visibility = hidden ? 'hidden' : '';
+
+        const closeHandlers = [
+            'closeAskQuestionModal()',
+            'closeEditLessonModal()',
+            'closeFaqModal()',
+            'closeApiKeyModal()',
+            'closeStudentLessonModal()',
+            'closeAIVersioningModal()',
+            'closeComparisonModal()',
+            'closeLessonModal()'
+        ];
+
+        closeHandlers.forEach(handler => {
+            document.querySelectorAll(`button[onclick="${handler}"]`).forEach(btn => {
+                btn.style.visibility = hidden ? 'hidden' : '';
+            });
+        });
+
+        // Also cover generic close controls if present
+        document.querySelectorAll('.btn-close, [data-bs-dismiss="modal"]').forEach(el => {
+            el.style.visibility = hidden ? 'hidden' : '';
+        });
+    }
+
     async function applyInlineAI() {
         const prompt = document.getElementById('inlineAIPrompt').value.trim();
         
@@ -2977,6 +3075,8 @@ async function initializeApp() {
         
         // Disable other buttons during AI processing
         toggleOtherButtons(true);
+        // Hide finalize and any modal close buttons during processing
+        setFinalizeAndModalCloseVisibility(true);
         
         try {
             const response = await fetch('/edit_lesson_with_prompt', {
@@ -3045,6 +3145,9 @@ async function initializeApp() {
             // Re-enable other buttons
             toggleOtherButtons(false);
             showNotification('Error applying AI changes. Please try again.', 'error');
+        } finally {
+            // Restore finalize and modal close buttons visibility
+            setFinalizeAndModalCloseVisibility(false);
         }
     }
 
@@ -3112,6 +3215,8 @@ async function initializeApp() {
         
         // Disable all sidebar tabs during AI review processing
         disableSidebarTabs();
+        // Hide finalize and any modal close buttons during processing
+        setFinalizeAndModalCloseVisibility(true);
         
         try {
             const response = await fetch('/edit_lesson_with_prompt', {
@@ -3158,6 +3263,8 @@ async function initializeApp() {
             
             // Re-enable all sidebar tabs after AI review processing completes
             enableSidebarTabs();
+            // Restore finalize and modal close buttons visibility
+            setFinalizeAndModalCloseVisibility(false);
         }
     }
 
@@ -6256,6 +6363,18 @@ async function initializeApp() {
 
                             <label class="block text-sm font-medium text-gray-700">Draft Content (iteratively updated)</label>
                             <div class="bg-white p-3 rounded border max-h-56 overflow-y-auto text-sm markdown-content" id="aiDraftContentPreview">Draft content will appear here after applying AI prompts...</div>
+                            
+                            <!-- Human Edit (collapsible) -->
+                            <div class="pt-2">
+                                <button id="toggleHumanEditBtn" class="px-3 py-1.5 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200" onclick="toggleHumanEdit()"><i class="fas fa-user-edit mr-1"></i>Edit with Human</button>
+                                <div id="humanEditContainer" class="hidden mt-2">
+                                    <textarea id="humanEditTextarea" rows="6" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Manually edit the draft content here..."></textarea>
+                                    <div class="flex justify-end gap-2 mt-2">
+                                        <button class="px-3 py-1.5 bg-gray-200 text-gray-700 rounded hover:bg-gray-300" onclick="cancelHumanEdit()">Cancel</button>
+                                        <button class="px-3 py-1.5 bg-blue-600 text-white rounded hover:bg-blue-700" onclick="saveHumanEdit()"><i class="fas fa-save mr-1"></i>Save to Draft</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     ` : `
@@ -6319,6 +6438,63 @@ async function initializeApp() {
                 
                 // Load original content and any existing draft content
                 loadLessonContentAndDraft(versionData.id);
+            };
+
+            // Record current lesson id for draft operations
+            window.aiVersioningCurrentLessonId = selectedVersion.id;
+
+            // Human edit helpers for Teacher View
+            window.toggleHumanEdit = function() {
+                const container = document.getElementById('humanEditContainer');
+                const textarea = document.getElementById('humanEditTextarea');
+                const draft = window.aiVersioningDraftContent || '';
+                container.classList.toggle('hidden');
+                if (!container.classList.contains('hidden')) {
+                    textarea.value = draft && draft.trim() ? draft : (window.aiVersioningOriginalContent || '');
+                }
+            };
+
+            window.cancelHumanEdit = function() {
+                const container = document.getElementById('humanEditContainer');
+                if (container) container.classList.add('hidden');
+            };
+
+            window.saveHumanEdit = async function() {
+                const textarea = document.getElementById('humanEditTextarea');
+                const draftEl = document.getElementById('aiDraftContentPreview');
+                const newContent = (textarea?.value || '').trim();
+                if (!newContent) {
+                    showNotification('Please enter some content', 'error');
+                    return;
+                }
+                // Save to the same draft used by Apply Prompt
+                window.aiVersioningDraftContent = newContent;
+                if (draftEl) {
+                    draftEl.innerHTML = marked.parse(newContent);
+                }
+                // Persist draft to backend so finalization works
+                const lessonId = window.aiVersioningCurrentLessonId;
+                if (lessonId) {
+                    try {
+                        const resp = await fetch(`/api/lessons/lesson/${lessonId}/save_draft`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({ draft_content: newContent })
+                        });
+                        if (!resp.ok) {
+                            const err = await resp.json().catch(() => ({}));
+                            showNotification(`Failed to save draft: ${err.error || 'Unknown error'}`, 'error');
+                        } else {
+                            showNotification('Changes saved to draft', 'success');
+                            window.cancelHumanEdit();
+                        }
+                    } catch (e) {
+                        showNotification('Network error saving draft', 'error');
+                    }
+                } else {
+                    showNotification('Draft updated locally. Lesson id missing for save.', 'warning');
+                }
             };
             
             // Function to load original content and draft content
@@ -6487,6 +6663,8 @@ async function initializeApp() {
                 applyBtn.disabled = true;
                 applyBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Applying...';
             }
+            // Hide finalize and modal close buttons during versioning apply
+            setFinalizeAndModalCloseVisibility(true);
             
             // Disable all sidebar tabs during AI prompt application
             disableSidebarTabs();
@@ -6530,6 +6708,8 @@ async function initializeApp() {
                 
                 // Re-enable all sidebar tabs after AI prompt application completes
                 enableSidebarTabs();
+                // Restore finalize and modal close buttons visibility
+                setFinalizeAndModalCloseVisibility(false);
             }
         }
 
@@ -6973,7 +7153,7 @@ async function initializeApp() {
 
   <!-- FAQ Modal -->
   <div id="faqModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+    <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
       <!-- Modal Header -->
       <div class="bg-gradient-to-r from-[#05B0FC] to-blue-600 px-6 py-4 flex justify-between items-center">
         <h3 class="text-xl font-semibold text-white flex items-center">
@@ -6986,7 +7166,7 @@ async function initializeApp() {
       </div>
       
       <!-- Modal Content -->
-      <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+      <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)] min-h-[300px]">
         <div id="faqModalContent">
           <!-- FAQ content will be populated here -->
         </div>

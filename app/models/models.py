@@ -1568,15 +1568,26 @@ class LessonFAQ:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             lesson_id INTEGER,
             question TEXT,
-            count INTEGER DEFAULT 1
+            count INTEGER DEFAULT 1,
+            canonical_question TEXT
         )''')
-        # Check if question already exists for this lesson
-        c.execute('SELECT id, count FROM lesson_faq WHERE lesson_id=? AND question=?', (lesson_id, question))
+
+        # Ensure schema has canonical_question even if table existed
+        try:
+            c.execute('ALTER TABLE lesson_faq ADD COLUMN canonical_question TEXT')
+        except Exception:
+            pass
+
+        # Treat provided question as already canonicalized by service
+        canonical = question.strip()
+
+        # Check if a record with this canonical already exists for this lesson
+        c.execute('SELECT id, count FROM lesson_faq WHERE lesson_id=? AND COALESCE(canonical_question, question)=?', (lesson_id, canonical))
         row = c.fetchone()
         if row:
             c.execute('UPDATE lesson_faq SET count = count + 1 WHERE id=?', (row[0],))
         else:
-            c.execute('INSERT INTO lesson_faq (lesson_id, question, count) VALUES (?, ?, 1)', (lesson_id, question))
+            c.execute('INSERT INTO lesson_faq (lesson_id, question, count, canonical_question) VALUES (?, ?, 1, ?)', (lesson_id, canonical, canonical))
         conn.commit()
         conn.close()
 
@@ -1588,9 +1599,10 @@ class LessonFAQ:
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             lesson_id INTEGER,
             question TEXT,
-            count INTEGER DEFAULT 1
+            count INTEGER DEFAULT 1,
+            canonical_question TEXT
         )''')
-        c.execute('SELECT question, count FROM lesson_faq WHERE lesson_id=? ORDER BY count DESC LIMIT ?', (lesson_id, limit))
+        c.execute('SELECT COALESCE(canonical_question, question) as q, count FROM lesson_faq WHERE lesson_id=? ORDER BY count DESC LIMIT ?', (lesson_id, limit))
         faqs = [{'question': row[0], 'count': row[1]} for row in c.fetchall()]
         conn.close()
         return faqs
@@ -1609,21 +1621,27 @@ class LessonChatHistory:
             user_id INTEGER,
             question TEXT,
             answer TEXT,
+            canonical_question TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )''')
+        # Ensure canonical_question exists for older tables
+        try:
+            c.execute('ALTER TABLE lesson_chat_history ADD COLUMN canonical_question TEXT')
+        except Exception:
+            pass
         conn.commit()
         conn.close()
     
     @staticmethod
-    def save_qa(lesson_id: int, user_id: int, question: str, answer: str) -> int:
+    def save_qa(lesson_id: int, user_id: int, question: str, answer: str, canonical_question: str | None = None) -> int:
         """Save a Q&A pair for a specific lesson and user"""
         LessonChatHistory.create_table()
         conn = sqlite3.connect('instance/chatbot.db')
         c = conn.cursor()
         c.execute('''INSERT INTO lesson_chat_history 
-                     (lesson_id, user_id, question, answer) 
-                     VALUES (?, ?, ?, ?)''', 
-                  (lesson_id, user_id, question, answer))
+                     (lesson_id, user_id, question, answer, canonical_question) 
+                     VALUES (?, ?, ?, ?, ?)''', 
+                  (lesson_id, user_id, question, answer, canonical_question))
         conn.commit()
         chat_id = c.lastrowid
         conn.close()

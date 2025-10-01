@@ -574,9 +574,10 @@ def ask_lesson_question():
     # Save the Q&A to lesson chat history
     from app.models.models import LessonChatHistory
     user_id = session['user_id']
-    LessonChatHistory.save_qa(lesson_id, user_id, question, result['answer'])
+    canonical = result.get('canonical_question')
+    LessonChatHistory.save_qa(lesson_id, user_id, question, result['answer'], canonical_question=canonical)
     
-    return jsonify({'answer': result['answer']})
+    return jsonify({'answer': result['answer'], 'canonical_question': canonical})
 
 @bp.route('/lesson_chat_history/<int:lesson_id>', methods=['GET'])
 @login_required
@@ -761,13 +762,29 @@ def get_lesson_faqs(lesson_id):
         c = conn.cursor()
         
         # Get questions from lesson_faq table for this specific lesson
-        # This ensures we only get questions related to this specific lesson version
-        c.execute('SELECT question, count FROM lesson_faq WHERE lesson_id=? ORDER BY count DESC', (lesson_id,))
+        # Use canonical form when available
+        c.execute('SELECT COALESCE(canonical_question, question) as question, count FROM lesson_faq WHERE lesson_id=? ORDER BY count DESC', (lesson_id,))
         faq_rows = c.fetchall()
         conn.close()
         
         # Format the FAQs to match the expected structure
         faqs = []
+        
+        # Prepare DB for fetching latest answers from lesson_chat_history
+        import sqlite3 as _sqlite3
+        _conn2 = _sqlite3.connect('instance/chatbot.db')
+        _c2 = _conn2.cursor()
+        # Ensure table exists (defensive)
+        _c2.execute('''CREATE TABLE IF NOT EXISTS lesson_chat_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            lesson_id INTEGER,
+            user_id INTEGER,
+            question TEXT,
+            answer TEXT,
+            canonical_question TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )''')
+
         for row in faq_rows:
             # Determine version display text
             version_text = ""
@@ -776,6 +793,35 @@ def get_lesson_faqs(lesson_id):
             else:
                 version_text = "v1 (Original)"
             
+            canonical_or_question = row[0]
+            # Fetch latest answer using canonical match first, then exact, then partial
+            latest_answer = None
+            try:
+                # Try canonical match first
+                _c2.execute(
+                    'SELECT answer FROM lesson_chat_history WHERE lesson_id = ? AND canonical_question = ? ORDER BY datetime(created_at) DESC LIMIT 1',
+                    (lesson_id, canonical_or_question)
+                )
+                _row_ans = _c2.fetchone()
+                if not _row_ans:
+                    # Fallback exact text match
+                    _c2.execute(
+                        'SELECT answer FROM lesson_chat_history WHERE lesson_id = ? AND question = ? ORDER BY datetime(created_at) DESC LIMIT 1',
+                        (lesson_id, canonical_or_question)
+                    )
+                    _row_ans = _c2.fetchone()
+                if not _row_ans:
+                    # Fallback: partial match using LIKE
+                    _c2.execute(
+                        'SELECT answer FROM lesson_chat_history WHERE lesson_id = ? AND (question LIKE ? OR canonical_question LIKE ?) ORDER BY datetime(created_at) DESC LIMIT 1',
+                        (lesson_id, f"%{canonical_or_question[:30]}%", f"%{canonical_or_question[:30]}%")
+                    )
+                    _row_ans = _c2.fetchone()
+                if _row_ans:
+                    latest_answer = _row_ans[0]
+            except Exception:
+                latest_answer = None
+
             faqs.append({
                 'question': row[0],
                 'count': row[1],
@@ -786,14 +832,39 @@ def get_lesson_faqs(lesson_id):
                 'time_ago': 'Recently',  # Placeholder since timestamps aren't tracked
                 'version': lesson.get('version', 1),
                 'is_version': lesson.get('parent_lesson_id') is not None,
-                'parent_lesson_id': lesson.get('parent_lesson_id')
+                'parent_lesson_id': lesson.get('parent_lesson_id'),
+                'answer': latest_answer
             })
+        _conn2.close()
         
         return jsonify({'faqs': faqs})
         
     except Exception as e:
         logger.error(f"Error getting lesson FAQs: {str(e)}", exc_info=True)
         return jsonify({'error': 'Failed to load lesson FAQs'}), 500
+
+@bp.route('/faqs_count/<int:lesson_id>', methods=['GET'])
+@login_required
+def get_lesson_faq_count(lesson_id):
+    try:
+        import sqlite3
+        conn = sqlite3.connect('instance/chatbot.db')
+        c = conn.cursor()
+        c.execute('''CREATE TABLE IF NOT EXISTS lesson_faq (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            lesson_id INTEGER,
+            question TEXT,
+            count INTEGER DEFAULT 1,
+            canonical_question TEXT
+        )''')
+        c.execute('SELECT COALESCE(SUM(count), 0) FROM lesson_faq WHERE lesson_id=?', (lesson_id,))
+        total = c.fetchone()[0] or 0
+        c.execute('SELECT COUNT(*) FROM lesson_faq WHERE lesson_id=?', (lesson_id,))
+        unique_qs = c.fetchone()[0] or 0
+        conn.close()
+        return jsonify({'total_count': int(total), 'unique_count': int(unique_qs)})
+    except Exception:
+        return jsonify({'total_count': 0, 'unique_count': 0})
 
 @bp.route('/faq_dashboard', methods=['GET'])
 @teacher_required
@@ -813,7 +884,7 @@ def faq_dashboard():
         c = conn.cursor()
         # For each lesson, get top questions
         for lesson in lessons:
-            c.execute('SELECT question, count FROM lesson_faq WHERE lesson_id=? ORDER BY count DESC LIMIT 3', (lesson['id'],))
+            c.execute('SELECT COALESCE(canonical_question, question) as question, count FROM lesson_faq WHERE lesson_id=? ORDER BY count DESC LIMIT 3', (lesson['id'],))
             faqs = [{'question': row[0], 'count': row[1]} for row in c.fetchall()]
             total_questions += sum(row['count'] for row in faqs)
             if faqs:
@@ -826,7 +897,7 @@ def faq_dashboard():
         # If you want real recent questions, you need to log timestamps in lesson_faq
         # For now, just return the most asked question per lesson
         for lesson in lessons:
-            c.execute('SELECT question, count FROM lesson_faq WHERE lesson_id=? ORDER BY count DESC LIMIT 1', (lesson['id'],))
+            c.execute('SELECT COALESCE(canonical_question, question) as question, count FROM lesson_faq WHERE lesson_id=? ORDER BY count DESC LIMIT 1', (lesson['id'],))
             row = c.fetchone()
             if row:
                 recent_questions.append({
@@ -864,7 +935,7 @@ def export_faq_dashboard():
         # Prepare data for export
         rows = []
         for lesson in lessons:
-            c.execute('SELECT question, count FROM lesson_faq WHERE lesson_id=? ORDER BY count DESC', (lesson['id'],))
+            c.execute('SELECT COALESCE(canonical_question, question) as question, count FROM lesson_faq WHERE lesson_id=? ORDER BY count DESC', (lesson['id'],))
             faqs = c.fetchall()
             for faq in faqs:
                 rows.append({
