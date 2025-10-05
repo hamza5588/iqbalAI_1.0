@@ -26,13 +26,13 @@ def create_lesson():
         
         # Get form data for lesson configuration
         lesson_title = request.form.get('lessonTitle', '')
-        learning_objective = request.form.get('learningObjective', '')
+        lesson_prompt = request.form.get('lessonPrompt', '')
         focus_area = request.form.get('focusArea', '')
         grade_level = request.form.get('gradeLevel', '')
         additional_notes = request.form.get('additionalNotes', '')
         
         # Validate required fields
-        if not lesson_title or not learning_objective or not focus_area or not grade_level:
+        if not lesson_title or not lesson_prompt or not focus_area or not grade_level:
             return jsonify({'error': 'All required fields must be filled'}), 400
         
         # Check if lesson title already exists for this teacher
@@ -54,7 +54,7 @@ def create_lesson():
         lesson_service = LessonService(api_key=api_key)
         lesson_details = {
             'title': lesson_title,
-            'learning_objective': learning_objective,
+            'lesson_prompt': lesson_prompt,
             'focus_area': focus_area,
             'grade_level': grade_level,
             'additional_notes': additional_notes
@@ -77,7 +77,7 @@ def create_lesson():
             teacher_id=session['user_id'],
             title=lesson_title,
             summary=result['lesson'].get('summary', ''),
-            learning_objectives=learning_objective,
+            learning_objectives=lesson_prompt,
             focus_area=focus_area,
             grade_level=grade_level,
             content=full_content,

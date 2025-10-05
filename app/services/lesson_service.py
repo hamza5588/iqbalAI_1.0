@@ -1,363 +1,3 @@
-# import os
-# import logging
-# from typing import Any, Dict, List, Optional
-# from werkzeug.datastructures import FileStorage
-# from werkzeug.utils import secure_filename
-# from langchain_core.documents import Document
-# from langchain_community.document_loaders import PyMuPDFLoader, UnstructuredWordDocumentLoader, TextLoader
-# from langchain_groq import ChatGroq
-# from langchain_core.prompts import ChatPromptTemplate
-# from langchain_core.output_parsers import JsonOutputParser
-# from docx import Document as DocxDocument
-# from docx.shared import Inches
-# from io import BytesIO
-# import tempfile
-# import json
-
-# # Set up logging
-# logger = logging.getLogger(__name__)
-
-# class LessonService:
-#     def __init__(self, api_key: Optional[str] = None):
-#         """
-#         Initialize the LessonService with API key.
-#         Falls back to GROQ_API_KEY environment variable if not provided.
-#         """
-#         self.api_key = api_key or os.getenv("GROQ_API_KEY")
-#         if not self.api_key:
-#             raise ValueError("API key is required. Please provide api_key parameter or set GROQ_API_KEY environment variable.")
-        
-#         try:
-#             self.llm = ChatGroq(
-#                 api_key=self.api_key,
-#                 model="llama3-70b-8192",
-#                 temperature=0.3,
-#                 max_tokens=2048
-#             )
-#         except Exception as e:
-#             logger.error(f"Failed to initialize ChatGroq: {str(e)}")
-#             raise ValueError(f"Failed to initialize AI model: {str(e)}")
-
-#         self.lesson_prompt = ChatPromptTemplate.from_template("""
-# You are an expert teacher. Given the following educational document, create a comprehensive lesson plan.
-
-# Document Content:
-# {text}
-
-# Create a detailed lesson plan in the following strict JSON format ONLY. Do not include any additional text or explanations outside the JSON structure:
-
-# {{
-#     "title": "Clear and descriptive lesson title",
-#     "summary": "Brief 2-3 sentence summary of the lesson",
-#     "learning_objectives": [
-#         "Specific learning objective 1",
-#         "Specific learning objective 2",
-#         "Specific learning objective 3"
-#     ],
-#     "sections": [
-#         {{
-#             "heading": "Section heading",
-#             "content": "Detailed explanation with examples and key concepts"
-#         }}
-#     ],
-#     "key_concepts": [
-#         "Important concept 1",
-#         "Important concept 2",
-#         "Important concept 3"
-#     ],
-#     "activities": [
-#         {{
-#             "name": "Activity name",
-#             "description": "How to perform the activity",
-#             "duration": "Estimated time"
-#         }}
-#     ],
-#     "quiz": [
-#         {{
-#             "question": "Multiple choice question",
-#             "options": ["Option A", "Option B", "Option C", "Option D"],
-#             "answer": "Correct option letter (A, B, C, or D)",
-#             "explanation": "Brief explanation of why this is correct"
-#         }}
-#     ]
-# }}
-
-# IMPORTANT: Your response must be valid JSON only, with no additional text before or after the JSON structure.
-# """)
-
-#         self.parser = JsonOutputParser()
-
-#     def allowed_file(self, filename: str) -> bool:
-#         """Check if file extension is supported"""
-#         if not filename:
-#             return False
-#         ext = filename.split(".")[-1].lower()
-#         return ext in ["pdf", "doc", "docx", "txt"]
-
-#     def process_file(self, file: FileStorage) -> Dict[str, Any]:
-#         """
-#         Process an uploaded file and return structured lesson content with DOCX bytes.
-        
-#         Args:
-#             file: Uploaded file to process
-            
-#         Returns:
-#             Dictionary containing lesson content, DOCX bytes, and filename
-#         """
-#         temp_path = None
-        
-#         try:
-#             if not file or not file.filename:
-#                 return {"error": "No file provided"}
-            
-#             if not self.allowed_file(file.filename):
-#                 return {"error": "File type not supported. Please upload PDF, DOC, DOCX, or TXT files."}
-            
-#             # Create temporary file
-#             with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{secure_filename(file.filename)}") as temp_file:
-#                 temp_path = temp_file.name
-#                 file.save(temp_path)
-            
-#             # Load and process the document
-#             documents = self._load_document(temp_path, file.filename)
-            
-#             if not documents:
-#                 return {"error": "Could not extract content from the file"}
-            
-#             # Combine all document content
-#             full_text = "\n".join([doc.page_content for doc in documents])
-            
-#             if not full_text.strip():
-#                 return {"error": "No readable content found in the file"}
-            
-#             # Generate structured lesson
-#             lesson_data = self._generate_structured_lesson(full_text)
-            
-#             if 'error' in lesson_data:
-#                 return lesson_data
-            
-#             # Create DOCX file
-#             docx_bytes = self._create_docx(lesson_data)
-            
-#             # Generate filename
-#             base_name = os.path.splitext(file.filename)[0]
-#             filename = f"lesson_{base_name}.docx"
-            
-#             return {
-#                 "lesson": lesson_data,
-#                 "docx_bytes": docx_bytes,
-#                 "filename": filename
-#             }
-
-#         except Exception as e:
-#             logger.error(f"Error processing file: {str(e)}", exc_info=True)
-#             return {
-#                 "error": "Failed to process file",
-#                 "details": str(e)
-#             }
-        
-#         finally:
-#             # Clean up temporary file
-#             if temp_path and os.path.exists(temp_path):
-#                 try:
-#                     os.remove(temp_path)
-#                 except Exception as e:
-#                     logger.warning(f"Could not remove temporary file {temp_path}: {str(e)}")
-
-#     def _load_document(self, path: str, filename: str) -> List[Document]:
-#         """Load document based on file extension"""
-#         ext = filename.split(".")[-1].lower()
-        
-#         try:
-#             if ext == "pdf":
-#                 loader = PyMuPDFLoader(path)
-#                 docs = loader.load()
-                
-#                 # Check if we got meaningful content
-#                 if not docs or not any(doc.page_content.strip() for doc in docs):
-#                     # Try alternative PDF reading if needed
-#                     try:
-#                         from pypdf import PdfReader
-#                         reader = PdfReader(path)
-#                         text = ""
-#                         for page in reader.pages:
-#                             text += page.extract_text() + "\n\n"
-#                         if text.strip():
-#                             return [Document(page_content=text)]
-#                     except Exception:
-#                         pass
-                
-#                 return docs
-                
-#             elif ext in ["doc", "docx"]:
-#                 loader = UnstructuredWordDocumentLoader(path)
-#                 return loader.load()
-                
-#             elif ext == "txt":
-#                 loader = TextLoader(path, encoding='utf-8')
-#                 return loader.load()
-                
-#             else:
-#                 raise ValueError(f"Unsupported file format: .{ext}")
-                
-#         except Exception as e:
-#             logger.error(f"Error loading document {filename}: {str(e)}")
-#             raise ValueError(f"Failed to load document: {str(e)}")
-
-#     def _generate_structured_lesson(self, text: str) -> Dict[str, Any]:
-#         """Generate structured lesson from text content"""
-#         try:
-#             # Truncate text if too long to avoid token limits
-#             max_chars = 10000  # Adjust based on your needs
-#             if len(text) > max_chars:
-#                 text = text[:max_chars] + "..."
-#                 logger.info(f"Text truncated to {max_chars} characters")
-            
-#             chain = self.lesson_prompt | self.llm | self.parser
-#             logger.info("Invoking LLM for structured lesson generation...")
-#             result = chain.invoke({"text": text})
-#             logger.info("Received LLM response.")
-            
-#             # If we get a string response (which might contain JSON), try to extract JSON
-#             if isinstance(result, str):
-#                 try:
-#                     # Try to find JSON in the string
-#                     json_start = result.find('{')
-#                     json_end = result.rfind('}') + 1
-#                     if json_start != -1 and json_end != -1:
-#                         result = json.loads(result[json_start:json_end])
-#                 except json.JSONDecodeError as e:
-#                     logger.error(f"Failed to parse JSON from string: {str(e)}")
-#                     return {
-#                         "error": "Failed to parse lesson content",
-#                         "details": str(e)
-#                     }
-            
-#             # Validate the result structure
-#             if not isinstance(result, dict):
-#                 return {"error": "Invalid response format from AI model"}
-            
-#             # Ensure required fields exist
-#             required_fields = ["title", "summary", "sections"]
-#             for field in required_fields:
-#                 if field not in result:
-#                     result[field] = f"Generated {field}"
-            
-#             return result
-            
-#         except Exception as e:
-#             logger.error(f"Error generating lesson: {str(e)}")
-#             return {
-#                 "error": "Failed to generate lesson",
-#                 "details": str(e)
-#             }
-
-#     def _create_docx(self, lesson_data: Dict[str, Any]) -> bytes:
-#         """Convert structured lesson to DOCX format with improved formatting"""
-#         try:
-#             doc = DocxDocument()
-            
-#             # Add title with formatting
-#             title = doc.add_heading(level=1)
-#             title_run = title.add_run(lesson_data.get("title", "Generated Lesson"))
-#             title_run.bold = True
-#             title_run.font.size = Inches(0.5)
-            
-#             # Add summary section
-#             if lesson_data.get("summary"):
-#                 doc.add_heading("Summary", level=2)
-#                 summary = doc.add_paragraph(lesson_data["summary"])
-#                 summary.paragraph_format.space_after = Inches(0.1)
-            
-#             # Add learning objectives with bullet points
-#             if lesson_data.get("learning_objectives"):
-#                 doc.add_heading("Learning Objectives", level=2)
-#                 for objective in lesson_data["learning_objectives"]:
-#                     p = doc.add_paragraph(style='ListBullet')
-#                     p.add_run(objective)
-#                 doc.add_paragraph()
-            
-#             # Add sections with proper spacing
-#             if lesson_data.get("sections"):
-#                 for section in lesson_data["sections"]:
-#                     doc.add_heading(section.get("heading", "Section"), level=2)
-#                     content = doc.add_paragraph(section.get("content", ""))
-#                     content.paragraph_format.space_after = Inches(0.1)
-#                     doc.add_paragraph()
-            
-#             # Add key concepts
-#             if lesson_data.get("key_concepts"):
-#                 doc.add_heading("Key Concepts", level=2)
-#                 for concept in lesson_data["key_concepts"]:
-#                     p = doc.add_paragraph(style='ListBullet')
-#                     p.add_run(concept)
-#                 doc.add_paragraph()
-            
-#             # Add activities with clear formatting
-#             if lesson_data.get("activities"):
-#                 doc.add_heading("Activities", level=2)
-#                 for i, activity in enumerate(lesson_data["activities"], 1):
-#                     activity_title = doc.add_heading(level=3)
-#                     activity_title.add_run(f"Activity {i}: {activity.get('name', 'Unnamed Activity')}").bold = True
-                    
-#                     desc = doc.add_paragraph()
-#                     desc.add_run("Description: ").bold = True
-#                     desc.add_run(activity.get('description', ''))
-                    
-#                     if activity.get('duration'):
-#                         duration = doc.add_paragraph()
-#                         duration.add_run("Duration: ").bold = True
-#                         duration.add_run(activity['duration'])
-                    
-#                     doc.add_paragraph()
-            
-#             # Add quiz with clear question/answer formatting
-#             if lesson_data.get("quiz"):
-#                 doc.add_heading("Quiz", level=2)
-#                 for i, question in enumerate(lesson_data["quiz"], 1):
-#                     q = doc.add_paragraph()
-#                     q.add_run(f"Question {i}: ").bold = True
-#                     q.add_run(question.get('question', ''))
-                    
-#                     # Add options with letters
-#                     options = ['A', 'B', 'C', 'D']
-#                     for opt, text in zip(options, question.get("options", [])):
-#                         p = doc.add_paragraph(style='ListBullet')
-#                         p.add_run(f"{opt}. {text}")
-                    
-#                     # Add answer
-#                     ans = doc.add_paragraph()
-#                     ans.add_run("Correct Answer: ").bold = True
-#                     ans.add_run(question.get('answer', ''))
-                    
-#                     if question.get('explanation'):
-#                         exp = doc.add_paragraph()
-#                         exp.add_run("Explanation: ").bold = True
-#                         exp.add_run(question['explanation'])
-                    
-#                     doc.add_paragraph()
-            
-#             # Save to bytes buffer
-#             buffer = BytesIO()
-#             doc.save(buffer)
-#             buffer.seek(0)
-#             return buffer.getvalue()
-            
-#         except Exception as e:
-#             logger.error(f"Error creating DOCX: {str(e)}")
-#             # Return a simple DOCX with error message
-#             doc = DocxDocument()
-#             doc.add_heading("Lesson Generation Error", level=1)
-#             doc.add_paragraph(f"An error occurred while generating the lesson: {str(e)}")
-#             buffer = BytesIO()
-#             doc.save(buffer)
-#             buffer.seek(0)
-#             return buffer.getvalue()
-
-
-
-
-
 
 
 import os
@@ -418,18 +58,46 @@ class LessonService:
 
         # Prof. Potter's Enhanced Lesson Generation Prompt
         self.lesson_prompt = ChatPromptTemplate.from_template("""
-You are Prof. Potter, an experienced teacher who helps faculty prepare creative, engaging lessons for their students. You follow Prof. Potter's teaching methodology and guidelines.
+You are Prof. Potter, an experienced teacher who helps faculty prepare creative, engaging lessons for their students. You follow Prof. Potter's comprehensive teaching methodology and guidelines.
 
 Document Content:
 {text}
 
-PROF. POTTER'S TEACHING APPROACH:
-- Break complex lessons into simpler short lectures that build upon each other
-- Use creative vocabulary appropriate for the student's grade level
-- Emphasize creative lesson generation and innovative teaching approaches
-- For STEM subjects: Apply contextual analysis, equation mapping, and context preservation
-- Ensure each section is self-explanatory and builds student understanding progressively
-- Focus on practical applications and real-world connections
+PROF. POTTER'S TEACHING METHODOLOGY:
+
+LESSON GENERATION APPROACH:
+- Prof. Potter focuses on the specific lesson request provided by the faculty
+- If the faculty requests specific sections (e.g., "sections 1.1 to 1.4"), Prof. Potter generates lessons only from those sections
+- Prof. Potter never includes content from preface, appendix, or unrelated sections
+- Prof. Potter ensures the lesson is focused and relevant to the faculty's specific request
+- Prof. Potter adapts the lesson complexity to match the requested content scope
+
+INTRODUCTION AND APPROACH:
+- Prof. Potter introduces himself as an experienced teacher who assists faculty in preparing lessons for their students
+- Prof. Potter asks if the faculty has uploaded the document from which lesson plans will be generated
+- Prof. Potter's goal is to generate an exact lesson for the faculty on the topic requested
+- Prof. Potter cautiously listens to faculty requests and asks clarifying questions to ensure nothing is overlooked
+- Prof. Potter never includes preface, appendix, or unrelated subjects from uploaded documents
+- Prof. Potter offers frequent suggestions for simpler and creative vocabulary appropriate for student grade levels
+- Prof. Potter generates two independent responses and only proceeds when they match by 95% or better
+- Prof. Potter reviews complete response content twice to eliminate unnecessary repetition
+
+TEACHING STRATEGY:
+- Prof. Potter summons vast knowledge from the internet to find the "best" approach to faculty questions
+- Prof. Potter asks if faculty prefers to revise background material first to ensure student understanding of prerequisites
+- Prof. Potter provides concise, explicit background material related directly to the lesson
+- Prof. Potter develops lessons as a series of "simpler short lectures" that are self-explanatory
+- Each explanation builds on the previous one, starting basic and progressing to complex concepts
+- All explanations are logical, sequential, and methodical without disjointed statements
+- Prof. Potter insists on creative lesson generation and commends faculty for new perspectives and approaches
+- Prof. Potter keeps faculty informed of progress in lesson generation
+
+EQUATION-BASED TEACHING PROTOCOL (for STEM subjects):
+Step 1: Individual Term Explanation - Explain each term in the equation one at a time, defining physical meaning
+Step 2: Mathematical Operations - Explain what each operator does to terms and what the combination produces
+Step 3: Check for Understanding - Ask faculty if they understand before proceeding
+Step 4: Complete All Terms - Repeat for every term in the equation
+Step 5: Synthesize Complete Equation - Connect all terms and reveal complete equation significance
 
 CRITICAL: You must respond with ONLY a valid JSON object. Do not include any text before or after the JSON.
 
@@ -487,12 +155,12 @@ Return this exact JSON structure following Prof. Potter's methodology:
         {{
             "equation": "Relevant equation (if applicable to STEM subjects)",
             "term_explanations": [
-                "Explanation of each term in simple language",
-                "Physical meaning of each component",
-                "Real-world significance"
+                "Step 1: Individual term explanation with physical meaning",
+                "Step 2: Mathematical operations explanation",
+                "Step 3: Understanding check and clarification"
             ],
-            "mathematical_operations": "How operations transform the terms",
-            "complete_equation_significance": "What the complete equation tells us about the physical world"
+            "mathematical_operations": "How operations transform the terms (Step 2 of equation protocol)",
+            "complete_equation_significance": "Step 5: Complete equation synthesis and real-world significance"
         }}
     ],
     "assessment_quiz": [
@@ -505,9 +173,10 @@ Return this exact JSON structure following Prof. Potter's methodology:
     ],
     "teacher_notes": [
         "Suggestions for adapting to different student levels",
-        "Creative teaching strategies",
+        "Creative teaching strategies and approaches",
         "Ways to challenge advanced students",
-        "Support strategies for struggling students"
+        "Support strategies for struggling students",
+        "Encouragement for faculty creativity and innovation"
     ]
 }}
 
@@ -520,9 +189,11 @@ PROF. POTTER'S REQUIREMENTS:
 - Break complex concepts into simpler, digestible parts
 - Emphasize practical applications and real-world connections
 - Include background prerequisites to ensure student readiness
-- For STEM subjects, follow the equation-based teaching protocol
+- For STEM subjects, follow the 5-step equation-based teaching protocol
 - Encourage creative thinking and innovative approaches
 - Provide teacher notes for differentiated instruction
+- Ensure logical, sequential explanations without disjointed statements
+- Commend faculty for creative approaches and new perspectives
 """)
 
     def allowed_file(self, filename: str) -> bool:
@@ -532,13 +203,179 @@ PROF. POTTER'S REQUIREMENTS:
         ext = filename.split(".")[-1].lower()
         return ext in ["pdf", "doc", "docx", "txt"]
 
+    def prof_potter_introduction(self) -> str:
+        """
+        Prof. Potter introduces himself and asks about document upload.
+        Returns introduction message for the faculty.
+        """
+        return """Hello! I'm Prof. Potter, an experienced teacher who specializes in helping faculty prepare creative, engaging lessons for their students. 
+
+I'm here to assist you in developing comprehensive lesson plans that will captivate and educate your students effectively.
+
+Before we begin, I need to ask: Have you uploaded the document from which we'll generate your lesson plan? If not, please upload your teaching material (PDF, DOC, DOCX, or TXT file) so I can help you create the perfect lesson for your students.
+
+Once you've uploaded your document, I'll work with you to ensure we cover every aspect of your lesson requirements and create something truly engaging for your students."""
+
+    def prof_potter_document_verification(self, has_document: bool) -> str:
+        """
+        Prof. Potter verifies document upload status and provides guidance.
+        """
+        if has_document:
+            return """Excellent! I can see you've uploaded your document. Now I'm ready to help you create an outstanding lesson plan.
+
+Before we proceed, I'd like to ask a few clarifying questions to ensure I understand your exact requirements:
+
+1. What specific topic or concept would you like me to focus on from your document?
+2. What grade level are your students?
+3. Are there any particular learning objectives you want to emphasize?
+4. Would you like me to include background prerequisite material to ensure your students are well-prepared?
+
+Please share these details so I can create the most effective lesson plan for your students."""
+        else:
+            return """I notice you haven't uploaded a document yet. To create the best possible lesson plan for your students, I need access to your teaching material.
+
+Please upload your document (PDF, DOC, DOCX, or TXT file) containing the content you'd like me to use for generating your lesson plan. This will allow me to:
+
+- Extract the most relevant information for your lesson
+- Ensure the content is appropriate for your students' level
+- Create a comprehensive and engaging lesson structure
+- Focus specifically on the topics you want to cover
+
+Once you've uploaded your document, I'll be ready to help you create an exceptional lesson plan!"""
+
+    def prof_potter_equation_protocol(self, equation: str, step: int = 1) -> str:
+        """
+        Implements Prof. Potter's 5-step equation-based teaching protocol for STEM subjects.
+        """
+        if step == 1:
+            return f"""Let me explain this equation step by step, following my proven teaching protocol.
+
+**Step 1: Individual Term Explanation**
+
+Let's start by understanding each term in the equation: {equation}
+
+I'll explain each term one at a time, defining what each means physically in the real world. We won't look at mathematical relationships yet - just the individual components.
+
+Please let me know when you're ready to begin with the first term, and I'll explain each one thoroughly before we move to the next step."""
+
+        elif step == 2:
+            return f"""**Step 2: Mathematical Operations**
+
+Now that we understand the individual terms, let's explore what happens when mathematical operators are applied to them.
+
+For each term, I'll explain:
+1. What the individual term means by itself
+2. What the mathematical operator does to that term  
+3. What the combination produces physically
+
+This systematic approach ensures you understand not just the math, but the real-world significance of each operation.
+
+Are you ready to explore how the mathematical operations transform our terms?"""
+
+        elif step == 3:
+            return f"""**Step 3: Check for Understanding**
+
+Before we continue, I need to ensure you fully understand the concepts we've covered so far.
+
+Can you explain back to me:
+- What each individual term represents physically?
+- How the mathematical operations transform these terms?
+- What the combinations produce in real-world terms?
+
+Please share your understanding, and I'll provide any additional clarification needed before we proceed to the next step."""
+
+        elif step == 4:
+            return f"""**Step 4: Complete All Terms**
+
+Now we'll systematically go through every single term in the equation, ensuring each is fully understood before moving to the next.
+
+We'll repeat the process for each term:
+- Individual explanation
+- Mathematical operation explanation  
+- Understanding check
+
+This ensures no concept is left unclear and builds a solid foundation for understanding the complete equation.
+
+Are you ready to work through each remaining term systematically?"""
+
+        elif step == 5:
+            return f"""**Step 5: Synthesize the Complete Equation**
+
+Now that we've thoroughly understood each individual term and operation, let's connect everything together.
+
+Here's the complete equation: {equation}
+
+Let me explain:
+- How each term's position in the equation affects its significance
+- The relationship between numerator and denominator (if applicable)
+- The role of exponents, powers, and coefficients
+- How this complete equation answers your lesson plan requirements
+
+This synthesis shows how mathematics connects to real-world science concepts and provides the comprehensive understanding your students need."""
+
+    def prof_potter_creativity_encouragement(self, faculty_input: str) -> str:
+        """
+        Prof. Potter commends faculty for creative approaches and encourages further innovation.
+        """
+        creativity_keywords = [
+            "creative", "innovative", "new approach", "different perspective", 
+            "unique", "original", "novel", "fresh", "alternative", "unconventional"
+        ]
+        
+        has_creativity = any(keyword in faculty_input.lower() for keyword in creativity_keywords)
+        
+        if has_creativity:
+            return f"""🌟 **Excellent! I'm impressed by your creative approach!** 🌟
+
+Your innovative thinking is exactly what makes teaching truly effective! I commend you for bringing such a fresh perspective to this lesson. Your creativity in thinking about new approaches and different ways to introduce concepts to students is:
+
+✅ **Impressive** - You're thinking beyond traditional methods
+✅ **Encouraged** - Keep exploring innovative ideas  
+✅ **Noted** - I'm taking note of your creative insights
+✅ **Rewarded** - Your students will benefit greatly from this approach
+
+Please continue sharing your creative ideas! When faculty like you bring new perspectives, new approaches, or introduce concepts in ways I haven't considered, it makes our collaboration truly exceptional.
+
+What other creative elements would you like to incorporate into this lesson?"""
+        else:
+            return """I'm here to help you think creatively about your lesson! 
+
+Consider these questions to spark innovation:
+- What's a completely different way you could introduce this concept?
+- How might you connect this topic to something unexpected or surprising?
+- What creative activity could make this lesson memorable for your students?
+- Are there any unconventional approaches you've been curious about trying?
+
+Remember, I highly value and encourage creative thinking. When you bring new perspectives or innovative approaches, I consider it impressive and commendable. Don't hesitate to share any creative ideas you have!"""
+
+    def prof_potter_progress_update(self, current_step: str, total_steps: int) -> str:
+        """
+        Prof. Potter keeps faculty informed of progress in lesson generation.
+        """
+        progress_percentage = (current_step / total_steps) * 100
+        
+        return f"""📚 **Progress Update: {progress_percentage:.0f}% Complete** 📚
+
+We're currently working on: {current_step}
+Overall progress: {current_step} of {total_steps} steps completed
+
+I want to keep you informed of where we are in the lesson generation process. This systematic approach ensures we don't miss any important elements and that your final lesson plan will be comprehensive and engaging.
+
+The remaining steps will focus on:
+- Finalizing creative activities
+- Ensuring all learning objectives are met
+- Adding assessment components
+- Reviewing for clarity and engagement
+
+How are you feeling about the progress so far? Any adjustments you'd like to make before we continue?"""
+
     def process_file(self, file: FileStorage, lesson_details: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """
         Process an uploaded file and return structured lesson content with DOCX bytes.
-        Accepts additional lesson details (title, objectives, focus areas, etc.) for teacher-focused workflow.
+        Accepts additional lesson details (title, prompt, focus areas, etc.) for teacher-focused workflow.
         Args:
             file: Uploaded file to process
-            lesson_details: Optional dictionary with lesson plan details (title, objectives, etc.)
+            lesson_details: Optional dictionary with lesson plan details (title, prompt, etc.)
         Returns:
             Dictionary containing lesson content, DOCX bytes, and filename
         """
@@ -557,6 +394,13 @@ PROF. POTTER'S REQUIREMENTS:
             full_text = "\n".join([doc.page_content for doc in documents])
             if not full_text.strip():
                 return {"error": "No readable content found in the file"}
+            # Extract specific sections based on prompt if specified
+            if lesson_details and lesson_details.get('lesson_prompt'):
+                extracted_text = self._extract_sections_from_prompt(full_text, lesson_details['lesson_prompt'])
+                if extracted_text:
+                    full_text = extracted_text
+                    logger.info(f"Extracted specific sections based on prompt: {lesson_details['lesson_prompt']}")
+            
             # Merge lesson_details into prompt if provided
             lesson_data = self._generate_structured_lesson(full_text, lesson_details)
             if 'error' in lesson_data:
@@ -622,6 +466,186 @@ PROF. POTTER'S REQUIREMENTS:
             logger.error(f"Error loading document {filename}: {str(e)}")
             raise ValueError(f"Failed to load document: {str(e)}")
 
+    def _extract_sections_from_prompt(self, full_text: str, lesson_prompt: str) -> Optional[str]:
+        """
+        Extract specific sections from the document based on the lesson prompt.
+        Handles patterns like "sections 1.1 to 1.4", "chapter 3", "topics A and B", etc.
+        """
+        try:
+            import re
+            
+            # Look for section patterns in the prompt
+            section_patterns = [
+                r'sections?\s+(\d+\.\d+)\s+to\s+(\d+\.\d+)',  # "sections 1.1 to 1.4"
+                r'section\s+(\d+\.\d+)',  # "section 1.1"
+                r'chapter\s+(\d+)',  # "chapter 3"
+                r'topics?\s+([A-Za-z0-9\.\s,]+)',  # "topics A and B"
+                r'(\d+\.\d+)\s+to\s+(\d+\.\d+)',  # "1.1 to 1.4"
+            ]
+            
+            extracted_sections = []
+            
+            for pattern in section_patterns:
+                matches = re.findall(pattern, lesson_prompt, re.IGNORECASE)
+                if matches:
+                    if len(matches[0]) == 2:  # Range pattern (e.g., "1.1 to 1.4")
+                        start_section, end_section = matches[0]
+                        extracted_sections.extend(self._extract_section_range(full_text, start_section, end_section))
+                    else:  # Single section
+                        section = matches[0]
+                        extracted_sections.extend(self._extract_single_section(full_text, section))
+            
+            if extracted_sections:
+                return "\n\n".join(extracted_sections)
+            
+            # If no specific sections found, try to extract based on keywords
+            return self._extract_by_keywords(full_text, lesson_prompt)
+            
+        except Exception as e:
+            logger.error(f"Error extracting sections from prompt: {str(e)}")
+            return None
+
+    def _extract_section_range(self, text: str, start_section: str, end_section: str) -> List[str]:
+        """Extract a range of sections (e.g., 1.1 to 1.4)"""
+        try:
+            import re
+            
+            # Pattern to match section headers
+            section_pattern = r'^(\d+\.\d+)\s+(.+)$'
+            lines = text.split('\n')
+            
+            sections = []
+            current_section = None
+            in_range = False
+            
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                    
+                # Check if this line is a section header
+                match = re.match(section_pattern, line)
+                if match:
+                    section_num = match.group(1)
+                    section_title = match.group(2)
+                    
+                    # Check if we're starting the range
+                    if section_num == start_section:
+                        in_range = True
+                        current_section = []
+                        current_section.append(f"{section_num} {section_title}")
+                        continue
+                    
+                    # Check if we're ending the range
+                    if in_range and section_num == end_section:
+                        current_section.append(f"{section_num} {section_title}")
+                        sections.append('\n'.join(current_section))
+                        break
+                    
+                    # If we're in range, add to current section
+                    if in_range:
+                        current_section.append(f"{section_num} {section_title}")
+                    elif section_num > end_section:
+                        break
+                elif in_range and current_section:
+                    # Add content to current section
+                    current_section.append(line)
+            
+            return sections
+            
+        except Exception as e:
+            logger.error(f"Error extracting section range {start_section} to {end_section}: {str(e)}")
+            return []
+
+    def _extract_single_section(self, text: str, section: str) -> List[str]:
+        """Extract a single section"""
+        try:
+            import re
+            
+            # Pattern to match section headers
+            section_pattern = r'^(\d+\.\d+)\s+(.+)$'
+            lines = text.split('\n')
+            
+            sections = []
+            current_section = None
+            found_section = False
+            
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                    
+                # Check if this line is a section header
+                match = re.match(section_pattern, line)
+                if match:
+                    section_num = match.group(1)
+                    section_title = match.group(2)
+                    
+                    # Check if this is our target section
+                    if section_num == section:
+                        found_section = True
+                        current_section = [f"{section_num} {section_title}"]
+                        continue
+                    elif found_section and re.match(r'^\d+\.\d+', line):
+                        # Found next section, stop
+                        break
+                
+                if found_section and current_section:
+                    current_section.append(line)
+            
+            if current_section:
+                sections.append('\n'.join(current_section))
+            
+            return sections
+            
+        except Exception as e:
+            logger.error(f"Error extracting single section {section}: {str(e)}")
+            return []
+
+    def _extract_by_keywords(self, text: str, lesson_prompt: str) -> Optional[str]:
+        """Extract content based on keywords in the prompt"""
+        try:
+            import re
+            
+            # Extract keywords from the prompt
+            keywords = re.findall(r'\b\w+\b', lesson_prompt.lower())
+            
+            # Look for sections that contain these keywords
+            lines = text.split('\n')
+            relevant_sections = []
+            current_section = []
+            in_relevant_section = False
+            
+            for line in lines:
+                line_lower = line.lower()
+                
+                # Check if this line contains any keywords
+                if any(keyword in line_lower for keyword in keywords if len(keyword) > 3):
+                    if not in_relevant_section:
+                        in_relevant_section = True
+                        current_section = []
+                    current_section.append(line)
+                elif in_relevant_section and line.strip():
+                    current_section.append(line)
+                elif in_relevant_section and not line.strip():
+                    # Empty line, continue adding to current section
+                    current_section.append(line)
+                elif in_relevant_section and re.match(r'^\d+\.\d+', line):
+                    # Found next section, stop
+                    break
+            
+            if current_section:
+                relevant_sections.append('\n'.join(current_section))
+            
+            if relevant_sections:
+                return '\n\n'.join(relevant_sections)
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error extracting by keywords: {str(e)}")
+            return None
+
     def _generate_structured_lesson(self, text: str, lesson_details: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """
         Generate structured lesson from text content and optional teacher-provided lesson details.
@@ -637,8 +661,14 @@ PROF. POTTER'S REQUIREMENTS:
             # Compose prompt with lesson_details if provided
             prompt_text = text
             if lesson_details:
-                details_str = "\n".join([f"{k}: {v}" for k, v in lesson_details.items() if v])
-                prompt_text = f"Lesson Details Provided by Teacher:\n{details_str}\n\nDocument Content:\n{text}"
+                # Use the lesson_prompt as the main instruction
+                lesson_prompt = lesson_details.get('lesson_prompt', '')
+                if lesson_prompt:
+                    prompt_text = f"Teacher's Lesson Request: {lesson_prompt}\n\nDocument Content:\n{text}"
+                else:
+                    # Fallback to old format if no lesson_prompt
+                    details_str = "\n".join([f"{k}: {v}" for k, v in lesson_details.items() if v])
+                    prompt_text = f"Lesson Details Provided by Teacher:\n{details_str}\n\nDocument Content:\n{text}"
             response = self.llm.invoke(self.lesson_prompt.format(text=prompt_text))
             logger.info(f"Received LLM response type: {type(response)}")
             if hasattr(response, 'content'):
