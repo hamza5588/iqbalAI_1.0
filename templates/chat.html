@@ -383,14 +383,14 @@
                                                 </div>
                                             </div>
 
-                                            <!-- Learning Objective -->
+                                            <!-- Lesson Prompt -->
                                             <div>
-                                                <label class="block text-gray-700 text-sm font-semibold mb-1" for="learningObjective">
-                                                    Learning Objective *
+                                                <label class="block text-gray-700 text-sm font-semibold mb-1" for="lessonPrompt">
+                                                    Lesson Prompt *
                                                 </label>
-                                                <textarea id="learningObjective" name="learningObjective"
-                                                    placeholder="What should students learn from this lesson?"
-                                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#05B0FC] focus:border-transparent h-16 resize-none text-sm transition-all duration-200"
+                                                <textarea id="lessonPrompt" name="lessonPrompt"
+                                                    placeholder="Describe what lesson you want to generate. For example: 'Generate a lesson on Force and Motion covering sections 1.1 to 1.4' or 'Create a lesson on Photosynthesis focusing on the light-dependent reactions'"
+                                                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#05B0FC] focus:border-transparent h-20 resize-none text-sm transition-all duration-200"
                                                     required></textarea>
                                             </div>
 
@@ -2547,7 +2547,7 @@ async function initializeApp() {
         
         // Clear form fields
         document.getElementById('lessonTitle').value = '';
-        document.getElementById('learningObjective').value = '';
+        document.getElementById('lessonPrompt').value = '';
         document.getElementById('focusArea').value = '';
         document.getElementById('gradeLevel').value = '';
         document.getElementById('additionalNotes').value = '';
@@ -2719,7 +2719,7 @@ async function initializeApp() {
         
         // Add form fields with correct backend keys
             formData.append('lessonTitle', lessonTitle);
-        formData.append('learningObjective', form.learningObjective.value);
+        formData.append('lessonPrompt', form.lessonPrompt.value);
         formData.append('focusArea', form.focusArea.value);
         formData.append('gradeLevel', form.gradeLevel.value);
         formData.append('additionalNotes', form.additionalNotes.value);
@@ -2764,7 +2764,7 @@ async function initializeApp() {
                     // Convert FormData to JSON for POST request
                 const jsonData = {
                     title: form.lessonTitle.value,
-                    learning_objectives: form.learningObjective.value,
+                    lesson_prompt: form.lessonPrompt.value,
                     focus_area: form.focusArea.value,
                     grade_level: form.gradeLevel.value,
                     summary: form.additionalNotes.value,
@@ -3306,7 +3306,7 @@ async function initializeApp() {
                     body: JSON.stringify({
                         title: currentLessonData.title,
                         summary: currentLessonData.summary || '',
-                        learning_objectives: currentLessonData.learning_objectives || [],
+                        lesson_prompt: currentLessonData.lesson_prompt || '',
                         focus_area: currentLessonData.focus_area || currentLessonData.focusArea || '',
                         grade_level: currentLessonData.grade_level || currentLessonData.gradeLevel || '',
                         content: generatedLessonContent || currentLessonData.content || '',
@@ -5536,7 +5536,7 @@ async function initializeApp() {
             // Update lesson details
             document.getElementById('lessonSubject').textContent = selectedVersion.focus_area || 'Not specified';
             document.getElementById('lessonGrade').textContent = selectedVersion.grade_level || 'Not specified';
-            document.getElementById('lessonObjectives').textContent = selectedVersion.learning_objectives || 'Not specified';
+            document.getElementById('lessonObjectives').textContent = selectedVersion.lesson_prompt || 'Not specified';
             document.getElementById('lessonSummary').textContent = selectedVersion.summary || 'Not specified';
             document.getElementById('lessonCreated').textContent = new Date(selectedVersion.created_at).toLocaleDateString();
             document.getElementById('lessonVersion').textContent = selectedVersion.version || 1;
@@ -5729,7 +5729,7 @@ async function initializeApp() {
                                 <h3 class="text-lg font-semibold text-gray-800 mb-3">Lesson Details</h3>
                                 <div class="space-y-2 text-sm">
                                     ${lesson.summary ? `<div><strong>Summary:</strong> ${lesson.summary}</div>` : ''}
-                                    ${lesson.learning_objectives ? `<div><strong>Learning Objectives:</strong> ${lesson.learning_objectives}</div>` : ''}
+                                    ${lesson.lesson_prompt ? `<div><strong>Lesson Prompt:</strong> ${lesson.lesson_prompt}</div>` : ''}
                                     ${lesson.focus_area ? `<div><strong>Focus Area:</strong> ${lesson.focus_area}</div>` : ''}
                                     ${lesson.grade_level ? `<div><strong>Grade Level:</strong> ${lesson.grade_level}</div>` : ''}
                                 </div>
@@ -6014,7 +6014,7 @@ async function initializeApp() {
                 
                 // Populate form fields with current lesson data
                 document.getElementById('lessonTitle').value = lesson.title;
-                document.getElementById('learningObjective').value = lesson.learning_objectives;
+                document.getElementById('lessonPrompt').value = lesson.lesson_prompt;
                 document.getElementById('focusArea').value = lesson.focus_area;
                 document.getElementById('gradeLevel').value = lesson.grade_level;
                 document.getElementById('additionalNotes').value = lesson.summary || '';
@@ -6422,7 +6422,7 @@ async function initializeApp() {
             const setInitialState = (versionData) => {
                 const meta = {
                     title: versionData?.title || '',
-                    learning_objectives: versionData?.learning_objectives || '',
+                    lesson_prompt: versionData?.lesson_prompt || '',
                     focus_area: versionData?.focus_area || '',
                     grade_level: versionData?.grade_level || '',
                     summary: versionData?.summary || ''
@@ -6618,7 +6618,7 @@ async function initializeApp() {
                 const fallbackData = {
                     title: 'Untitled Lesson',
                     content: '',
-                    learning_objectives: '',
+                    lesson_prompt: '',
                     focus_area: '',
                     grade_level: '',
                     summary: ''
