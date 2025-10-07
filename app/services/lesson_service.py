@@ -1405,8 +1405,28 @@ How are you feeling about the progress so far? Any adjustments you'd like to mak
         return {'answer': answer, 'canonical_question': canonical}
 
     def llm_answer(self, lesson_content, question, lesson_title="this lesson"):
+        # Check if the question references specific lines
+        line_references = self._extract_line_references(question)
+        
         # Use Groq LLM (already implemented in the project)
-        prompt = f"""
+        if line_references:
+            # Format lesson content with line numbers for context
+            numbered_content = self._format_content_with_line_numbers(lesson_content)
+            prompt = f"""
+You are a helpful teacher for the lesson titled "{lesson_title}". The student is asking about specific lines in the lesson content. Use the following numbered lesson content to answer their question concisely and clearly.
+
+Lesson Title: {lesson_title}
+Numbered Lesson Content:
+{numbered_content}
+
+Student's Question: {question}
+
+The student is specifically asking about line(s): {', '.join(map(str, line_references))}
+
+Answer as a helpful teacher, focusing on the specific lines mentioned and providing clear explanations for those lines:
+"""
+        else:
+            prompt = f"""
 You are a helpful teacher for the lesson titled "{lesson_title}". Use the following lesson content to answer the student's question concisely and clearly. Make sure your response is specific to this lesson and its content.
 
 Lesson Title: {lesson_title}
@@ -1425,6 +1445,58 @@ Answer as a helpful teacher, being specific to the "{lesson_title}" lesson conte
                 return str(response).strip()
         except Exception as e:
             return f"[Error from LLM: {e}]"
+
+    def _extract_line_references(self, question: str) -> list:
+        """Extract line references from a question like 'line 1', 'sentence 2', etc."""
+        import re
+        
+        line_patterns = [
+            r'line\s+(\d+)',
+            r'sentence\s+(\d+)',
+            r'paragraph\s+(\d+)',
+            r'number\s+(\d+)',
+            r'(\d+)(?:st|nd|rd|th)?\s+(?:line|sentence|paragraph)'
+        ]
+        
+        references = []
+        for pattern in line_patterns:
+            matches = re.findall(pattern, question, re.IGNORECASE)
+            for match in matches:
+                line_number = int(match)
+                if line_number > 0:
+                    references.append(line_number)
+        
+        return references
+
+    def _format_content_with_line_numbers(self, content: str) -> str:
+        """Format lesson content with line numbers for AI context"""
+        import re
+        
+        # Split content into paragraphs and sentences
+        paragraphs = content.split('\n\n')
+        numbered_content = ''
+        line_number = 1
+        
+        for paragraph in paragraphs:
+            if paragraph.strip():
+                # Split paragraph into sentences
+                sentences = re.split(r'[.!?]+', paragraph)
+                sentences = [s.strip() for s in sentences if s.strip()]
+                
+                if len(sentences) > 1:
+                    # Multiple sentences - number each sentence
+                    for sentence in sentences:
+                        if sentence:
+                            numbered_content += f"{line_number}: {sentence}.\n"
+                            line_number += 1
+                else:
+                    # Single sentence or short paragraph - number as one line
+                    numbered_content += f"{line_number}: {paragraph.strip()}\n"
+                    line_number += 1
+                
+                numbered_content += "\n"
+        
+        return numbered_content
 
     def canonicalize_question(self, lesson_id: int, question: str) -> str:
         """Return a canonical phrasing for the question using semantic similarity.
