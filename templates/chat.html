@@ -179,14 +179,14 @@
         </div>
 
         <!-- Chat Messages Area -->
-            <div class="flex-1 px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 overflow-y-auto" id="chatMessages">
+            <div class="flex-1 px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 overflow-y-auto zoomable-content" id="chatMessages">
                 <div class="flex items-start gap-3">
                     <div
                         class="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-xs sm:text-sm flex-shrink-0">
                     AI
                 </div>
                     <div
-                        class="bg-gray-100 rounded-2xl px-3 sm:px-4 lg:px-5 py-3 sm:py-4 max-w-xs sm:max-w-md lg:max-w-lg">
+                        class="bg-gray-100 rounded-2xl px-3 sm:px-4 lg:px-5 py-3 sm:py-4 w-full">
                         <p class="text-gray-700 leading-relaxed text-sm sm:text-base">
                         Hello! I'm your AI assistant. How can I help you today?
                     </p>
@@ -304,7 +304,7 @@
             <div id="lessonGeneratorContent"
                 class="hidden flex-1 px-3 sm:px-4 lg:px-6 pt-4 sm:pt-6 lg:pt-8 overflow-y-auto">
             <!-- Combined Lesson Generator Form -->
-                <div id="lessonFormStep" class="max-w-2xl mx-auto">
+                <div id="lessonFormStep" class="max-w-4xl mx-auto">
                     <div class="text-center mb-6">
                         <h2 class="text-2xl font-bold text-[#05B0FC] mb-2">Create Your Lesson</h2>
                         <p class="text-gray-600 text-base">Upload materials and fill in lesson details</p>
@@ -479,33 +479,19 @@
 
             <!-- Step 3: Generated Lesson Display -->
                 <div id="lessonDisplay"
-                    class="hidden w-full max-w-xs sm:max-w-lg lg:max-w-[616px] mx-auto p-3 sm:p-4 lg:p-5">
-                    <div class="text-center mb-6 sm:mb-8 text-[#05B0FC] justify-center">
-                        <div class="flex gap-2 justify-center text-center items-center">
-                            <img src="../static/images/f7_book.png" alt="" class="w-6 h-6 sm:w-8 sm:h-8">
-                            <span class="font-medium text-xl sm:text-2xl">Initial Lesson Generated</span>
-                    </div>
-                        <p class="text-center mt-2 sm:mt-3 mb-2 sm:mb-3 text-sm sm:text-base">Review the AI-Generated
-                            Content</p>
-                        <button
-                            class="px-6 sm:px-8 py-2 sm:py-3 bg-[#05B0FC] text-white rounded-lg hover:bg-blue-600 transition-colors font-medium text-sm sm:text-base">Generated
-                            based on your Document</button>
-                </div>
-
-                <div class="bg-white">
-                    <!-- Lesson Header -->
-                    <div class="">
-                        <div class="mb-2">
-                                <div class="p-2 sm:p-3 rounded-lg border border-blue-500 shadow-lg">
-                                    <!-- Read-only lesson content display -->
-                                    <div id="lessonSummary"
-                                        class="text-gray-700 leading-relaxed max-h-80 sm:max-h-96 lg:max-h-[436px] overflow-y-auto text-sm sm:text-base">
+                    class="hidden w-full mx-auto p-3 sm:p-4 lg:p-5">
+                    <div class="bg-white">
+                        <!-- Lesson Content -->
+                        <div class="p-4 sm:p-6 rounded-lg border border-blue-500 shadow-lg">
+                            <!-- Read-only lesson content display -->
+                            <div id="lessonSummary"
+                                class="text-gray-700 leading-relaxed text-sm sm:text-base zoomable-content">
                                     <p>Your generated lesson content will appear here...</p>
                                 </div>
                                 
                                 <!-- Inline editing textarea (hidden by default) -->
                                 <textarea id="inlineEditTextarea"
-                                    class="hidden w-full px-3 sm:px-4 py-2 sm:py-3 border border-[#05B0FC] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-80 sm:min-h-96 max-h-96 sm:max-h-[436px] overflow-y-auto resize-none text-xs sm:text-sm font-mono"
+                                    class="hidden w-full min-h-[200px] px-3 sm:px-4 py-2 sm:py-3 border border-[#05B0FC] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none text-xs sm:text-sm font-mono"
                                     placeholder="Edit your lesson content here..."></textarea>
                                 
                                 <!-- AI prompt input (hidden by default) -->
@@ -566,7 +552,7 @@
                                 <i class="fas fa-times mr-2"></i>Cancel
                             </button>
                         </div>
-                            <div class="flex flex-col sm:flex-row justify-center mt-3 sm:mt-4 gap-3 sm:gap-4">
+                            <div id="finalizeNewLessonButtons" class="flex flex-col sm:flex-row justify-center mt-3 sm:mt-4 gap-3 sm:gap-4">
                                 <button onclick="proceedToCompletion()"
                                     class="w-full sm:w-auto border border-[#05B0FC] px-6 sm:px-8 py-2 sm:py-3 bg-white text-[#05B0FC] hover:text-white hover:bg-[#05B0FC] rounded-lg transition-colors font-medium flex items-center justify-center gap-2 text-sm sm:text-base">
                                 <i class="fas fa-check"></i>
@@ -630,9 +616,8 @@
             </div>
 
             <!-- Human Review Interface -->
-                <div class="max-h-screen sm:max-h-[80vh] overflow-y-auto">
-                    <div id="humanReviewInterface"
-                        class="hidden w-full max-w-xs sm:max-w-lg lg:max-w-[616px] mx-auto px-3 sm:px-4 lg:px-6 pt-4 sm:pt-6 lg:pt-8 border border-[#05B0FC] shadow-3xl rounded-xl">
+                <div id="humanReviewInterface"
+                    class="hidden w-full mx-auto px-3 sm:px-4 lg:px-6 pt-4 sm:pt-6 lg:pt-8 border border-[#05B0FC] shadow-3xl rounded-xl">
                         <div class="text-center mb-6 sm:mb-8">
                         <div class="flex gap-2 justify-center items-center">
                                 <img src="../static/images/manual.png" alt="Manual Edit Icon"
@@ -646,7 +631,7 @@
                         <!-- Single Editable Content Area -->
                             <div class="mb-4 sm:mb-6">
                                 <textarea id="humanReviewContent"
-                                    class="w-full px-3 sm:px-4 py-2 sm:py-3 border border-[#05B0FC] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 min-h-80 sm:min-h-96 max-h-96 sm:max-h-[32rem] overflow-y-auto resize-none text-xs sm:text-sm font-mono"
+                                    class="w-full min-h-[200px] px-3 sm:px-4 py-2 sm:py-3 border border-[#05B0FC] rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none text-xs sm:text-sm font-mono"
                                     placeholder="Edit your lesson content here..."></textarea>
                         </div>
 
@@ -670,9 +655,8 @@
             </div>
 
             <!-- AI Review Interface -->
-                <div class="max-h-screen sm:max-h-[80vh] overflow-y-auto">
-                    <div id="aiReviewInterface"
-                        class="hidden max-w-xs sm:max-w-2xl lg:max-w-4xl mx-auto px-3 sm:px-4 lg:px-6 pt-4 sm:pt-6 lg:pt-8">
+                <div id="aiReviewInterface"
+                    class="hidden w-full mx-auto px-3 sm:px-4 lg:px-6 pt-4 sm:pt-6 lg:pt-8">
                         <div class="text-center mb-6 sm:mb-8">
                         <div class="flex justify-center items-center gap-2">
                                 <img src="../static/images/manual.png" alt="Manual Edit Icon"
@@ -689,14 +673,14 @@
                                 Add Your Prompt Here
                             </label>
                                 <textarea id="aiReviewPrompt" placeholder="Describe what changes you want AI to make..."
-                                    class="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 min-h-24 sm:min-h-32 max-h-48 sm:max-h-64 overflow-y-auto resize-none text-sm sm:text-base"></textarea>
+                                    class="w-full h-32 px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-400 resize-none text-sm sm:text-base"></textarea>
                         </div>
                             <div class="mb-4 sm:mb-6 border border-[#05B0FC] rounded-lg p-3 sm:p-4 bg-blue-50">
                                 <label class="block text-xs sm:text-sm text-[#05B0FC] font-bold mb-2">
                                 Current Lesson Preview
                             </label>
                                 <div id="currentLessonPreview"
-                                    class="bg-blue-80 p-3 sm:p-4 rounded-lg min-h-24 sm:min-h-32 max-h-40 sm:max-h-48 overflow-y-auto text-xs sm:text-sm">
+                                    class="bg-blue-80 p-3 sm:p-4 rounded-lg h-32 text-xs sm:text-sm">
                                 <!-- This area will scroll if content is long -->
                             </div>
                         </div>
@@ -2186,7 +2170,8 @@ async function initializeApp() {
             // Restore lesson content
             const lessonSummary = document.getElementById('lessonSummary');
             if (lessonSummary && currentLessonData.content) {
-                lessonSummary.innerHTML = `<pre class="whitespace-pre-wrap font-sans">${currentLessonData.content}</pre>`;
+                const formattedContent = formatLessonContentWithoutNumbers(currentLessonData.content);
+                lessonSummary.innerHTML = formattedContent;
             }
 
             // Restore additional notes if they exist
@@ -2242,13 +2227,20 @@ async function initializeApp() {
             }
             
             if (lessonSummary && contentToShow) {
-                lessonSummary.innerHTML = `<pre class="whitespace-pre-wrap font-sans">${contentToShow}</pre>`;
+                const formattedContent = formatLessonContentWithoutNumbers(contentToShow);
+                lessonSummary.innerHTML = formattedContent;
             }
 
             // Show the review buttons
             const defaultButtons = document.getElementById('defaultReviewButtons');
             if (defaultButtons) {
                 defaultButtons.classList.remove('hidden');
+            }
+            
+            // Show finalize and new lesson buttons
+            const finalizeNewLessonButtons = document.getElementById('finalizeNewLessonButtons');
+            if (finalizeNewLessonButtons) {
+                finalizeNewLessonButtons.classList.remove('hidden');
             }
         }
 
@@ -2291,7 +2283,13 @@ async function initializeApp() {
             inlineAIButtons.classList.add('hidden');
         }
         if (defaultButtons) {
-            defaultButtons.classList.remove('hidden');
+            defaultButtons.classList.add('hidden');
+        }
+        
+        // Hide finalize and new lesson buttons
+        const finalizeNewLessonButtons = document.getElementById('finalizeNewLessonButtons');
+        if (finalizeNewLessonButtons) {
+            finalizeNewLessonButtons.classList.add('hidden');
         }
         
         const inlineAIPrompt = document.getElementById('inlineAIPrompt');
@@ -2445,11 +2443,35 @@ async function initializeApp() {
             const humanReview = document.getElementById('humanReviewInterface');
             if (humanReview) {
                 humanReview.classList.remove('hidden');
+                
+                // Populate and auto-resize the human review textarea
+                const humanReviewContent = document.getElementById('humanReviewContent');
+                if (humanReviewContent) {
+                    const content = generatedLessonContent || (currentLessonData && currentLessonData.content) || '';
+                    humanReviewContent.value = content;
+                    autoResizeTextarea(humanReviewContent);
+                    
+                    // Add input event listener for dynamic resizing
+                    humanReviewContent.addEventListener('input', function() {
+                        autoResizeTextarea(this);
+                    });
+                }
             }
         } else if (step === 'aiReview') {
             const aiReview = document.getElementById('aiReviewInterface');
             if (aiReview) {
                 aiReview.classList.remove('hidden');
+                
+                // Populate and auto-resize the AI review textarea
+                const aiReviewPrompt = document.getElementById('aiReviewPrompt');
+                if (aiReviewPrompt) {
+                    autoResizeTextarea(aiReviewPrompt);
+                    
+                    // Add input event listener for dynamic resizing
+                    aiReviewPrompt.addEventListener('input', function() {
+                        autoResizeTextarea(this);
+                    });
+                }
             }
         }
     }
@@ -2876,7 +2898,10 @@ async function initializeApp() {
             const lessonSummary = document.getElementById('lessonSummary');
             // Show content, fallback to summary if content is missing
             const content = generatedLessonContent || currentLessonData.content || currentLessonData.summary || 'No content available.';
-            lessonSummary.innerHTML = `<pre class="whitespace-pre-wrap font-sans">${content}</pre>`;
+            
+            // Format content without numbers for generation view
+            const formattedContent = formatLessonContentWithoutNumbers(content);
+            lessonSummary.innerHTML = formattedContent;
             
             // Show additional notes if provided
             if (currentLessonData.additionalNotes) {
@@ -2889,6 +2914,445 @@ async function initializeApp() {
             }
         }
     }
+
+    function formatLessonContentWithoutNumbers(content) {
+        console.log('formatLessonContentWithoutNumbers called with content:', content);
+        
+        if (!content || content.trim() === '') {
+            return '<p>No content available</p>';
+        }
+        
+        // Split content into paragraphs
+        const paragraphs = content.split('\n\n').filter(p => p.trim() !== '');
+        
+        let formattedContent = '';
+        
+        paragraphs.forEach(paragraph => {
+            const trimmedParagraph = paragraph.trim();
+            if (trimmedParagraph) {
+                // Check if it's a complete sentence (ends with period, exclamation, or question mark)
+                const isCompleteSentence = /[.!?]$/.test(trimmedParagraph);
+                
+                if (isCompleteSentence) {
+                    // It's a complete sentence - display as one paragraph
+                    formattedContent += `<p class="text-gray-700 leading-relaxed mb-3">${trimmedParagraph}</p>`;
+                } else {
+                    // Split into sentences and display each as a paragraph
+                    const sentences = trimmedParagraph.split(/[.!?]+/).filter(s => s.trim() !== '');
+                    if (sentences.length > 1) {
+                        sentences.forEach(sentence => {
+                            const trimmedSentence = sentence.trim();
+                            if (trimmedSentence) {
+                                formattedContent += `<p class="text-gray-700 leading-relaxed mb-3">${trimmedSentence}.</p>`;
+                            }
+                        });
+                    } else {
+                        // Single sentence or short text - display as one paragraph
+                        formattedContent += `<p class="text-gray-700 leading-relaxed mb-3">${trimmedParagraph}</p>`;
+                    }
+                }
+            }
+        });
+        
+        return formattedContent || '<p>No content available</p>';
+    }
+
+    function formatLessonContentWithNumbers(content) {
+        console.log('formatLessonContentWithNumbers called with content:', content);
+        
+        if (!content || content.trim() === '') {
+            return '<p>No content available</p>';
+        }
+        
+        // Clean up the content - remove HTML tags if present
+        const cleanContent = content.replace(/<[^>]*>/g, '').trim();
+        console.log('Cleaned content:', cleanContent);
+        
+        // Split content into paragraphs first
+        let paragraphs = cleanContent.split('\n\n').filter(p => p.trim());
+        
+        // If no double line breaks, try single line breaks
+        if (paragraphs.length === 1) {
+            paragraphs = cleanContent.split('\n').filter(p => p.trim());
+        }
+        
+        // If still only one paragraph, split by sentences
+        if (paragraphs.length === 1) {
+            paragraphs = cleanContent.split(/[.!?]+/).filter(p => p.trim());
+        }
+        
+        let numberedContent = '';
+        let lineNumber = 1;
+        
+        paragraphs.forEach(paragraph => {
+            const trimmedParagraph = paragraph.trim();
+            if (trimmedParagraph) {
+                // Check if this looks like a sentence (ends with punctuation)
+                const isCompleteSentence = /[.!?]$/.test(trimmedParagraph);
+                
+                if (isCompleteSentence) {
+                    // It's a complete sentence - number it as one line
+                    numberedContent += `<div class="numbered-line mb-2" data-line="${lineNumber}">
+                        <span class="line-number font-bold text-[#05B0FC] mr-2">${lineNumber}:</span>
+                        <span class="line-content">${trimmedParagraph}</span>
+                    </div>`;
+                    lineNumber++;
+                } else {
+                    // It might be a paragraph with multiple sentences
+                    const sentences = trimmedParagraph.split(/[.!?]+/).filter(s => s.trim());
+                    
+                    if (sentences.length > 1) {
+                        // Multiple sentences - number each sentence
+                        sentences.forEach(sentence => {
+                            const trimmedSentence = sentence.trim();
+                            if (trimmedSentence) {
+                                numberedContent += `<div class="numbered-line mb-2" data-line="${lineNumber}">
+                                    <span class="line-number font-bold text-[#05B0FC] mr-2">${lineNumber}:</span>
+                                    <span class="line-content">${trimmedSentence}.</span>
+                                </div>`;
+                                lineNumber++;
+                            }
+                        });
+                    } else {
+                        // Single sentence or short text - number as one line
+                        numberedContent += `<div class="numbered-line mb-2" data-line="${lineNumber}">
+                            <span class="line-number font-bold text-[#05B0FC] mr-2">${lineNumber}:</span>
+                            <span class="line-content">${trimmedParagraph}</span>
+                        </div>`;
+                        lineNumber++;
+                    }
+                }
+                
+                // Add spacing between paragraphs
+                numberedContent += '<div class="mb-3"></div>';
+            }
+        });
+        
+        console.log('Generated numbered content:', numberedContent);
+        return numberedContent;
+    }
+
+    function parseLineReference(question) {
+        console.log('parseLineReference called with question:', question);
+        
+        // Parse line references like "line 1", "sentence 2", "paragraph 3", etc.
+        const linePatterns = [
+            /line\s+(\d+)/gi,
+            /sentence\s+(\d+)/gi,
+            /paragraph\s+(\d+)/gi,
+            /point\s+(\d+)/gi,
+            /number\s+(\d+)/gi,
+            /(\d+)(?:st|nd|rd|th)?\s+(?:line|sentence|paragraph|point)/gi
+        ];
+        
+        const references = [];
+        linePatterns.forEach(pattern => {
+            let match;
+            while ((match = pattern.exec(question)) !== null) {
+                const lineNumber = parseInt(match[1]);
+                if (lineNumber > 0) {
+                    references.push(lineNumber);
+                }
+            }
+        });
+        
+        console.log('Found line references:', references);
+        return references;
+    }
+
+    function getLineContent(lineNumber) {
+        // Get the content of a specific line number from the lesson
+        const lineElement = document.querySelector(`[data-line="${lineNumber}"]`);
+        if (lineElement) {
+            const contentElement = lineElement.querySelector('.line-content');
+            return contentElement ? contentElement.textContent.trim() : '';
+        }
+        return '';
+    }
+
+    function highlightLineReference(lineNumber) {
+        console.log('highlightLineReference called with lineNumber:', lineNumber);
+        
+        // Highlight the referenced line
+        const lineElement = document.querySelector(`[data-line="${lineNumber}"]`);
+        console.log('Found line element:', lineElement);
+        
+        if (lineElement) {
+            // Remove previous highlights
+            document.querySelectorAll('.highlighted-line').forEach(el => {
+                el.classList.remove('highlighted-line');
+            });
+            
+            // Add highlight to current line
+            lineElement.classList.add('highlighted-line');
+            console.log('Highlighted line', lineNumber);
+            
+            // Scroll to the line
+            lineElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Remove highlight after 3 seconds
+            setTimeout(() => {
+                lineElement.classList.remove('highlighted-line');
+            }, 3000);
+        } else {
+            console.log('No line element found for line number:', lineNumber);
+        }
+    }
+
+    // Zoom functionality
+    let currentZoomLevel = 100;
+    const zoomLevels = [100, 110, 125, 150, 175, 200];
+    let currentZoomIndex = 0;
+
+    function applyZoom(zoomLevel) {
+        // Try multiple selectors to find content elements
+        const selectors = [
+            '#chatMessages',
+            '#lessonSummary', 
+            '#studentLessonContent',
+            '.numbered-line',
+            '.line-content',
+            '.prose',
+            '.markdown-content',
+            '.lesson-content',
+            '.chat-messages',
+            '.lesson-display-content'
+        ];
+        
+        let contentElements = [];
+        selectors.forEach(selector => {
+            const elements = document.querySelectorAll(selector);
+            contentElements = contentElements.concat(Array.from(elements));
+        });
+        
+        // Also try to find any text content in the main areas
+        const mainContentAreas = document.querySelectorAll('div[class*="content"], div[id*="content"], div[class*="message"], div[id*="message"]');
+        contentElements = contentElements.concat(Array.from(mainContentAreas));
+        
+        console.log(`Found ${contentElements.length} elements to zoom`);
+        console.log('Elements found:', contentElements);
+        
+        contentElements.forEach((element, index) => {
+            if (element && element.style) {
+                console.log(`Element ${index}:`, element);
+                console.log(`Current font size: ${element.style.fontSize || 'not set'}`);
+                element.style.setProperty('font-size', `${zoomLevel}%`, 'important');
+                console.log(`New font size: ${element.style.fontSize}`);
+            }
+        });
+        
+        // Also try applying to the body as a fallback
+        if (contentElements.length === 0) {
+            console.log('No specific elements found, applying to body');
+            document.body.style.setProperty('font-size', `${zoomLevel}%`, 'important');
+        }
+        
+        currentZoomLevel = zoomLevel;
+        console.log(`Applied zoom level: ${zoomLevel}%`);
+        
+        // Show zoom level indicator
+        showZoomIndicator(zoomLevel);
+    }
+
+    function showZoomIndicator(zoomLevel) {
+        // Remove existing indicator
+        const existingIndicator = document.getElementById('zoomIndicator');
+        if (existingIndicator) {
+            existingIndicator.remove();
+        }
+        
+        // Create new indicator
+        const indicator = document.createElement('div');
+        indicator.id = 'zoomIndicator';
+        indicator.className = 'fixed top-4 right-4 bg-blue-600 text-white px-3 py-2 rounded-lg shadow-lg z-50 transition-opacity duration-300';
+        indicator.textContent = `Zoom: ${zoomLevel}%`;
+        
+        document.body.appendChild(indicator);
+        
+        // Remove indicator after 2 seconds
+        setTimeout(() => {
+            if (indicator) {
+                indicator.style.opacity = '0';
+                setTimeout(() => {
+                    if (indicator.parentNode) {
+                        indicator.remove();
+                    }
+                }, 300);
+            }
+        }, 2000);
+    }
+
+    function zoomIn() {
+        if (currentZoomIndex < zoomLevels.length - 1) {
+            currentZoomIndex++;
+            applyZoom(zoomLevels[currentZoomIndex]);
+        }
+    }
+
+    function zoomOut() {
+        if (currentZoomIndex > 0) {
+            currentZoomIndex--;
+            applyZoom(zoomLevels[currentZoomIndex]);
+        }
+    }
+
+    function resetZoom() {
+        currentZoomIndex = 0;
+        applyZoom(zoomLevels[0]);
+    }
+
+    // Selected text zoom functionality
+    let selectedTextZoomLevel = 100;
+    const selectedTextZoomLevels = [100, 110, 125, 150, 175, 200, 250, 300];
+    let selectedTextZoomIndex = 0;
+
+    function zoomSelectedText() {
+        const selection = window.getSelection();
+        if (!selection.toString().trim()) {
+            showNotification('Please select some text first', 'info');
+            return;
+        }
+
+        if (selectedTextZoomIndex < selectedTextZoomLevels.length - 1) {
+            selectedTextZoomIndex++;
+            applySelectedTextZoom(selectedTextZoomLevels[selectedTextZoomIndex]);
+        } else {
+            showNotification('Maximum zoom level reached', 'info');
+        }
+    }
+
+    function zoomOutSelectedText() {
+        const selection = window.getSelection();
+        if (!selection.toString().trim()) {
+            showNotification('Please select some text first', 'info');
+            return;
+        }
+
+        if (selectedTextZoomIndex > 0) {
+            selectedTextZoomIndex--;
+            applySelectedTextZoom(selectedTextZoomLevels[selectedTextZoomIndex]);
+        } else {
+            showNotification('Minimum zoom level reached', 'info');
+        }
+    }
+
+    function applySelectedTextZoom(zoomLevel) {
+        const selection = window.getSelection();
+        if (!selection.toString().trim()) {
+            return;
+        }
+
+        // Get the range of selected text
+        const range = selection.getRangeAt(0);
+        
+        // Create a span wrapper around the selected text
+        const span = document.createElement('span');
+        span.className = 'selected-text-zoom';
+        span.style.fontSize = `${zoomLevel}%`;
+        span.style.transition = 'font-size 0.2s ease';
+        span.style.backgroundColor = '#fef3c7';
+        span.style.padding = '2px 4px';
+        span.style.borderRadius = '3px';
+        span.style.display = 'inline-block';
+        
+        try {
+            // Wrap the selected text with the span
+            range.surroundContents(span);
+            
+            // Update selection to the new span
+            selection.removeAllRanges();
+            const newRange = document.createRange();
+            newRange.selectNode(span);
+            selection.addRange(newRange);
+            
+            selectedTextZoomLevel = zoomLevel;
+            showZoomIndicator(`Selected Text: ${zoomLevel}%`);
+            
+            // Remove highlight after 3 seconds
+            setTimeout(() => {
+                span.style.backgroundColor = 'transparent';
+                span.style.padding = '0';
+            }, 3000);
+            
+        } catch (error) {
+            console.error('Error applying selected text zoom:', error);
+            showNotification('Could not zoom selected text', 'error');
+        }
+    }
+
+    function resetSelectedTextZoom() {
+        // Find all selected text zoom spans and reset them
+        const zoomSpans = document.querySelectorAll('.selected-text-zoom');
+        zoomSpans.forEach(span => {
+            span.style.fontSize = '100%';
+            span.style.backgroundColor = 'transparent';
+            span.style.padding = '0';
+        });
+        
+        selectedTextZoomIndex = 0;
+        selectedTextZoomLevel = 100;
+        showZoomIndicator('Selected Text Reset');
+    }
+
+    // Test function for debugging zoom
+    function testZoom() {
+        console.log('Testing zoom functionality...');
+        applyZoom(150);
+    }
+
+    // Make test function available globally
+    window.testZoom = testZoom;
+
+    // Keyboard event listener for zoom functionality
+    document.addEventListener('keydown', function(event) {
+        console.log('Key pressed:', event.key, 'Ctrl:', event.ctrlKey);
+        
+        // Check for Ctrl + Plus (zoom in)
+        if (event.ctrlKey && (event.key === '+' || event.key === '=')) {
+            console.log('Ctrl + Plus detected');
+            event.preventDefault();
+            
+            // Check if text is selected
+            const selection = window.getSelection();
+            console.log('Selected text:', selection.toString().trim());
+            
+            if (selection.toString().trim()) {
+                // Zoom selected text only
+                console.log('Zooming selected text');
+                zoomSelectedText();
+            } else {
+                // Zoom all content
+                console.log('Zooming all content');
+                zoomIn();
+            }
+        }
+        // Check for Ctrl + Minus (zoom out)
+        else if (event.ctrlKey && event.key === '-') {
+            event.preventDefault();
+            
+            // Check if text is selected
+            const selection = window.getSelection();
+            if (selection.toString().trim()) {
+                // Zoom out selected text only
+                zoomOutSelectedText();
+            } else {
+                // Zoom out all content
+                zoomOut();
+            }
+        }
+        // Check for Ctrl + 0 (reset zoom)
+        else if (event.ctrlKey && event.key === '0') {
+            event.preventDefault();
+            const selection = window.getSelection();
+            if (selection.toString().trim()) {
+                // Reset selected text zoom
+                resetSelectedTextZoom();
+            } else {
+                // Reset all content zoom
+                resetZoom();
+            }
+        }
+    });
 
     // Review Functions - Updated for inline editing
     function reviewWithHuman() {
@@ -2907,6 +3371,14 @@ async function initializeApp() {
         // Populate textarea with current lesson content
         const content = generatedLessonContent || (currentLessonData && currentLessonData.content) || '';
         inlineEditTextarea.value = content;
+        
+        // Auto-resize textarea based on content
+        autoResizeTextarea(inlineEditTextarea);
+        
+        // Add input event listener for dynamic resizing
+        inlineEditTextarea.addEventListener('input', function() {
+            autoResizeTextarea(this);
+        });
         
         // Switch to editing mode
         lessonSummary.classList.add('hidden');
@@ -2957,7 +3429,8 @@ async function initializeApp() {
             }
             
             // Update the display
-            document.getElementById('lessonSummary').innerHTML = `<pre class="whitespace-pre-wrap font-sans">${editedContent}</pre>`;
+            const formattedContent = formatLessonContentWithoutNumbers(editedContent);
+            document.getElementById('lessonSummary').innerHTML = formattedContent;
             
             // Switch back to default view
             cancelInlineEdit();
@@ -3104,7 +3577,8 @@ async function initializeApp() {
                     }
                     
                     // Update the display
-                    document.getElementById('lessonSummary').innerHTML = `<pre class="whitespace-pre-wrap font-sans">${newContent}</pre>`;
+                    const formattedContent = formatLessonContentWithoutNumbers(newContent);
+                    document.getElementById('lessonSummary').innerHTML = formattedContent;
                     
                     // Reset button state before switching views
                     applyBtn.disabled = false;
@@ -3989,7 +4463,7 @@ async function initializeApp() {
                 <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                     AI
                 </div>
-                <div class="bg-gray-100 rounded-2xl px-4 py-3 max-w-lg">
+                <div class="bg-gray-100 rounded-2xl px-4 py-3 w-full">
                     <p class="text-gray-700 leading-relaxed">
                         Hello! I'm your AI assistant. How can I help you today?
                     </p>
@@ -4724,7 +5198,7 @@ async function initializeApp() {
             <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                 AI
             </div>
-            <div class="bg-gray-100 rounded-2xl px-4 py-3 max-w-lg">
+            <div class="bg-gray-100 rounded-2xl px-4 py-3 w-full">
                 <div class="flex space-x-1">
                     <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
                     <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
@@ -5055,7 +5529,7 @@ async function initializeApp() {
                     <div class="w-10 h-10 bg-gray-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                         U
                     </div>
-                    <div class="bg-blue-500 text-white rounded-2xl px-4 py-3 max-w-lg message-bubble">
+                    <div class="bg-blue-500 text-white rounded-2xl px-4 py-3 w-full message-bubble">
                         <p class="leading-relaxed">${message}</p>
                     </div>
                 </div>
@@ -5065,7 +5539,7 @@ async function initializeApp() {
                 <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                     AI
                 </div>
-                <div class="bg-gray-100 rounded-2xl px-4 py-3 max-w-lg message-bubble">
+                <div class="bg-gray-100 rounded-2xl px-4 py-3 w-full message-bubble">
                     <p class="text-gray-700 leading-relaxed">${message.replace(/\n/g, '<br>')}</p>
                 </div>
             `;
@@ -5102,14 +5576,32 @@ async function initializeApp() {
         textarea.style.height = 'auto';
         
         // Calculate the new height based on content
-        const newHeight = Math.min(textarea.scrollHeight, 200); // Max height of 200px
+        let maxHeight = 200; // Default max height for chat input
+        
+        // If it's the lesson edit textarea, allow much larger height
+        if (textarea.id === 'inlineEditTextarea') {
+            maxHeight = Math.max(textarea.scrollHeight, 200); // At least 200px, but can grow much larger
+        } else if (textarea.id === 'humanReviewContent') {
+            maxHeight = Math.max(textarea.scrollHeight, 200); // At least 200px, but can grow much larger
+        } else if (textarea.id === 'aiReviewPrompt') {
+            maxHeight = Math.max(textarea.scrollHeight, 128); // At least 128px, but can grow larger
+        }
+        
+        const newHeight = Math.min(textarea.scrollHeight, maxHeight);
         
         // Set the new height
         textarea.style.height = newHeight + 'px';
         
         // Ensure minimum height
-        if (newHeight < 48) {
-            textarea.style.height = '48px';
+        let minHeight = 48; // Default minimum height
+        if (textarea.id === 'inlineEditTextarea' || textarea.id === 'humanReviewContent') {
+            minHeight = 200;
+        } else if (textarea.id === 'aiReviewPrompt') {
+            minHeight = 128;
+        }
+        
+        if (newHeight < minHeight) {
+            textarea.style.height = minHeight + 'px';
         }
     }
 
@@ -5540,7 +6032,15 @@ async function initializeApp() {
             document.getElementById('lessonSummary').textContent = selectedVersion.summary || 'Not specified';
             document.getElementById('lessonCreated').textContent = new Date(selectedVersion.created_at).toLocaleDateString();
             document.getElementById('lessonVersion').textContent = selectedVersion.version || 1;
-                document.getElementById('lessonContent').innerHTML = selectedVersion.content ? marked.parse(selectedVersion.content) : 'No content available';
+                const lessonContentEl = document.getElementById('lessonContent');
+                if (lessonContentEl) {
+                    const content = selectedVersion.content || 'No content available';
+                    if (content !== 'No content available') {
+                        lessonContentEl.innerHTML = formatLessonContentWithNumbers(content);
+                    } else {
+                        lessonContentEl.innerHTML = content;
+                    }
+                }
             
             // Update AI Improve button to use current version
             const aiButton = document.querySelector('button[onclick*="showAIVersioning"]');
@@ -5634,14 +6134,14 @@ async function initializeApp() {
                                 <div>
                                     <h3 class="text-lg font-semibold mb-3 text-blue-600">Version ${lesson1.version} (${new Date(lesson1.created_at).toLocaleDateString()})</h3>
                                     <div class="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
-                                        <div class="whitespace-pre-wrap text-gray-900">${lesson1.content || 'No content available'}</div>
+                                        <div class="text-gray-900">${lesson1.content ? formatLessonContentWithNumbers(lesson1.content) : 'No content available'}</div>
                                     </div>
                                 </div>
                                 
                                 <div>
                                     <h3 class="text-lg font-semibold mb-3 text-green-600">Version ${lesson2.version} (${new Date(lesson2.created_at).toLocaleDateString()})</h3>
                                     <div class="bg-gray-50 p-4 rounded-lg max-h-96 overflow-y-auto">
-                                        <div class="whitespace-pre-wrap text-gray-900">${lesson2.content || 'No content available'}</div>
+                                        <div class="text-gray-900">${lesson2.content ? formatLessonContentWithNumbers(lesson2.content) : 'No content available'}</div>
                                     </div>
                                 </div>
                             </div>
@@ -5737,8 +6237,8 @@ async function initializeApp() {
 
                             <div class="bg-white border rounded-lg p-4">
                                 <h3 class="text-lg font-semibold text-gray-800 mb-3">Lesson Content</h3>
-                                <div class="prose max-w-none markdown-content" id="studentLessonContent">
-                                    ${lesson.content ? marked.parse(lesson.content) : 'No content available'}
+                                <div class="prose max-w-none markdown-content zoomable-content" id="studentLessonContent">
+                                    ${lesson.content ? formatLessonContentWithNumbers(lesson.content) : 'No content available'}
                                 </div>
                             </div>
                         </div>
@@ -5892,6 +6392,16 @@ async function initializeApp() {
                 // Show loading state
                 submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Asking...';
                 submitBtn.disabled = true;
+
+                // Check for line references in the question
+                const lineReferences = parseLineReference(question);
+                
+                // Highlight referenced lines if any
+                if (lineReferences.length > 0) {
+                    lineReferences.forEach(lineNumber => {
+                        highlightLineReference(lineNumber);
+                    });
+                }
 
                 const response = await fetch('/api/lessons/ask_question', {
                     method: 'POST',
@@ -6860,6 +7370,126 @@ async function initializeApp() {
   <style>
     .animate-bounce {
       animation: bounce 1s infinite;
+    }
+    
+    /* Numbered lesson content styles */
+    .numbered-line {
+      display: flex;
+      align-items: flex-start;
+      padding: 4px 8px;
+      border-radius: 4px;
+      transition: background-color 0.3s ease;
+    }
+    
+    .numbered-line:hover {
+      background-color: #f8fafc;
+    }
+    
+    .line-number {
+      flex-shrink: 0;
+      min-width: 30px;
+      font-size: 0.9em;
+    }
+    
+    .line-content {
+      flex: 1;
+      line-height: 1.5;
+    }
+    
+    .highlighted-line {
+      background-color: #fef3c7 !important;
+      border-left: 4px solid #f59e0b;
+      animation: highlightPulse 0.5s ease-in-out;
+    }
+    
+    @keyframes highlightPulse {
+      0% { background-color: #fef3c7; }
+      50% { background-color: #fde68a; }
+      100% { background-color: #fef3c7; }
+    }
+    
+    /* Zoom functionality - only affects text content */
+    .zoomable-content {
+      transition: font-size 0.2s ease;
+    }
+    
+    /* Default zoom level */
+    .zoom-100 { font-size: 100%; }
+    .zoom-110 { font-size: 110%; }
+    .zoom-125 { font-size: 125%; }
+    .zoom-150 { font-size: 150%; }
+    .zoom-175 { font-size: 175%; }
+    .zoom-200 { font-size: 200%; }
+    
+    /* Apply zoom to specific content areas */
+    .chat-messages,
+    .lesson-content,
+    .numbered-line,
+    .line-content,
+    .prose,
+    .markdown-content,
+    #lessonSummary,
+    #studentLessonContent,
+    .lesson-display-content {
+      transition: font-size 0.2s ease;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+      word-break: break-word;
+      white-space: pre-wrap;
+      max-width: 100%;
+    }
+    
+    /* Lesson content full width styles */
+    #lessonDisplay,
+    #humanReviewInterface,
+    #aiReviewInterface {
+      width: 100% !important;
+      max-width: none !important;
+    }
+    
+    #lessonSummary {
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+    
+    #lessonSummary p {
+      margin-bottom: 0.75rem;
+      line-height: 1.6;
+    }
+    
+    #lessonSummary p:last-child {
+      margin-bottom: 0;
+    }
+    
+    /* Ensure sidebar and UI elements don't zoom */
+    .sidebar,
+    .sidebar-content,
+    .chat-header,
+    .chat-input-container,
+    .modal-header,
+    .modal-footer,
+    .button,
+    .btn,
+    .nav,
+    .navbar,
+    .menu,
+    .dropdown,
+    .toolbar,
+    .status-bar {
+      font-size: inherit !important;
+    }
+    
+    /* Selected text zoom styles */
+    .selected-text-zoom {
+      transition: all 0.2s ease;
+      border-radius: 3px;
+      display: inline-block;
+    }
+    
+    .selected-text-zoom:hover {
+      background-color: #fef3c7 !important;
+      padding: 2px 4px !important;
     }
     
     @keyframes bounce {
