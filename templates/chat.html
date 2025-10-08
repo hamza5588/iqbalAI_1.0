@@ -33,8 +33,7 @@
 
     <!-- Sidebar -->
         <div id="sidebar"
-            class="w-52 sm:w-60 lg:w-68 xl:w-[220px] bg-white shadow-md p-2 sm:p-3 fixed md:static top-0 left-0 h-full transform -translate-x-full md:translate-x-0 transition-transform duration-300 z-40 flex flex-col">
-      <!-- Header Section -->
+            class="w-52 sm:w-60 lg:w-68 xl:w-[220px] bg-white shadow-md p-2 sm:p-3 fixed md:static top-0 left-0 h-full md:h-auto transform -translate-x-full md:translate-x-0 transition-transform duration-300 z-40">
       <div class="flex justify-between items-center">
                 <img src="{{ url_for('static', filename='images/logo.png') }}"
                     class="w-20 sm:w-24 lg:w-28 xl:w-32 h-6 sm:h-8 lg:h-10" alt="">
@@ -46,8 +45,6 @@
       <!-- Border Line -->
             <div class="mt-3 sm:mt-4 border-t-2 border-gray-300 -mx-3 sm:-mx-4"></div>
       
-      <!-- Main Content Section -->
-            <div class="flex-1 flex flex-col">
             <div
                 class="flex flex-col space-y-2 sm:space-y-3 lg:space-y-4 justify-center items-center mt-4 sm:mt-6 mb-2">
 
@@ -97,7 +94,7 @@
 
         <!-- Dropdown Chat History -->
                 <div id="dropdownContent"
-                    class="mt-1.5 hidden flex-col gap-1 w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] max-h-20 sm:max-h-28 lg:max-h-36 overflow-y-auto sidebar-scroll">
+                    class="mt-1.5 hidden flex-col gap-1 w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] max-h-20 sm:max-h-28 lg:max-h-36 overflow-y-auto">
           <!-- Chat history items will be populated here -->
         </div>
 
@@ -114,22 +111,19 @@
 
 
 
-            </div>
-            
-            <!-- Logout Button -->
-            <div class="mt-auto p-2">
+        <!-- Logout Button -->
                 <button onclick="logout()"
-                    class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center justify-center gap-1.5 font-semibold text-xs text-gray-700 bg-white shadow rounded hover:bg-gray-50 transition-colors">
+                    class="fixed bottom-4 w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center justify-center gap-1.5 font-semibold text-xs text-gray-700 bg-white shadow rounded hover:bg-gray-50 transition-colors">
                     <i class="fas fa-sign-out-alt text-[#F50D0D] w-3 h-3"></i>
           <span class="text-[#F50D0D]">Log out</span>
         </button>
-            </div>
+
       </div>
     </div>
     <div id="overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 hidden md:hidden"></div>
 
     <!-- Main Content -->
-    <div class="flex-1 bg-white h-full flex flex-col md:ml-0 overflow-hidden">
+    <div class="flex-1 bg-white min-h-screen flex flex-col md:ml-0">
         
             <!-- Mobile Menu Button Section -->
             <div class="px-3 sm:px-4 lg:px-6 py-3 sm:py-4">
@@ -185,7 +179,7 @@
         </div>
 
         <!-- Chat Messages Area -->
-            <div class="flex-1 px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 overflow-y-auto zoomable-content min-h-0" id="chatMessages">
+            <div class="flex-1 px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 overflow-y-auto zoomable-content" id="chatMessages">
                 <div class="flex items-start gap-3">
                     <div
                         class="w-8 h-8 sm:w-10 sm:h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-xs sm:text-sm flex-shrink-0">
@@ -200,14 +194,35 @@
             </div>
         </div>
 
-
-
-
-
-
-
-
-
+        <!-- Input Area -->
+        <div id="chatInputArea" class="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-t border-gray-100">
+            <div class="flex items-center gap-2 sm:gap-3">
+                <button onclick="toggleVoiceRecording()" id="micButton"
+                    class="w-10 h-10 sm:w-12 sm:h-12 border border-gray-200 rounded-xl flex items-center justify-center hover:bg-gray-50 transition-colors">
+                    <img src="{{ url_for('static', filename='images/recorder.png') }}" alt=""
+                        class="w-5 h-5 sm:w-6 sm:h-6">
+            </button>
+                <button onclick="toggleVoiceOutput()" id="voiceOutputBtn"
+                    class="w-10 h-10 sm:w-12 sm:h-12 border border-gray-200 rounded-xl flex items-center justify-center hover:bg-gray-50 transition-colors">
+                    <img src="{{ url_for('static', filename='images/voice.png') }}" alt=""
+                        class="w-5 h-5 sm:w-6 sm:h-6">
+            </button>
+            
+            <div class="flex-1 relative">
+                    <textarea id="messageInput" placeholder="Type your message"
+                        class="w-full px-4 sm:px-5 lg:px-6 py-3 sm:py-4 bg-gray-100 rounded-2xl border-0 focus:outline-none text-gray-700 placeholder-gray-500 text-sm sm:text-base resize-none overflow-hidden min-h-[48px] max-h-[200px]"
+                        rows="1"
+                        onkeydown="handleKeyDown(event)"
+                        oninput="autoResizeTextarea(this)"></textarea>
+            </div>
+            
+                <button onclick="sendMessage()"
+                    class="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500 rounded-xl flex items-center justify-center hover:bg-blue-600 transition-colors">
+                    <img src="{{ url_for('static', filename='images/sender.png') }}" alt=""
+                        class="w-5 h-5 sm:w-6 sm:h-6">
+            </button>
+        </div>
+    </div>
 
         <!-- View Lessons Content -->
             <div id="viewLessonsContent"
@@ -767,35 +782,6 @@
             </div>
         </div>
 
-        <!-- Input Area -->
-            <div id="chatInputArea" class="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-t border-gray-100 bg-white flex-shrink-0">
-                <div class="flex items-center gap-2 sm:gap-3">
-                    <button onclick="toggleVoiceRecording()" id="micButton"
-                        class="w-10 h-10 sm:w-12 sm:h-12 border border-gray-200 rounded-xl flex items-center justify-center hover:bg-gray-50 transition-colors">
-                        <img src="{{ url_for('static', filename='images/recorder.png') }}" alt=""
-                            class="w-5 h-5 sm:w-6 sm:h-6">
-                </button>
-                    <button onclick="toggleVoiceOutput()" id="voiceOutputBtn"
-                        class="w-10 h-10 sm:w-12 sm:h-12 border border-gray-200 rounded-xl flex items-center justify-center hover:bg-gray-50 transition-colors">
-                        <img src="{{ url_for('static', filename='images/voice.png') }}" alt=""
-                            class="w-5 h-5 sm:w-6 sm:h-6">
-                </button>
-                
-                <div class="flex-1 relative">
-                        <textarea id="messageInput" placeholder="Type your message"
-                            class="w-full px-4 sm:px-5 lg:px-6 py-3 sm:py-4 bg-gray-100 rounded-2xl border-0 focus:outline-none text-gray-700 placeholder-gray-500 text-sm sm:text-base resize-none overflow-hidden min-h-[48px] max-h-[200px]"
-                            rows="1"
-                            onkeydown="handleKeyDown(event)"
-                            oninput="autoResizeTextarea(this)"></textarea>
-                </div>
-                
-                    <button onclick="sendMessage()"
-                        class="w-10 h-10 sm:w-12 sm:h-12 bg-blue-500 rounded-xl flex items-center justify-center hover:bg-blue-600 transition-colors">
-                        <img src="{{ url_for('static', filename='images/sender.png') }}" alt=""
-                            class="w-5 h-5 sm:w-6 sm:h-6">
-                </button>
-            </div>
-        </div>
     </div>
 
   </div>
@@ -2445,6 +2431,18 @@ async function initializeApp() {
             if (displayStep) {
                 displayStep.classList.remove('hidden');
             }
+            
+            // Show the review buttons
+            const defaultButtons = document.getElementById('defaultReviewButtons');
+            if (defaultButtons) {
+                defaultButtons.classList.remove('hidden');
+            }
+            
+            // Show finalize and new lesson buttons
+            const finalizeNewLessonButtons = document.getElementById('finalizeNewLessonButtons');
+            if (finalizeNewLessonButtons) {
+                finalizeNewLessonButtons.classList.remove('hidden');
+            }
         } else if (step === 'humanReview') {
             const humanReview = document.getElementById('humanReviewInterface');
             if (humanReview) {
@@ -2863,7 +2861,8 @@ async function initializeApp() {
                             // Mark lesson as not finalized when first created
                             currentLessonData.isFinalized = false;
                         generatedLessonContent = currentLessonData.content;
-                        showGeneratedLesson();
+                        displayGeneratedLesson();
+                        showLessonStep('display');
                             showNotification('Lesson generated successfully! You can continue editing or finalize it.', 'success');
                     } else {
                         showNotification('Failed to fetch full lesson content', 'error');
@@ -3656,7 +3655,8 @@ async function initializeApp() {
                 // Preserve the finalized state
                 const wasFinalized = currentLessonData.isFinalized;
                 currentLessonData.isFinalized = false; // Mark as not finalized since it was edited
-            showGeneratedLesson();
+            displayGeneratedLesson();
+            showLessonStep('display');
             showNotification('Changes applied successfully!', 'success');
         } else {
             showNotification('Please enter some content', 'error');
@@ -3720,7 +3720,8 @@ async function initializeApp() {
                 currentLessonData.content = newContent;
                     // Mark as not finalized since it was edited
                     currentLessonData.isFinalized = false;
-                showGeneratedLesson();
+                displayGeneratedLesson();
+                showLessonStep('display');
                 showNotification('AI review applied successfully!', 'success');
             } else {
                 const errorData = await response.json();
@@ -4954,7 +4955,7 @@ async function initializeApp() {
                     </button>
                 </div>
             `;
-            sidebar.className = "w-16 bg-white shadow-md h-full flex flex-col";
+            sidebar.className = "w-16 bg-white shadow-md";
             if (mainContent) mainContent.style.marginLeft = "0px";
             
             // Adjust main content areas padding when sidebar is collapsed
@@ -5032,7 +5033,6 @@ async function initializeApp() {
         const mainContent = document.querySelector('.flex-1');
         
         sidebar.innerHTML = `
-            <!-- Header Section -->
             <div class="flex justify-between items-center">
                 <img src="{{ url_for('static', filename='images/logo.png') }}" class="w-20 sm:w-24 lg:w-28 xl:w-32 h-6 sm:h-8 lg:h-10" alt="">
                 <button onclick="hideSidebar()" class="mt-2 sm:mt-4 hover:bg-gray-100 p-1 rounded">
@@ -5041,15 +5041,13 @@ async function initializeApp() {
             </div>
             
             <!-- Border Line -->
-            <div class="mt-3 sm:mt-4 border-t-2 border-gray-300 -mx-3 sm:-mx-4"></div>
+            <div class="mt-2 sm:mt-3 border-t-2 border-gray-300 -mx-3 sm:-mx-4"></div>
             
-            <!-- Main Content Section -->
-            <div class="flex-1 flex flex-col">
-            <div class="flex flex-col space-y-2 sm:space-y-3 lg:space-y-4 justify-center items-center mt-4 sm:mt-6 mb-2">
+            <div class="flex flex-col space-y-1.5 sm:space-y-2 lg:space-y-3 justify-center items-center mt-2 sm:mt-3 mb-2">
 
                 <!-- New Chat -->
-                <button onclick="startNewChat()" class="w-full max-w-[180px] sm:max-w-[200px] lg:max-w-[230px] h-10 sm:h-12 lg:h-[50px] mt-2 sm:mt-3 mb-1 sm:mb-2 px-3 sm:px-4 flex items-center justify-center gap-2 bg-[#05B0FC] text-white text-sm sm:text-base font-bold rounded transition duration-200 ease-in-out hover:bg-blue-600">
-                    <img src="{{ url_for('static', filename='images/msg.png') }}" alt="">
+                <button onclick="startNewChat()" class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-8 sm:h-9 lg:h-10 mt-1 mb-1 px-2 flex items-center justify-center gap-1.5 bg-[#05B0FC] text-white text-xs font-bold rounded transition duration-200 ease-in-out hover:bg-blue-600">
+                    <img src="{{ url_for('static', filename='images/msg.png') }}" alt="" class="w-3.5 h-3.5">
                     <span>New Chat</span>
                 </button>
 
@@ -5083,7 +5081,7 @@ async function initializeApp() {
                 </button>
 
                 <!-- Dropdown Chat History -->
-                <div id="dropdownContent" class="mt-1.5 hidden flex-col gap-1 w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] max-h-20 sm:max-h-28 lg:max-h-36 overflow-y-auto sidebar-scroll">
+                <div id="dropdownContent" class="mt-1.5 hidden flex-col gap-1 w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] max-h-20 sm:max-h-28 lg:max-h-36 overflow-y-auto">
                     <!-- Chat history items will be populated here -->
                 </div>
 
@@ -5098,19 +5096,16 @@ async function initializeApp() {
                     </div>
                 </div>
 
-            </div>
-            
-            <!-- Logout Button -->
-            <div class="mt-auto p-2">
-                <button onclick="logout()" class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center justify-center gap-1.5 font-semibold text-xs text-gray-700 bg-white shadow rounded hover:bg-gray-50 transition-colors">
+                <!-- Logout Button -->
+                <button onclick="logout()" class="fixed bottom-4 w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center justify-center gap-1.5 font-semibold text-xs text-gray-700 bg-white shadow rounded hover:bg-gray-50 transition-colors">
                     <i class="fas fa-sign-out-alt text-[#F50D0D] w-3 h-3"></i>
                     <span class="text-[#F50D0D]">Log out</span>
                 </button>
-            </div>
+
             </div>
         `;
         
-            sidebar.className = "w-52 sm:w-60 lg:w-68 xl:w-[220px] bg-white shadow-md p-2 sm:p-3 fixed md:static top-0 left-0 h-full transform -translate-x-full md:translate-x-0 transition-transform duration-300 z-40 flex flex-col";
+            sidebar.className = "w-52 sm:w-60 lg:w-68 xl:w-[220px] bg-white shadow-md p-2 sm:p-3 fixed md:static top-0 left-0 h-full md:h-auto transform -translate-x-full md:translate-x-0 transition-transform duration-300 z-40";
         
         if (mainContent) mainContent.style.marginLeft = "0";
         
@@ -7548,96 +7543,6 @@ async function initializeApp() {
     
     .overflow-y-auto::-webkit-scrollbar-thumb:hover {
       background: #a1a1a1;
-    }
-    
-    /* Hide scrollbar for chat messages area specifically */
-    #chatMessages.overflow-y-auto::-webkit-scrollbar {
-      display: none !important;
-    }
-    
-    #chatMessages {
-      scrollbar-width: none !important;
-      -ms-overflow-style: none !important;
-    }
-    
-    /* Ensure input area stays properly positioned */
-    #chatInputArea {
-      position: relative;
-      z-index: 10;
-      background: white;
-      border-top: 1px solid #e5e7eb;
-    }
-    
-    /* Hide scrollbar for sidebar and its dropdown */
-    #sidebar {
-      scrollbar-width: none !important;
-      -ms-overflow-style: none !important;
-    }
-    
-    #sidebar::-webkit-scrollbar {
-      display: none !important;
-      width: 0 !important;
-    }
-    
-    #sidebar * {
-      scrollbar-width: none !important;
-      -ms-overflow-style: none !important;
-    }
-    
-    #sidebar *::-webkit-scrollbar {
-      display: none !important;
-      width: 0 !important;
-    }
-    
-    #dropdownContent {
-      scrollbar-width: none !important;
-      -ms-overflow-style: none !important;
-    }
-    
-    #dropdownContent::-webkit-scrollbar {
-      display: none !important;
-      width: 0 !important;
-    }
-    
-    /* Fix visual connection between sidebar and main chat area */
-    #sidebar {
-      border-right: 1px solid #e5e7eb;
-    }
-    
-    .flex.h-full {
-      border: none;
-    }
-    
-    /* Additional scrollbar hiding for all sidebar elements */
-    #sidebar,
-    #sidebar *,
-    #sidebar div,
-    #sidebar button,
-    #sidebar .flex {
-      scrollbar-width: none !important;
-      -ms-overflow-style: none !important;
-    }
-    
-    #sidebar::-webkit-scrollbar,
-    #sidebar *::-webkit-scrollbar,
-    #sidebar div::-webkit-scrollbar,
-    #sidebar button::-webkit-scrollbar,
-    #sidebar .flex::-webkit-scrollbar {
-      display: none !important;
-      width: 0 !important;
-      height: 0 !important;
-    }
-    
-    /* Custom sidebar scroll class */
-    .sidebar-scroll {
-      scrollbar-width: none !important;
-      -ms-overflow-style: none !important;
-    }
-    
-    .sidebar-scroll::-webkit-scrollbar {
-      display: none !important;
-      width: 0 !important;
-      height: 0 !important;
     }
     
     /* Focus styles for accessibility */
