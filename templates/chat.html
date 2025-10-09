@@ -2117,7 +2117,7 @@ async function initializeApp() {
             console.log('DEBUG: Restoring unfinished lesson');
             restoreUnfinishedLesson();
         } else {
-            // Start fresh lesson generation
+            // Start fresh lesson generation (this includes when currentLessonData is null after finalization)
             console.log('DEBUG: Starting fresh lesson generation');
             resetLessonGenerator();
         }
@@ -2137,6 +2137,12 @@ async function initializeApp() {
 
             // Show the new single form step
             document.getElementById('lessonFormStep').classList.remove('hidden');
+            
+            // Ensure lesson display area is hidden when starting fresh
+            const lessonDisplay = document.getElementById('lessonDisplay');
+            if (lessonDisplay) {
+                lessonDisplay.classList.add('hidden');
+            }
             
             // Hide chat input area
             const chatInputArea = document.getElementById('chatInputArea');
@@ -2207,7 +2213,7 @@ async function initializeApp() {
 
             // Hide the form and show the lesson display
             document.getElementById('lessonFormStep').classList.add('hidden');
-            document.getElementById('lessonDisplayArea').classList.remove('hidden');
+            document.getElementById('lessonDisplay').classList.remove('hidden');
 
             // Display the generated lesson content
             const lessonSummary = document.getElementById('lessonSummary');
@@ -2326,9 +2332,9 @@ async function initializeApp() {
         document.getElementById('lessonFormStep').classList.remove('hidden');
         
         // Hide the lesson display area to show only the form
-        const lessonDisplayArea = document.getElementById('lessonDisplayArea');
-        if (lessonDisplayArea) {
-            lessonDisplayArea.classList.add('hidden');
+        const lessonDisplay = document.getElementById('lessonDisplay');
+        if (lessonDisplay) {
+            lessonDisplay.classList.add('hidden');
         }
         
         // Clear the form
@@ -3805,6 +3811,9 @@ async function initializeApp() {
                 
                 // Clear generated content so form shows for next lesson
                 generatedLessonContent = '';
+                
+                // Clear currentLessonData to prevent showing old content when opening lesson generator
+                currentLessonData = null;
 
             showNotification('Lesson finalized successfully!', 'success');
                 
