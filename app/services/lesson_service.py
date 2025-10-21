@@ -1,5 +1,3 @@
-
-
 import os
 import logging
 from typing import Any, Dict, List, Optional
@@ -1218,147 +1216,89 @@ How are you feeling about the progress so far? Any adjustments you'd like to mak
             logger.error(f"Error editing lesson with prompt: {str(e)}", exc_info=True)
             return lesson_text
 
+
+
+
     def create_ppt(self, lesson_data: dict) -> bytes:
+            
         """
-        Generate a basic PPTX file from the lesson structure using python-pptx.
+        Generate a PowerPoint presentation where:
+        - Slide 0: Title only
+        - Following slides: All content from sections (summary + content combined)
+        - Final slide: Learning objectives
         """
+        from pptx import Presentation
+        from pptx.util import Inches, Pt
+        from io import BytesIO
+        import logging
+
+        logger = logging.getLogger(__name__)
+
         try:
-            logger.info(f"Creating PowerPoint for lesson: {lesson_data.get('title', 'Unknown')}")
-            logger.info(f"Lesson data keys: {list(lesson_data.keys())}")
-            logger.info(f"Content length: {len(lesson_data.get('content', ''))}")
-            
-            from pptx import Presentation
-            from pptx.util import Inches, Pt
             prs = Presentation()
+            logger.info(f"Creating PowerPoint for lesson: {lesson_data.get('title', 'Unknown')}")
+
+            # --- SLIDE 0: Title Only ---
+            title_slide = prs.slides.add_slide(prs.slide_layouts[0])
+            title_slide.shapes.title.text = lesson_data.get('title', 'Lesson')
+
+            # --- All Content Slides (Summary + Content from sections) ---
+            sections = lesson_data.get('sections', [])
             
-            # Title slide
-            slide_layout = prs.slide_layouts[0]
-            slide = prs.slides.add_slide(slide_layout)
-            slide.shapes.title.text = lesson_data.get('title', 'Lesson')
-            slide.placeholders[1].text = lesson_data.get('summary', '')
-            
-            # Learning Objectives
+            if sections:
+                for section in sections:
+                    slide = prs.slides.add_slide(prs.slide_layouts[1])
+                    slide.shapes.title.text = section.get('heading', 'Content')
+
+                    # Add textbox with content
+                    left, top = Inches(1), Inches(1.8)
+                    width, height = Inches(8.5), Inches(4.5)
+                    
+                    textbox = slide.shapes.add_textbox(left, top, width, height)
+                    text_frame = textbox.text_frame
+                    text_frame.word_wrap = True
+                    text_frame.vertical_anchor = 1  # Top alignment
+
+                    p = text_frame.paragraphs[0]
+                    p.text = section.get('content', '')
+                    p.font.size = Pt(18)
+                    p.line_spacing = 1.3
+                    p.space_before = Pt(0)
+                    p.space_after = Pt(0)
+            else:
+                # Fallback if no sections provided
+                logger.warning("No sections provided for PPT generation")
+
+            # --- Learning Objectives Slide ---
             if lesson_data.get('learning_objectives'):
                 slide = prs.slides.add_slide(prs.slide_layouts[1])
                 slide.shapes.title.text = 'Learning Objectives'
-                body = slide.shapes.placeholders[1].text_frame
+                
+                left, top = Inches(1), Inches(1.8)
+                width, height = Inches(8.5), Inches(4.5)
+                
+                textbox = slide.shapes.add_textbox(left, top, width, height)
+                text_frame = textbox.text_frame
+                text_frame.word_wrap = True
+                
                 for obj in lesson_data['learning_objectives']:
-                    body.add_paragraph().text = str(obj)
-            
-            # Sections
-            sections = lesson_data.get('sections', [])
-            if sections:
-                logger.info(f"Creating {len(sections)} section slides")
-                for section in sections:
-                    slide = prs.slides.add_slide(prs.slide_layouts[1])
-                    slide.shapes.title.text = section.get('heading', 'Section')
-                    body = slide.shapes.placeholders[1].text_frame
-                    content = section.get('content', '')
-                    # Limit content to avoid slide overflow
-                    if len(content) > 1000:
-                        content = content[:1000] + "..."
-                    body.text = content
-            else:
-                # If no sections, create a content slide with the main content
-                if lesson_data.get('content'):
-                    logger.info("Creating content slide with main lesson content")
-                    slide = prs.slides.add_slide(prs.slide_layouts[1])
-                    slide.shapes.title.text = 'Lesson Content'
-                    body = slide.shapes.placeholders[1].text_frame
-                    content = lesson_data['content']
-                    # Split long content into multiple slides if needed
-                    if len(content) > 1000:
-                        # Create multiple slides for long content
-                        chunks = [content[i:i+1000] for i in range(0, len(content), 1000)]
-                        logger.info(f"Splitting content into {len(chunks)} slides")
-                        for i, chunk in enumerate(chunks):
-                            if i > 0:  # First chunk already added above
-                                slide = prs.slides.add_slide(prs.slide_layouts[1])
-                                slide.shapes.title.text = f'Lesson Content (Continued {i+1})'
-                                body = slide.shapes.placeholders[1].text_frame
-                            body.text = chunk
-                    else:
-                        body.text = content
-            
-            # Key Concepts
-            if lesson_data.get('key_concepts'):
-                slide = prs.slides.add_slide(prs.slide_layouts[1])
-                slide.shapes.title.text = 'Key Concepts'
-                body = slide.shapes.placeholders[1].text_frame
-                for kc in lesson_data['key_concepts']:
-                    body.add_paragraph().text = str(kc)
-            
-            # Background Prerequisites
-            if lesson_data.get('background_prerequisites'):
-                slide = prs.slides.add_slide(prs.slide_layouts[1])
-                slide.shapes.title.text = 'Background Prerequisites'
-                body = slide.shapes.placeholders[1].text_frame
-                for prereq in lesson_data['background_prerequisites']:
-                    body.add_paragraph().text = str(prereq)
-            
-            # Creative Activities
-            if lesson_data.get('creative_activities'):
-                slide = prs.slides.add_slide(prs.slide_layouts[1])
-                slide.shapes.title.text = 'Creative Activities'
-                body = slide.shapes.placeholders[1].text_frame
-                for act in lesson_data['creative_activities']:
-                    body.add_paragraph().text = f"{act.get('name', '')}: {act.get('description', '')} ({act.get('duration', '')})"
-                    if act.get('learning_purpose'):
-                        body.add_paragraph().text = f"Purpose: {act.get('learning_purpose', '')}"
-            
-            # STEM Equations
-            if lesson_data.get('stem_equations'):
-                slide = prs.slides.add_slide(prs.slide_layouts[1])
-                slide.shapes.title.text = 'STEM Equations'
-                body = slide.shapes.placeholders[1].text_frame
-                for eq_data in lesson_data['stem_equations']:
-                    if eq_data.get('equation'):
-                        body.add_paragraph().text = f"Equation: {eq_data.get('equation', '')}"
-                    if eq_data.get('complete_equation_significance'):
-                        body.add_paragraph().text = f"Significance: {eq_data.get('complete_equation_significance', '')}"
-            
-            # Assessment Quiz
-            if lesson_data.get('assessment_quiz'):
-                slide = prs.slides.add_slide(prs.slide_layouts[1])
-                slide.shapes.title.text = 'Assessment Quiz'
-                body = slide.shapes.placeholders[1].text_frame
-                for q in lesson_data['assessment_quiz']:
-                    body.add_paragraph().text = f"Q: {q.get('question', '')}"
-                    for i, opt in enumerate(q.get('options', [])):
-                        body.add_paragraph().text = f"{chr(65+i)}. {opt}"
-                    body.add_paragraph().text = f"Answer: {q.get('answer', '')}"
-            
-            # Teacher Notes
-            if lesson_data.get('teacher_notes'):
-                slide = prs.slides.add_slide(prs.slide_layouts[1])
-                slide.shapes.title.text = 'Teacher Notes'
-                body = slide.shapes.placeholders[1].text_frame
-                for note in lesson_data['teacher_notes']:
-                    body.add_paragraph().text = str(note)
-            
-            # If we only have a title slide, add a content slide
-            if len(prs.slides) == 1 and lesson_data.get('content'):
-                logger.info("Adding content slide as only title slide exists")
-                slide = prs.slides.add_slide(prs.slide_layouts[1])
-                slide.shapes.title.text = 'Lesson Content'
-                body = slide.shapes.placeholders[1].text_frame
-                content = lesson_data['content']
-                if len(content) > 1000:
-                    content = content[:1000] + "..."
-                body.text = content
-            
-            logger.info(f"Created PowerPoint with {len(prs.slides)} slides")
-            
-            from io import BytesIO
+                    p = text_frame.add_paragraph()
+                    p.text = f"• {obj}"
+                    p.font.size = Pt(16)
+                    p.line_spacing = 1.3
+                    p.space_before = Pt(6)
+
+            # --- Save Presentation ---
             buffer = BytesIO()
             prs.save(buffer)
             buffer.seek(0)
-            ppt_bytes = buffer.getvalue()
-            logger.info(f"PowerPoint generated successfully, size: {len(ppt_bytes)} bytes")
-            return ppt_bytes
+            logger.info(f"✅ PPT created successfully with {len(prs.slides)} slides.")
+            return buffer.getvalue()
+
         except Exception as e:
             logger.error(f"Error creating PPTX: {str(e)}", exc_info=True)
             return b''
+
 
     def answer_lesson_question(self, lesson_id, question):
         # Get lesson content
