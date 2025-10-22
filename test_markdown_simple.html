@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Markdown Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .prose {
+            color: #374151;
+            max-width: none;
+        }
+        
+        .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+            color: #1f2937;
+            font-weight: 600;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+        }
+        
+        .prose h1 {
+            font-size: 1.875rem;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 0.5rem;
+        }
+        
+        .prose h2 {
+            font-size: 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 0.25rem;
+        }
+        
+        .prose h3 {
+            font-size: 1.25rem;
+        }
+        
+        .prose p {
+            margin-bottom: 1rem;
+            line-height: 1.7;
+        }
+        
+        .prose ul, .prose ol {
+            margin-bottom: 1rem;
+            padding-left: 1.5rem;
+        }
+        
+        .prose li {
+            margin-bottom: 0.5rem;
+        }
+        
+        .prose strong {
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .prose em {
+            font-style: italic;
+        }
+        
+        .prose code {
+            background-color: #f3f4f6;
+            padding: 0.125rem 0.25rem;
+            border-radius: 0.25rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875em;
+        }
+        
+        .prose blockquote {
+            border-left: 4px solid #05B0FC;
+            padding-left: 1rem;
+            margin: 1rem 0;
+            font-style: italic;
+            color: #6b7280;
+        }
+        
+        .prose hr {
+            border: none;
+            border-top: 1px solid #e5e7eb;
+            margin: 2rem 0;
+        }
+    </style>
+</head>
+<body class="p-8 bg-gray-100">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6">Markdown Rendering Test</h1>
+        
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
+            <h2 class="text-xl font-semibold mb-4">Test Content (Your Data Loader Example):</h2>
+            <div id="testContent" class="prose prose-sm max-w-none text-gray-700 leading-relaxed">
+                <!-- Content will be rendered here -->
+            </div>
+        </div>
+        
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
+            <h2 class="text-xl font-semibold mb-4">Cleaned Markdown:</h2>
+            <pre class="bg-gray-100 p-4 rounded text-sm overflow-x-auto"><code id="cleanedMarkdown"></code></pre>
+        </div>
+        
+        <div class="bg-white p-6 rounded-lg shadow-lg">
+            <h2 class="text-xl font-semibold mb-4">Raw Markdown:</h2>
+            <pre class="bg-gray-100 p-4 rounded text-sm overflow-x-auto"><code id="rawMarkdown"></code></pre>
+        </div>
+    </div>
+
+    <script>
+        // Test content (your Data Loader example)
+        const testContent = `I'd be happy to explain the Data Loader and Text Splitter components in detail.
+
+**Data Loader:**
+The Data Loader is a crucial component that enables you to bring your documents into the system.
+
+This component supports various file formats, including PDF, DOCX, and others.
+
+The Data Loader utilizes specific loaders, such as:.
+
+* PDFLoader: designed to handle PDF files
+* UnstructuredLoader: suitable for unstructured data
+* WebBaseLoader: ideal for web-based data
+
+The primary function of the Data Loader is to ingest your documents, making them available for further processing. This step is essential in preparing your data for analysis, searching, and retrieval.
+
+**Text Splitter:**
+The Text Splitter is another vital component that breaks down long texts into smaller, meaningful chunks.
+
+This process is necessary for several reasons:.
+
+1. **Improved search efficiency**: By splitting long texts into smaller chunks, the system can search and retrieve relevant information more efficiently.
+2. **Enhanced context understanding**: Smaller chunks of text provide better context, making it easier for the system to understand the content and relationships between different pieces of information.
+3. **Better retrieval**: The Text Splitter enables the system to retrieve specific, relevant chunks of text, rather than entire documents, which can be time-consuming and inefficient.
+
+The RecursiveCharacterTextSplitter is a specific type of Text Splitter that uses a recursive approach to split texts into smaller chunks. This method allows for more precise control over the splitting process, ensuring that the resulting chunks are meaningful and contextually relevant.
+
+In summary, the Data Loader and Text Splitter work together to prepare your documents for analysis and retrieval. The Data Loader ingests your documents, while the Text Splitter breaks them down into smaller, meaningful chunks, making it easier for the system to search, retrieve, and understand the content. These components lay the foundation for the subsequent steps in the process, including metadata attachment, embeddings, and vector store indexing, ultimately enabling efficient and effective information retrieval.`;
+
+        // Clean up the content to ensure proper Markdown formatting
+        let cleanedContent = testContent;
+        
+        // Fix common formatting issues
+        cleanedContent = cleanedContent
+            // Convert **text:** to ## text: for proper headings
+            .replace(/\*\*([^*]+):\*\*/g, '## $1')
+            // Fix bullet points that start with *.
+            .replace(/\*\./g, '*')
+            // Ensure proper spacing around bullet points
+            .replace(/\n\* /g, '\n- ')
+            // Fix numbered lists
+            .replace(/\n(\d+)\. /g, '\n$1. ')
+            // Ensure proper spacing around bold text
+            .replace(/\*\*([^*]+)\*\*/g, '**$1**');
+
+        // Configure marked options
+        marked.setOptions({
+            breaks: true,
+            gfm: true,
+            sanitize: false,
+            smartLists: true,
+            smartypants: true
+        });
+
+        // Render the content
+        const renderedContent = marked.parse(cleanedContent);
+        document.getElementById('testContent').innerHTML = renderedContent;
+        document.getElementById('cleanedMarkdown').textContent = cleanedContent;
+        document.getElementById('rawMarkdown').textContent = testContent;
+
+        console.log('Markdown rendering test completed');
+        console.log('Rendered content:', renderedContent);
+    </script>
+</body>
+</html>

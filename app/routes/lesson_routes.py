@@ -8,6 +8,27 @@ import logging
 import os
 from io import BytesIO
 import tempfile
+from datetime import datetime
+import json
+
+# Set up detailed lesson logging
+lesson_logger = logging.getLogger('lesson_generation')
+lesson_logger.setLevel(logging.INFO)
+
+# Create lesson.log file handler
+if not os.path.exists('logs'):
+    os.makedirs('logs')
+
+lesson_handler = logging.FileHandler('logs/lesson.log')
+lesson_handler.setLevel(logging.INFO)
+
+# Create formatter for lesson logs
+lesson_formatter = logging.Formatter(
+    '%(asctime)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+lesson_handler.setFormatter(lesson_formatter)
+lesson_logger.addHandler(lesson_handler)
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('lesson_routes', __name__)
@@ -16,12 +37,19 @@ bp = Blueprint('lesson_routes', __name__)
 # @teacher_required
 def create_lesson():
     """Create a new lesson (teacher only)"""
+    session_id = session.get('user_id', 'anonymous')
+    lesson_logger.info(f"=== LESSON GENERATION STARTED ===")
+    lesson_logger.info(f"Session ID: {session_id}")
+    lesson_logger.info(f"Timestamp: {datetime.now().isoformat()}")
+    
     try:
         if 'file' not in request.files:
+            lesson_logger.warning(f"Session {session_id}: No file provided in request")
             return jsonify({'error': 'No file provided'}), 400
         
         file = request.files['file']
         if not file or file.filename == '':
+            lesson_logger.warning(f"Session {session_id}: No file selected")
             return jsonify({'error': 'No selected file'}), 400
         
         # Get form data for lesson configuration
@@ -31,26 +59,43 @@ def create_lesson():
         grade_level = request.form.get('gradeLevel', '')
         additional_notes = request.form.get('additionalNotes', '')
         
+        # Log user input details
+        lesson_logger.info(f"Session {session_id}: File uploaded - {file.filename}")
+        lesson_logger.info(f"Session {session_id}: Lesson Title - {lesson_title}")
+        lesson_logger.info(f"Session {session_id}: Lesson Prompt - {lesson_prompt}")
+        lesson_logger.info(f"Session {session_id}: Focus Area - {focus_area}")
+        lesson_logger.info(f"Session {session_id}: Grade Level - {grade_level}")
+        lesson_logger.info(f"Session {session_id}: Additional Notes - {additional_notes}")
+        
         # Validate required fields
         if not lesson_title or not lesson_prompt or not focus_area or not grade_level:
+            lesson_logger.warning(f"Session {session_id}: Missing required fields")
             return jsonify({'error': 'All required fields must be filled'}), 400
         
         # Check if lesson title already exists for this teacher
         if LessonModel.check_title_exists(session['user_id'], lesson_title):
+            lesson_logger.warning(f"Session {session_id}: Lesson title already exists - {lesson_title}")
             return jsonify({'error': 'This lesson title is already used. Please choose a different title.'}), 400
         
         # Check file type
         allowed_extensions = {'.pdf', '.doc', '.docx', '.txt'}
         file_ext = os.path.splitext(file.filename.lower())[1]
         if file_ext not in allowed_extensions:
+            lesson_logger.warning(f"Session {session_id}: Unsupported file type - {file_ext}")
             return jsonify({'error': 'File type not supported. Please upload PDF, DOC, DOCX, or TXT files.'}), 400
+        
+        lesson_logger.info(f"Session {session_id}: File validation passed - {file_ext}")
         
         # Get API key from session
         api_key = session.get('groq_api_key')
         if not api_key:
+            lesson_logger.warning(f"Session {session_id}: No API key configured")
             return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
         
+        lesson_logger.info(f"Session {session_id}: API key found, proceeding with lesson generation")
+        
         # Generate lesson using LessonService
+        lesson_logger.info(f"Session {session_id}: Initializing LessonService")
         lesson_service = LessonService(api_key=api_key)
         lesson_details = {
             'title': lesson_title,
@@ -60,38 +105,197 @@ def create_lesson():
             'additional_notes': additional_notes
         }
         
+        lesson_logger.info(f"Session {session_id}: Starting file processing with AI")
+        lesson_logger.info(f"Session {session_id}: Lesson details - {json.dumps(lesson_details, indent=2)}")
+        
         result = lesson_service.process_file(file, lesson_details)
         
+        lesson_logger.info(f"Session {session_id}: AI processing completed")
+        lesson_logger.info(f"Session {session_id}: Response type - {result.get('response_type', 'unknown')}")
+        
         if 'error' in result:
+            lesson_logger.error(f"Session {session_id}: AI processing failed - {result['error']}")
             return jsonify({
                 'error': result['error'],
                 'details': result.get('details', '')
             }), 500
         
-        # Aggregate all section contents into a single string for the content field
-        sections = result['lesson'].get('sections', [])
-        full_content = "\n\n".join([section.get('content', '') for section in sections if section.get('content')])
+        # Handle the new response structure from Pydantic
+        lesson_logger.info(f"Session {session_id}: Processing AI response structure")
+        logger.info(f"DEBUG: Result structure: {result}")
+        
+        # Check if the response is wrapped in a 'lesson' key (from teacher service)
+        if 'lesson' in result and isinstance(result['lesson'], dict):
+            lesson_data = result['lesson']
+            response_type = lesson_data.get('response_type')
+            lesson_logger.info(f"Session {session_id}: Found wrapped response, type: {response_type}")
+            
+            if response_type == 'lesson_plan' and 'lesson' in lesson_data:
+                # New Pydantic structure - full lesson plan
+                lesson_logger.info(f"Session {session_id}: Processing lesson plan response")
+                actual_lesson = lesson_data['lesson']
+                logger.info(f"DEBUG: Using Pydantic structure, lesson_data keys: {list(actual_lesson.keys())}")
+                sections = actual_lesson.get('sections', [])
+                full_content = "\n\n".join([section.get('content', '') for section in sections if section.get('content')])
+                summary = actual_lesson.get('summary', '')
+                lesson_logger.info(f"Session {session_id}: Generated lesson plan - {len(sections)} sections, content length: {len(full_content)}")
+                lesson_logger.info(f"Session {session_id}: Lesson title: {actual_lesson.get('title', 'N/A')}")
+                lesson_logger.info(f"Session {session_id}: Learning objectives: {len(actual_lesson.get('learning_objectives', []))}")
+                lesson_logger.info(f"Session {session_id}: Creative activities: {len(actual_lesson.get('creative_activities', []))}")
+                lesson_logger.info(f"Session {session_id}: Quiz questions: {len(actual_lesson.get('assessment_quiz', []))}")
+            elif response_type == 'direct_answer' and 'answer' in lesson_data:
+                # Handle direct answer response - convert to lesson content
+                lesson_logger.info(f"Session {session_id}: Processing direct answer response")
+                logger.info("DEBUG: Converting direct answer to lesson content")
+                direct_answer = lesson_data['answer']
+                
+                # Extract content from AIMessage if needed
+                if hasattr(direct_answer, 'content'):
+                    direct_answer_content = direct_answer.content
+                else:
+                    direct_answer_content = str(direct_answer)
+                
+                # Create a clean lesson structure from the direct answer
+                full_content = direct_answer_content  # Use the answer directly without extra formatting
+                summary = direct_answer_content[:200] + "..." if len(direct_answer_content) > 200 else direct_answer_content
+                lesson_logger.info(f"Session {session_id}: Direct answer generated - length: {len(direct_answer_content)}")
+                lesson_logger.info(f"Session {session_id}: User question: {lesson_data.get('user_question', 'N/A')}")
+            else:
+                # Fallback for other wrapped structures
+                lesson_logger.info(f"Session {session_id}: Processing wrapped fallback structure")
+                sections = lesson_data.get('sections', [])
+                full_content = "\n\n".join([section.get('content', '') for section in sections if section.get('content')])
+                summary = lesson_data.get('summary', '')
+                lesson_logger.info(f"Session {session_id}: Wrapped fallback lesson generated - content length: {len(full_content)}")
+        elif result.get('response_type') == 'lesson_plan' and 'lesson' in result:
+            # Direct Pydantic structure - full lesson plan
+            lesson_logger.info(f"Session {session_id}: Processing direct lesson plan response")
+            lesson_data = result['lesson']
+            logger.info(f"DEBUG: Using direct Pydantic structure, lesson_data keys: {list(lesson_data.keys())}")
+            sections = lesson_data.get('sections', [])
+            full_content = "\n\n".join([section.get('content', '') for section in sections if section.get('content')])
+            summary = lesson_data.get('summary', '')
+            lesson_logger.info(f"Session {session_id}: Generated lesson plan - {len(sections)} sections, content length: {len(full_content)}")
+            lesson_logger.info(f"Session {session_id}: Lesson title: {lesson_data.get('title', 'N/A')}")
+            lesson_logger.info(f"Session {session_id}: Learning objectives: {len(lesson_data.get('learning_objectives', []))}")
+            lesson_logger.info(f"Session {session_id}: Creative activities: {len(lesson_data.get('creative_activities', []))}")
+            lesson_logger.info(f"Session {session_id}: Quiz questions: {len(lesson_data.get('assessment_quiz', []))}")
+        elif result.get('response_type') == 'direct_answer' and 'answer' in result:
+            # Handle direct answer response - convert to lesson content
+            lesson_logger.info(f"Session {session_id}: Processing direct answer response")
+            logger.info("DEBUG: Converting direct answer to lesson content")
+            direct_answer = result['answer']
+            
+            # Extract content from AIMessage if needed
+            if hasattr(direct_answer, 'content'):
+                direct_answer_content = direct_answer.content
+            else:
+                direct_answer_content = str(direct_answer)
+            
+            # Create a clean lesson structure from the direct answer
+            full_content = direct_answer_content  # Use the answer directly without extra formatting
+            summary = direct_answer_content[:200] + "..." if len(direct_answer_content) > 200 else direct_answer_content
+            lesson_logger.info(f"Session {session_id}: Direct answer generated - length: {len(direct_answer_content)}")
+            lesson_logger.info(f"Session {session_id}: User question: {result.get('user_question', 'N/A')}")
+        elif 'lesson' in result:
+            # Fallback to old structure with 'lesson' key
+            lesson_logger.info(f"Session {session_id}: Processing fallback lesson structure")
+            logger.info("DEBUG: Using fallback structure with 'lesson' key")
+            lesson_data = result['lesson']
+            sections = lesson_data.get('sections', [])
+            full_content = "\n\n".join([section.get('content', '') for section in sections if section.get('content')])
+            summary = lesson_data.get('summary', '')
+            lesson_logger.info(f"Session {session_id}: Fallback lesson generated - content length: {len(full_content)}")
+        else:
+            # If no valid structure is found, create a basic content
+            lesson_logger.warning(f"Session {session_id}: No valid structure found, using fallback content")
+            logger.warning("DEBUG: No valid structure found, using fallback content")
+            full_content = f"# {lesson_title}\n\n## Summary\nLesson content generated successfully.\n\n## Content\n\nContent will be generated based on your uploaded file and requirements."
+            summary = "Lesson generated successfully."
         
         # Store lesson in database
+        lesson_logger.info(f"Session {session_id}: Saving lesson to database")
         lesson_id = LessonModel.create_lesson(
             teacher_id=session['user_id'],
             title=lesson_title,
-            summary=result['lesson'].get('summary', ''),
+            summary=summary,
             learning_objectives=lesson_prompt,
             focus_area=focus_area,
             grade_level=grade_level,
             content=full_content,
             file_name=file.filename
         )
+        lesson_logger.info(f"Session {session_id}: Lesson saved with ID: {lesson_id}")
+        
+        # Return the appropriate lesson data for frontend
+        if 'lesson' in result and isinstance(result['lesson'], dict):
+            lesson_data = result['lesson']
+            response_type = lesson_data.get('response_type')
+            
+            if response_type == 'lesson_plan' and 'lesson' in lesson_data:
+                lesson_data = lesson_data['lesson']
+            elif response_type == 'direct_answer' and 'answer' in lesson_data:
+                # Create a clean response for direct answers
+                # Extract content from AIMessage if needed
+                answer_content = lesson_data['answer']
+                if hasattr(answer_content, 'content'):
+                    answer_content = answer_content.content
+                else:
+                    answer_content = str(answer_content)
+                
+                lesson_data = {
+                    'title': lesson_title,
+                    'summary': summary,
+                    'content': answer_content,
+                    'learning_objectives': [lesson_prompt] if lesson_prompt else [],
+                    'focus_area': focus_area,
+                    'grade_level': grade_level,
+                    'sections': [{'heading': 'Answer', 'content': answer_content}],
+                    'response_type': 'direct_answer',
+                    'user_question': lesson_data.get('user_question', lesson_prompt)
+                }
+        elif result.get('response_type') == 'lesson_plan' and 'lesson' in result:
+            lesson_data = result['lesson']
+        elif result.get('response_type') == 'direct_answer' and 'answer' in result:
+            # Create a clean response for direct answers
+            # Extract content from AIMessage if needed
+            answer_content = result['answer']
+            if hasattr(answer_content, 'content'):
+                answer_content = answer_content.content
+            else:
+                answer_content = str(answer_content)
+            
+            lesson_data = {
+                'title': lesson_title,
+                'summary': summary,
+                'content': answer_content,
+                'learning_objectives': [lesson_prompt] if lesson_prompt else [],
+                'focus_area': focus_area,
+                'grade_level': grade_level,
+                'sections': [{'heading': 'Answer', 'content': answer_content}],
+                'response_type': 'direct_answer',
+                'user_question': result.get('user_question', lesson_prompt)
+            }
+        else:
+            # Fallback structure
+            lesson_data = result.get('lesson', result.get('answer', {}))
+        
+        logger.info(f"DEBUG: Returning lesson_data keys: {list(lesson_data.keys()) if lesson_data else 'None'}")
+        logger.info(f"DEBUG: Full content length being stored: {len(full_content)}")
+        
+        lesson_logger.info(f"Session {session_id}: Preparing response for frontend")
+        lesson_logger.info(f"Session {session_id}: Response data keys: {list(lesson_data.keys()) if lesson_data else 'None'}")
+        lesson_logger.info(f"Session {session_id}: === LESSON GENERATION COMPLETED SUCCESSFULLY ===")
         
         return jsonify({
             'success': True,
             'lesson_id': lesson_id,
-            'lesson': result['lesson'],
+            'lesson': lesson_data,
             'message': 'Lesson created successfully!'
         })
         
     except Exception as e:
+        lesson_logger.error(f"Session {session_id}: Lesson creation failed - {str(e)}")
         logger.error(f"Lesson creation error: {str(e)}", exc_info=True)
         return jsonify({'error': f'Failed to create lesson: {str(e)}'}), 500
 
@@ -212,6 +416,15 @@ def update_lesson(lesson_id):
         
         data = request.get_json()
         
+        # Debug logging
+        logger.info(f"DEBUG: Updating lesson {lesson_id} with data: " +
+                   f"title={data.get('title', 'None')}, " +
+                   f"content_length={len(data.get('content', '')) if data.get('content') else 0}, " +
+                   f"learning_objectives={data.get('learning_objectives', 'None')}, " +
+                   f"summary={data.get('summary', 'None')}, " +
+                   f"focus_area={data.get('focus_area', 'None')}, " +
+                   f"grade_level={data.get('grade_level', 'None')}")
+        
         # Check if new title already exists for this teacher (if title is being changed)
         new_title = data.get('title')
         if new_title and new_title != lesson['title'] and LessonModel.check_title_exists(session['user_id'], new_title, exclude_lesson_id=lesson_id):
@@ -228,6 +441,8 @@ def update_lesson(lesson_id):
             content=data.get('content'),
             is_public=data.get('is_public')
         )
+        
+        logger.info(f"DEBUG: Lesson update result: {success}")
         
         if success:
             return jsonify({
@@ -558,24 +773,47 @@ def download_lesson_pdf(lesson_id):
 @bp.route('/ask_question', methods=['POST'])
 @student_required
 def ask_lesson_question():
+    session_id = session.get('user_id', 'anonymous')
+    lesson_logger.info(f"=== STUDENT QUESTION STARTED ===")
+    lesson_logger.info(f"Session ID: {session_id}")
+    lesson_logger.info(f"Timestamp: {datetime.now().isoformat()}")
+    
     data = request.get_json()
     lesson_id = data.get('lesson_id')
     question = data.get('question')
+    
+    lesson_logger.info(f"Session {session_id}: Question about lesson {lesson_id}")
+    lesson_logger.info(f"Session {session_id}: Question - {question}")
+    
     if not lesson_id or not question:
+        lesson_logger.warning(f"Session {session_id}: Missing lesson_id or question")
         return jsonify({'error': 'lesson_id and question are required'}), 400
     
     api_key = session.get('groq_api_key')
+    if not api_key:
+        lesson_logger.warning(f"Session {session_id}: No API key for question answering")
+        return jsonify({'error': 'API key not configured'}), 400
+    
+    lesson_logger.info(f"Session {session_id}: Processing question with AI")
     service = LessonService(api_key=api_key)
     result = service.answer_lesson_question(lesson_id, question)
     
+    lesson_logger.info(f"Session {session_id}: AI response received")
+    lesson_logger.info(f"Session {session_id}: Answer length: {len(result.get('answer', ''))}")
+    lesson_logger.info(f"Session {session_id}: Canonical question: {result.get('canonical_question', 'N/A')}")
+    
     if 'error' in result:
+        lesson_logger.error(f"Session {session_id}: Question answering failed - {result['error']}")
         return jsonify({'error': result['error']}), 400
     
     # Save the Q&A to lesson chat history
     from app.models.models import LessonChatHistory
     user_id = session['user_id']
     canonical = result.get('canonical_question')
+    
+    lesson_logger.info(f"Session {session_id}: Saving Q&A to chat history")
     LessonChatHistory.save_qa(lesson_id, user_id, question, result['answer'], canonical_question=canonical)
+    lesson_logger.info(f"Session {session_id}: === STUDENT QUESTION COMPLETED ===")
     
     return jsonify({'answer': result['answer'], 'canonical_question': canonical})
 
