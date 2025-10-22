@@ -538,6 +538,129 @@ def download_lesson(lesson_id):
     except Exception as e:
         logger.error(f"Download error: {str(e)}", exc_info=True)
         return jsonify({'error': f'Failed to download lesson: {str(e)}'}), 500 
+def _prepare_sections_from_content(content):
+    """Split content into manageable sections for PPT slides."""
+    if not content:
+        return []
+    
+    sections = []
+    paragraphs = [p.strip() for p in content.split('\n\n') if p.strip()]
+    
+    current_section_content = ""
+    section_count = 0
+    char_limit = 600
+    
+    for paragraph in paragraphs:
+        if len(paragraph) > char_limit:
+            if current_section_content:
+                sections.append({
+                    'heading': f'Content Part {section_count + 1}',
+                    'content': current_section_content
+                })
+                section_count += 1
+                current_section_content = ""
+            
+            sentences = paragraph.split('. ')
+            current_sentence_group = ""
+            for sentence in sentences:
+                if len(current_sentence_group) + len(sentence) > char_limit and current_sentence_group:
+                    sections.append({
+                        'heading': f'Content Part {section_count + 1}',
+                        'content': current_sentence_group
+                    })
+                    section_count += 1
+                    current_sentence_group = sentence
+                else:
+                    current_sentence_group = (current_sentence_group + ". " + sentence) if current_sentence_group else sentence
+            
+            if current_sentence_group:
+                sections.append({
+                    'heading': f'Content Part {section_count + 1}',
+                    'content': current_sentence_group
+                })
+                section_count += 1
+        else:
+            if len(current_section_content) + len(paragraph) > char_limit and current_section_content:
+                sections.append({
+                    'heading': f'Content Part {section_count + 1}',
+                    'content': current_section_content
+                })
+                section_count += 1
+                current_section_content = paragraph
+            else:
+                current_section_content = f"{current_section_content}\n\n{paragraph}" if current_section_content else paragraph
+    
+    if current_section_content:
+        sections.append({
+            'heading': f'Content Part {section_count + 1}' if section_count > 0 else 'Lesson Content',
+            'content': current_section_content
+        })
+    
+    return sections
+
+
+def _prepare_summary_sections(summary_text):
+    """Split summary into manageable sections for PPT slides (similar to content)."""
+    if not summary_text:
+        return []
+    
+    import re
+    sections = []
+    paragraphs = [p.strip() for p in summary_text.split('\n\n') if p.strip()]
+    
+    current_section = ""
+    section_count = 0
+    char_limit = 500  # Slightly smaller for summary
+    
+    for paragraph in paragraphs:
+        if len(paragraph) > char_limit:
+            if current_section:
+                sections.append({
+                    'heading': f'Overview ({section_count + 1})' if section_count > 0 else 'Lesson Overview',
+                    'content': current_section
+                })
+                section_count += 1
+                current_section = ""
+            
+            # Split by sentences
+            sentences = re.split(r'(?<=[.!?])\s+', paragraph)
+            temp_section = ""
+            for sentence in sentences:
+                if len(temp_section) + len(sentence) > char_limit and temp_section:
+                    sections.append({
+                        'heading': f'Overview ({section_count + 1})' if section_count > 0 else 'Lesson Overview',
+                        'content': temp_section
+                    })
+                    section_count += 1
+                    temp_section = sentence
+                else:
+                    temp_section = (temp_section + " " + sentence) if temp_section else sentence
+            
+            if temp_section:
+                sections.append({
+                    'heading': f'Overview ({section_count + 1})' if section_count > 0 else 'Lesson Overview',
+                    'content': temp_section
+                })
+                section_count += 1
+        else:
+            if len(current_section) + len(paragraph) > char_limit and current_section:
+                sections.append({
+                    'heading': f'Overview ({section_count + 1})' if section_count > 0 else 'Lesson Overview',
+                    'content': current_section
+                })
+                section_count += 1
+                current_section = paragraph
+            else:
+                current_section = f"{current_section}\n\n{paragraph}" if current_section else paragraph
+    
+    if current_section:
+        sections.append({
+            'heading': f'Overview ({section_count + 1})' if section_count > 0 else 'Lesson Overview',
+            'content': current_section
+        })
+    
+    return sections
+
 
 @bp.route('/download_lesson_ppt/<int:lesson_id>', methods=['GET'])
 @login_required
@@ -548,22 +671,34 @@ def download_lesson_ppt(lesson_id):
         return jsonify({'error': 'Lesson not found'}), 404
 
     # Check if user can access this lesson
-    # Teachers can access their own lessons, students can access public lessons
     user_role = session.get('role', 'student')
     if user_role == 'teacher' and lesson['teacher_id'] != session['user_id']:
         return jsonify({'error': 'Access denied'}), 403
     elif user_role == 'student' and not lesson.get('is_public', True):
         return jsonify({'error': 'Access denied'}), 403
 
-    # Prepare lesson data for PPT generation
+    # Prepare summary sections (NEW: process summary into sections)
+    summary_sections = _prepare_summary_sections(lesson.get('summary', ''))
+    
+    # Prepare content sections
+    content_sections = _prepare_sections_from_content(lesson.get('content', ''))
+    
+    # Combine summary and content sections
+    all_sections = summary_sections + content_sections
+
+    # Prepare lesson data in the format expected by create_ppt
     lesson_data = {
         'title': lesson['title'],
-        'summary': lesson['summary'] or '',
-        'learning_objectives': [lesson['learning_objectives']] if lesson['learning_objectives'] else [],
-        'sections': [{'heading': 'Lesson Content', 'content': lesson['content']}],
-        'key_concepts': [],
-        'activities': [],
-        'quiz': []
+        'summary': '',  # ← REMOVED: Don't pass raw summary anymore
+        'content': '',  # ← REMOVED: Don't pass raw content anymore
+        'learning_objectives': [lesson['learning_objectives']] if lesson.get('learning_objectives') else [],
+        'sections': all_sections,  # ← ALL content now in sections (summary + content)
+        'key_concepts': lesson.get('key_concepts', []),
+        'background_prerequisites': lesson.get('background_prerequisites', []),
+        'creative_activities': lesson.get('creative_activities', []),
+        'stem_equations': lesson.get('stem_equations', []),
+        'assessment_quiz': lesson.get('assessment_quiz', []),
+        'teacher_notes': lesson.get('teacher_notes', [])
     }
     
     # Get API key from session
