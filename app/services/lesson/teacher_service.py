@@ -142,6 +142,7 @@ class TeacherLessonService(BaseLessonService):
                 # Generate structured lesson
                 teacher_logger.info("Starting AI lesson generation")
                 lesson_data = self._generate_structured_lesson(full_text, lesson_details)
+            
             if 'error' in lesson_data:
                 teacher_logger.error(f"Lesson generation failed: {lesson_data['error']}")
                 return lesson_data
@@ -215,6 +216,19 @@ class TeacherLessonService(BaseLessonService):
                 response_content = response.content
             else:
                 response_content = str(response)
+            
+            # Check if the response is in JSON format and extract the actual content
+            try:
+                import json
+                parsed_response = json.loads(response_content)
+                if isinstance(parsed_response, dict) and 'answer' in parsed_response:
+                    response_content = parsed_response['answer']
+                elif isinstance(parsed_response, dict) and 'response' in parsed_response:
+                    response_content = parsed_response['response']
+                elif isinstance(parsed_response, dict) and 'content' in parsed_response:
+                    response_content = parsed_response['content']
+            except (json.JSONDecodeError, AttributeError):
+                pass
             
             teacher_logger.info(f"Response content length: {len(response_content)} characters")
             
@@ -435,6 +449,19 @@ Answer:"""
             response = self.llm.invoke(answer_prompt)
             answer_text = response.content.strip() if hasattr(response, 'content') else str(response).strip()
             
+            # Check if the response is in JSON format and extract the actual content
+            try:
+                import json
+                parsed_response = json.loads(answer_text)
+                if isinstance(parsed_response, dict) and 'answer' in parsed_response:
+                    answer_text = parsed_response['answer']
+                elif isinstance(parsed_response, dict) and 'response' in parsed_response:
+                    answer_text = parsed_response['response']
+                elif isinstance(parsed_response, dict) and 'content' in parsed_response:
+                    answer_text = parsed_response['content']
+            except (json.JSONDecodeError, AttributeError):
+                pass
+            
             teacher_logger.info(f"Direct answer generated successfully - length: {len(answer_text)}")
             teacher_logger.info("=== DIRECT ANSWER GENERATION COMPLETED ===")
             logger.info(f"Generated direct answer (length: {len(answer_text)})")
@@ -454,14 +481,476 @@ Answer:"""
                 "answer": f"I apologize, but I encountered an error while processing your question: {str(e)}"
             }
 
-    def _fallback_json_parsing(self, text: str, user_prompt: str, grade_level: str, focus_area: str) -> Dict[str, Any]:
-        """Fallback method - simplified to just create a basic lesson plan"""
+    def _create_fallback_lesson(self, text: str) -> Dict[str, Any]:
+        """Create a fallback lesson when AI generation fails"""
+        return {
+            "response_type": "lesson_plan",
+            "lesson": {
+                "title": "Generated Lesson",
+                "summary": "A lesson generated from your content.",
+                "learning_objectives": ["Understand the key concepts"],
+                "key_concepts": ["Key concepts from the content"],
+                "background_prerequisites": ["Basic understanding of the topic"],
+                "sections": [
+                    {
+                        "heading": "Introduction",
+                        "content": text[:1000] + "..." if len(text) > 1000 else text
+                    }
+                ],
+                "creative_activities": [],
+                "stem_equations": [],
+                "assessment_quiz": [],
+                "teacher_notes": ["Review the content before teaching"]
+            }
+        }
+
+    def _extract_sections_from_prompt(self, text: str, prompt: str) -> str:
+        """Extract specific sections based on user prompt"""
+        # Simple keyword-based extraction
+        # This could be enhanced with more sophisticated NLP
+        keywords = prompt.lower().split()
+        sentences = text.split('.')
+        relevant_sentences = []
+        
+        for sentence in sentences:
+            if any(keyword in sentence.lower() for keyword in keywords):
+                relevant_sentences.append(sentence.strip())
+        
+        return '. '.join(relevant_sentences) if relevant_sentences else ""
+
+    def _extract_lesson_text_for_rag(self, lesson_data: Dict[str, Any]) -> str:
+        """Extract all text content from lesson data for RAG storage"""
         try:
-            logger.info("Using fallback method - creating basic lesson plan")
-            return self._create_fallback_lesson(text)
+            text_parts = []
+            
+            # Add title and summary
+            if lesson_data.get('title'):
+                text_parts.append(f"Title: {lesson_data['title']}")
+            if lesson_data.get('summary'):
+                text_parts.append(f"Summary: {lesson_data['summary']}")
+            
+            # Add learning objectives
+            if lesson_data.get('learning_objectives'):
+                text_parts.append("Learning Objectives:")
+                for obj in lesson_data['learning_objectives']:
+                    text_parts.append(f"- {obj}")
+            
+            # Add sections
+            if lesson_data.get('sections'):
+                for section in lesson_data['sections']:
+                    if section.get('heading'):
+                        text_parts.append(f"\n{section['heading']}:")
+                    if section.get('content'):
+                        text_parts.append(section['content'])
+            
+            # Add key concepts
+            if lesson_data.get('key_concepts'):
+                text_parts.append("\nKey Concepts:")
+                for concept in lesson_data['key_concepts']:
+                    text_parts.append(f"- {concept}")
+            
+            # Add background prerequisites
+            if lesson_data.get('background_prerequisites'):
+                text_parts.append("\nBackground Prerequisites:")
+                for prereq in lesson_data['background_prerequisites']:
+                    text_parts.append(f"- {prereq}")
+            
+            # Add creative activities
+            if lesson_data.get('creative_activities'):
+                text_parts.append("\nCreative Activities:")
+                for activity in lesson_data['creative_activities']:
+                    if activity.get('name'):
+                        text_parts.append(f"\n{activity['name']}:")
+                    if activity.get('description'):
+                        text_parts.append(activity['description'])
+                    if activity.get('learning_purpose'):
+                        text_parts.append(f"Purpose: {activity['learning_purpose']}")
+            
+            # Add STEM equations
+            if lesson_data.get('stem_equations'):
+                text_parts.append("\nSTEM Equations:")
+                for eq in lesson_data['stem_equations']:
+                    if eq.get('equation'):
+                        text_parts.append(f"Equation: {eq['equation']}")
+                    if eq.get('complete_equation_significance'):
+                        text_parts.append(f"Significance: {eq['complete_equation_significance']}")
+            
+            # Add assessment quiz
+            if lesson_data.get('assessment_quiz'):
+                text_parts.append("\nAssessment Quiz:")
+                for q in lesson_data['assessment_quiz']:
+                    if q.get('question'):
+                        text_parts.append(f"Q: {q['question']}")
+                    if q.get('answer'):
+                        text_parts.append(f"A: {q['answer']}")
+            
+            # Add teacher notes
+            if lesson_data.get('teacher_notes'):
+                text_parts.append("\nTeacher Notes:")
+                for note in lesson_data['teacher_notes']:
+                    text_parts.append(f"- {note}")
+            
+            return "\n".join(text_parts)
+            
         except Exception as e:
-            logger.error(f"Fallback method failed: {str(e)}")
-            return self._create_fallback_lesson(text)
+            teacher_logger.error(f"Error extracting lesson text for RAG: {str(e)}")
+            return ""
+
+    def _store_lesson_in_vector_db(self, lesson_content: str, filename: str):
+        """Store lesson content in vector database for AI review"""
+        try:
+            # Create a unique key for this lesson
+            lesson_key = f"lesson_{filename}_{hash(lesson_content) % 10000}"
+            
+            # Create documents from lesson content
+            from langchain_core.documents import Document
+            documents = [Document(page_content=lesson_content, metadata={"lesson_key": lesson_key, "filename": filename})]
+            
+            # Process with RAG service
+            rag_result = self.rag_service.process_document(documents, filename)
+            if 'error' not in rag_result:
+                # Store the RAG service instance for this lesson
+                self.lesson_vector_stores[lesson_key] = {
+                    'rag_service': self.rag_service,
+                    'filename': filename,
+                    'content': lesson_content
+                }
+                teacher_logger.info(f"Lesson stored in vector DB with key: {lesson_key}")
+            else:
+                teacher_logger.error(f"Failed to store lesson in vector DB: {rag_result['error']}")
+                
+        except Exception as e:
+            teacher_logger.error(f"Error storing lesson in vector DB: {str(e)}")
+
+    def review_lesson_with_rag(self, lesson_content: str, user_prompt: str, filename: str = "") -> str:
+        """Review lesson content using RAG to retrieve relevant information"""
+        try:
+            teacher_logger.info("=== RAG-BASED LESSON REVIEW STARTED ===")
+            teacher_logger.info(f"User prompt: {user_prompt}")
+            teacher_logger.info(f"Filename: {filename}")
+            
+            # Try to find existing vector store for this lesson
+            lesson_key = None
+            for key, store_data in self.lesson_vector_stores.items():
+                if store_data['filename'] == filename or store_data['content'] == lesson_content:
+                    lesson_key = key
+                    break
+            
+            if lesson_key and lesson_key in self.lesson_vector_stores:
+                teacher_logger.info(f"Using existing vector store: {lesson_key}")
+                rag_service = self.lesson_vector_stores[lesson_key]['rag_service']
+            else:
+                teacher_logger.info("Creating new vector store for lesson review")
+                # Create new RAG service for this lesson
+                from langchain_core.documents import Document
+                documents = [Document(page_content=lesson_content, metadata={"filename": filename})]
+                rag_service = RAGService()
+                rag_result = rag_service.process_document(documents, filename)
+                
+                if 'error' in rag_result:
+                    teacher_logger.error(f"Failed to create vector store: {rag_result['error']}")
+                    # Fallback to regular improvement
+                    return self.improve_lesson_content(0, lesson_content, user_prompt)
+            
+            # Retrieve relevant chunks
+            relevant_chunks = rag_service.retrieve_relevant_chunks(user_prompt, k=5)
+            if not relevant_chunks:
+                teacher_logger.warning("No relevant chunks found, using full content")
+                relevant_chunks = [Document(page_content=lesson_content, metadata={})]
+            
+            # Create RAG prompt
+            rag_prompt = rag_service.create_rag_prompt(user_prompt, relevant_chunks)
+            
+            # Generate response using RAG
+            teacher_logger.info("Generating RAG-based response")
+            response = self.llm.invoke(rag_prompt)
+            response_content = response.content if hasattr(response, 'content') else str(response)
+            
+            # Check if the response is in JSON format and extract the actual content
+            try:
+                import json
+                parsed_response = json.loads(response_content)
+                if isinstance(parsed_response, dict) and 'answer' in parsed_response:
+                    response_content = parsed_response['answer']
+                elif isinstance(parsed_response, dict) and 'response' in parsed_response:
+                    response_content = parsed_response['response']
+                elif isinstance(parsed_response, dict) and 'content' in parsed_response:
+                    response_content = parsed_response['content']
+            except (json.JSONDecodeError, AttributeError):
+                pass
+            
+            teacher_logger.info("=== RAG-BASED LESSON REVIEW COMPLETED ===")
+            return response_content
+            
+        except Exception as e:
+            teacher_logger.error(f"Error in RAG-based lesson review: {str(e)}")
+            # Fallback to regular improvement
+            return self.improve_lesson_content(0, lesson_content, user_prompt)
+
+    def improve_lesson_content(self, lesson_id: int, current_content: str, improvement_prompt: str = "") -> str:
+        """Improve lesson content using AI based on user prompt"""
+        try:
+            # Create improvement prompt
+            if improvement_prompt:
+                prompt = f"""
+                You are an expert teacher. Please improve the following lesson content based on the user's specific request.
+                
+                User's Improvement Request:
+                {improvement_prompt}
+                
+                Current Lesson Content:
+                {current_content}
+                
+                Please provide an improved version of the lesson content that addresses the user's request.
+                Maintain the same structure and format, but enhance the content according to the improvement request.
+                Return only the improved content, no additional explanations.
+                """
+            else:
+                prompt = f"""
+                You are an expert teacher. Please improve the following lesson content to make it more engaging, 
+                comprehensive, and effective for students.
+                
+                Current Lesson Content:
+                {current_content}
+                
+                Please provide an improved version that:
+                1. Enhances clarity and readability
+                2. Adds more examples and explanations where needed
+                3. Improves the overall educational value
+                4. Maintains the same structure and format
+                
+                Return only the improved content, no additional explanations.
+                """
+            
+            # Generate improved content using LLM
+            response = self.llm.invoke(prompt)
+            improved_content = response.content.strip()
+            
+            # Check if the response is in JSON format and extract the actual content
+            try:
+                import json
+                # Try to parse as JSON
+                parsed_response = json.loads(improved_content)
+                # If it has the expected JSON structure (like chat responses), extract the answer
+                if isinstance(parsed_response, dict) and 'answer' in parsed_response:
+                    improved_content = parsed_response['answer']
+                elif isinstance(parsed_response, dict) and 'response' in parsed_response:
+                    improved_content = parsed_response['response']
+                elif isinstance(parsed_response, dict) and 'content' in parsed_response:
+                    improved_content = parsed_response['content']
+            except (json.JSONDecodeError, AttributeError):
+                # Not a JSON response, use as-is
+                pass
+            
+            logger.info(f"Successfully improved lesson {lesson_id} content")
+            return improved_content
+            
+        except Exception as e:
+            logger.error(f"Error improving lesson content: {str(e)}")
+            # Return original content if improvement fails
+            return current_content
+
+    def edit_lesson_with_prompt(self, lesson_text: str, user_prompt: str) -> str:
+        """Use a FAISS vector database for semantic chunk retrieval and editing"""
+        try:
+            from langchain_community.vectorstores import FAISS
+            from langchain_community.embeddings import HuggingFaceEmbeddings
+            import tempfile
+            import os
+
+            # 1. Chunk the lesson (by paragraph)
+            chunks = [p.strip() for p in lesson_text.split('\n\n') if p.strip()]
+            if not chunks:
+                return lesson_text
+
+            # 2. Embed and store in FAISS
+            embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+            
+            with tempfile.TemporaryDirectory() as tmpdir:
+                faiss_path = os.path.join(tmpdir, "faiss_index")
+                vector_db = FAISS.from_texts(chunks, embeddings)
+                vector_db.save_local(faiss_path)
+
+                # 3. Retrieve relevant chunks for the user prompt
+                vector_db = FAISS.load_local(faiss_path, embeddings, allow_dangerous_deserialization=True)
+                relevant_docs = vector_db.similarity_search(user_prompt, k=min(5, len(chunks)))
+                relevant_texts = [doc.page_content for doc in relevant_docs]
+
+                # 4. Edit relevant chunks with LLM
+                edited_chunks = {}
+                for text in relevant_texts:
+                    edit_prompt = (
+                        f"You are an expert teacher assistant. Here is a lesson chunk in markdown:\n\n"
+                        f"{text}\n\n"
+                        f"User request: {user_prompt}\n\n"
+                        f"Please return the revised lesson chunk in markdown only."
+                    )
+                    response = self.llm.invoke(edit_prompt)
+                    edited = response.content if hasattr(response, 'content') else str(response)
+                    
+                    # Check if the response is in JSON format and extract the actual content
+                    try:
+                        import json
+                        parsed_response = json.loads(edited)
+                        if isinstance(parsed_response, dict) and 'answer' in parsed_response:
+                            edited = parsed_response['answer']
+                        elif isinstance(parsed_response, dict) and 'response' in parsed_response:
+                            edited = parsed_response['response']
+                        elif isinstance(parsed_response, dict) and 'content' in parsed_response:
+                            edited = parsed_response['content']
+                    except (json.JSONDecodeError, AttributeError):
+                        pass
+                    
+                    edited_chunks[text] = edited
+
+                # 5. Replace original chunks with edited ones
+                new_chunks = [edited_chunks.get(chunk, chunk) for chunk in chunks]
+
+            # 6. Reconstruct and return the lesson
+            return '\n\n'.join(new_chunks)
+        except Exception as e:
+            logger.error(f"Error editing lesson with prompt: {str(e)}", exc_info=True)
+            return lesson_text
+
+    def create_ppt(self, lesson_data: dict) -> bytes:
+        """Generate a basic PPTX file from the lesson structure using python-pptx"""
+        try:
+            logger.info(f"Creating PowerPoint for lesson: {lesson_data.get('title', 'Unknown')}")
+            logger.info(f"Lesson data keys: {list(lesson_data.keys())}")
+            logger.info(f"Content length: {len(lesson_data.get('content', ''))}")
+            
+            from pptx import Presentation
+            from pptx.util import Inches, Pt
+            prs = Presentation()
+            
+            # Title slide
+            slide_layout = prs.slide_layouts[0]
+            slide = prs.slides.add_slide(slide_layout)
+            slide.shapes.title.text = lesson_data.get('title', 'Lesson')
+            slide.placeholders[1].text = lesson_data.get('summary', '')
+            
+            # Learning Objectives
+            if lesson_data.get('learning_objectives'):
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = 'Learning Objectives'
+                body = slide.shapes.placeholders[1].text_frame
+                for obj in lesson_data['learning_objectives']:
+                    body.add_paragraph().text = str(obj)
+            
+            # Sections
+            sections = lesson_data.get('sections', [])
+            if sections:
+                logger.info(f"Creating {len(sections)} section slides")
+                for section in sections:
+                    slide = prs.slides.add_slide(prs.slide_layouts[1])
+                    slide.shapes.title.text = section.get('heading', 'Section')
+                    body = slide.shapes.placeholders[1].text_frame
+                    content = section.get('content', '')
+                    # Limit content to avoid slide overflow
+                    if len(content) > 1000:
+                        content = content[:1000] + "..."
+                    body.text = content
+            else:
+                # If no sections, create a content slide with the main content
+                if lesson_data.get('content'):
+                    logger.info("Creating content slide with main lesson content")
+                    slide = prs.slides.add_slide(prs.slide_layouts[1])
+                    slide.shapes.title.text = 'Lesson Content'
+                    body = slide.shapes.placeholders[1].text_frame
+                    content = lesson_data['content']
+                    # Split long content into multiple slides if needed
+                    if len(content) > 1000:
+                        # Create multiple slides for long content
+                        chunks = [content[i:i+1000] for i in range(0, len(content), 1000)]
+                        logger.info(f"Splitting content into {len(chunks)} slides")
+                        for i, chunk in enumerate(chunks):
+                            if i > 0:  # First chunk already added above
+                                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                                slide.shapes.title.text = f'Lesson Content (Continued {i+1})'
+                                body = slide.shapes.placeholders[1].text_frame
+                            body.text = chunk
+                    else:
+                        body.text = content
+            
+            # Key Concepts
+            if lesson_data.get('key_concepts'):
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = 'Key Concepts'
+                body = slide.shapes.placeholders[1].text_frame
+                for kc in lesson_data['key_concepts']:
+                    body.add_paragraph().text = str(kc)
+            
+            # Background Prerequisites
+            if lesson_data.get('background_prerequisites'):
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = 'Background Prerequisites'
+                body = slide.shapes.placeholders[1].text_frame
+                for prereq in lesson_data['background_prerequisites']:
+                    body.add_paragraph().text = str(prereq)
+            
+            # Creative Activities
+            if lesson_data.get('creative_activities'):
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = 'Creative Activities'
+                body = slide.shapes.placeholders[1].text_frame
+                for act in lesson_data['creative_activities']:
+                    body.add_paragraph().text = f"{act.get('name', '')}: {act.get('description', '')} ({act.get('duration', '')})"
+                    if act.get('learning_purpose'):
+                        body.add_paragraph().text = f"Purpose: {act.get('learning_purpose', '')}"
+            
+            # STEM Equations
+            if lesson_data.get('stem_equations'):
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = 'STEM Equations'
+                body = slide.shapes.placeholders[1].text_frame
+                for eq_data in lesson_data['stem_equations']:
+                    if eq_data.get('equation'):
+                        body.add_paragraph().text = f"Equation: {eq_data.get('equation', '')}"
+                    if eq_data.get('complete_equation_significance'):
+                        body.add_paragraph().text = f"Significance: {eq_data.get('complete_equation_significance', '')}"
+            
+            # Assessment Quiz
+            if lesson_data.get('assessment_quiz'):
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = 'Assessment Quiz'
+                body = slide.shapes.placeholders[1].text_frame
+                for q in lesson_data['assessment_quiz']:
+                    body.add_paragraph().text = f"Q: {q.get('question', '')}"
+                    for i, opt in enumerate(q.get('options', [])):
+                        body.add_paragraph().text = f"{chr(65+i)}. {opt}"
+                    body.add_paragraph().text = f"Answer: {q.get('answer', '')}"
+            
+            # Teacher Notes
+            if lesson_data.get('teacher_notes'):
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = 'Teacher Notes'
+                body = slide.shapes.placeholders[1].text_frame
+                for note in lesson_data['teacher_notes']:
+                    body.add_paragraph().text = str(note)
+            
+            # If we only have a title slide, add a content slide
+            if len(prs.slides) == 1 and lesson_data.get('content'):
+                logger.info("Adding content slide as only title slide exists")
+                slide = prs.slides.add_slide(prs.slide_layouts[1])
+                slide.shapes.title.text = 'Lesson Content'
+                body = slide.shapes.placeholders[1].text_frame
+                content = lesson_data['content']
+                if len(content) > 1000:
+                    content = content[:1000] + "..."
+                body.text = content
+            
+            logger.info(f"Created PowerPoint with {len(prs.slides)} slides")
+            
+            from io import BytesIO
+            buffer = BytesIO()
+            prs.save(buffer)
+            buffer.seek(0)
+            ppt_bytes = buffer.getvalue()
+            logger.info(f"PowerPoint generated successfully, size: {len(ppt_bytes)} bytes")
+            return ppt_bytes
+        except Exception as e:
+            logger.error(f"Error creating PPTX: {str(e)}", exc_info=True)
+            return b''
 
     def _create_docx(self, lesson_data: Dict[str, Any]) -> bytes:
         """Convert structured lesson to DOCX format with improved formatting"""
@@ -617,393 +1106,4 @@ Answer:"""
             buffer.seek(0)
             return buffer.getvalue()
 
-    def create_ppt(self, lesson_data: dict) -> bytes:
-        """Generate a basic PPTX file from the lesson structure using python-pptx"""
-        try:
-            logger.info(f"Creating PowerPoint for lesson: {lesson_data.get('title', 'Unknown')}")
-            logger.info(f"Lesson data keys: {list(lesson_data.keys())}")
-            logger.info(f"Content length: {len(lesson_data.get('content', ''))}")
-            
-            from pptx import Presentation
-            from pptx.util import Inches, Pt
-            prs = Presentation()
-            
-            # Title slide
-            slide_layout = prs.slide_layouts[0]
-            slide = prs.slides.add_slide(slide_layout)
-            slide.shapes.title.text = lesson_data.get('title', 'Lesson')
-            slide.placeholders[1].text = lesson_data.get('summary', '')
-            
-            # Learning Objectives
-            if lesson_data.get('learning_objectives'):
-                slide = prs.slides.add_slide(prs.slide_layouts[1])
-                slide.shapes.title.text = 'Learning Objectives'
-                body = slide.shapes.placeholders[1].text_frame
-                for obj in lesson_data['learning_objectives']:
-                    body.add_paragraph().text = str(obj)
-            
-            # Sections
-            sections = lesson_data.get('sections', [])
-            if sections:
-                logger.info(f"Creating {len(sections)} section slides")
-                for section in sections:
-                    slide = prs.slides.add_slide(prs.slide_layouts[1])
-                    slide.shapes.title.text = section.get('heading', 'Section')
-                    body = slide.shapes.placeholders[1].text_frame
-                    content = section.get('content', '')
-                    # Limit content to avoid slide overflow
-                    if len(content) > 1000:
-                        content = content[:1000] + "..."
-                    body.text = content
-            else:
-                # If no sections, create a content slide with the main content
-                if lesson_data.get('content'):
-                    logger.info("Creating content slide with main lesson content")
-                    slide = prs.slides.add_slide(prs.slide_layouts[1])
-                    slide.shapes.title.text = 'Lesson Content'
-                    body = slide.shapes.placeholders[1].text_frame
-                    content = lesson_data['content']
-                    # Split long content into multiple slides if needed
-                    if len(content) > 1000:
-                        # Create multiple slides for long content
-                        chunks = [content[i:i+1000] for i in range(0, len(content), 1000)]
-                        logger.info(f"Splitting content into {len(chunks)} slides")
-                        for i, chunk in enumerate(chunks):
-                            if i > 0:  # First chunk already added above
-                                slide = prs.slides.add_slide(prs.slide_layouts[1])
-                                slide.shapes.title.text = f'Lesson Content (Continued {i+1})'
-                                body = slide.shapes.placeholders[1].text_frame
-                            body.text = chunk
-                    else:
-                        body.text = content
-            
-            # Key Concepts
-            if lesson_data.get('key_concepts'):
-                slide = prs.slides.add_slide(prs.slide_layouts[1])
-                slide.shapes.title.text = 'Key Concepts'
-                body = slide.shapes.placeholders[1].text_frame
-                for kc in lesson_data['key_concepts']:
-                    body.add_paragraph().text = str(kc)
-            
-            # Background Prerequisites
-            if lesson_data.get('background_prerequisites'):
-                slide = prs.slides.add_slide(prs.slide_layouts[1])
-                slide.shapes.title.text = 'Background Prerequisites'
-                body = slide.shapes.placeholders[1].text_frame
-                for prereq in lesson_data['background_prerequisites']:
-                    body.add_paragraph().text = str(prereq)
-            
-            # Creative Activities
-            if lesson_data.get('creative_activities'):
-                slide = prs.slides.add_slide(prs.slide_layouts[1])
-                slide.shapes.title.text = 'Creative Activities'
-                body = slide.shapes.placeholders[1].text_frame
-                for act in lesson_data['creative_activities']:
-                    body.add_paragraph().text = f"{act.get('name', '')}: {act.get('description', '')} ({act.get('duration', '')})"
-                    if act.get('learning_purpose'):
-                        body.add_paragraph().text = f"Purpose: {act.get('learning_purpose', '')}"
-            
-            # STEM Equations
-            if lesson_data.get('stem_equations'):
-                slide = prs.slides.add_slide(prs.slide_layouts[1])
-                slide.shapes.title.text = 'STEM Equations'
-                body = slide.shapes.placeholders[1].text_frame
-                for eq_data in lesson_data['stem_equations']:
-                    if eq_data.get('equation'):
-                        body.add_paragraph().text = f"Equation: {eq_data.get('equation', '')}"
-                    if eq_data.get('complete_equation_significance'):
-                        body.add_paragraph().text = f"Significance: {eq_data.get('complete_equation_significance', '')}"
-            
-            # Assessment Quiz
-            if lesson_data.get('assessment_quiz'):
-                slide = prs.slides.add_slide(prs.slide_layouts[1])
-                slide.shapes.title.text = 'Assessment Quiz'
-                body = slide.shapes.placeholders[1].text_frame
-                for q in lesson_data['assessment_quiz']:
-                    body.add_paragraph().text = f"Q: {q.get('question', '')}"
-                    for i, opt in enumerate(q.get('options', [])):
-                        body.add_paragraph().text = f"{chr(65+i)}. {opt}"
-                    body.add_paragraph().text = f"Answer: {q.get('answer', '')}"
-            
-            # Teacher Notes
-            if lesson_data.get('teacher_notes'):
-                slide = prs.slides.add_slide(prs.slide_layouts[1])
-                slide.shapes.title.text = 'Teacher Notes'
-                body = slide.shapes.placeholders[1].text_frame
-                for note in lesson_data['teacher_notes']:
-                    body.add_paragraph().text = str(note)
-            
-            # If we only have a title slide, add a content slide
-            if len(prs.slides) == 1 and lesson_data.get('content'):
-                logger.info("Adding content slide as only title slide exists")
-                slide = prs.slides.add_slide(prs.slide_layouts[1])
-                slide.shapes.title.text = 'Lesson Content'
-                body = slide.shapes.placeholders[1].text_frame
-                content = lesson_data['content']
-                if len(content) > 1000:
-                    content = content[:1000] + "..."
-                body.text = content
-            
-            logger.info(f"Created PowerPoint with {len(prs.slides)} slides")
-            
-            from io import BytesIO
-            buffer = BytesIO()
-            prs.save(buffer)
-            buffer.seek(0)
-            ppt_bytes = buffer.getvalue()
-            logger.info(f"PowerPoint generated successfully, size: {len(ppt_bytes)} bytes")
-            return ppt_bytes
-        except Exception as e:
-            logger.error(f"Error creating PPTX: {str(e)}", exc_info=True)
-            return b''
 
-    def edit_lesson_with_prompt(self, lesson_text: str, user_prompt: str) -> str:
-        """Use a FAISS vector database for semantic chunk retrieval and editing"""
-        try:
-            from langchain_community.vectorstores import FAISS
-            from langchain_community.embeddings import HuggingFaceEmbeddings
-            import tempfile
-            import os
-
-            # 1. Chunk the lesson (by paragraph)
-            chunks = [p.strip() for p in lesson_text.split('\n\n') if p.strip()]
-            if not chunks:
-                return lesson_text
-
-            # 2. Embed and store in FAISS
-            embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-            
-            with tempfile.TemporaryDirectory() as tmpdir:
-                faiss_path = os.path.join(tmpdir, "faiss_index")
-                vector_db = FAISS.from_texts(chunks, embeddings)
-                vector_db.save_local(faiss_path)
-
-                # 3. Retrieve relevant chunks for the user prompt
-                vector_db = FAISS.load_local(faiss_path, embeddings, allow_dangerous_deserialization=True)
-                relevant_docs = vector_db.similarity_search(user_prompt, k=min(5, len(chunks)))
-                relevant_texts = [doc.page_content for doc in relevant_docs]
-
-                # 4. Edit relevant chunks with LLM
-                edited_chunks = {}
-                for text in relevant_texts:
-                    edit_prompt = (
-                        f"You are an expert teacher assistant. Here is a lesson chunk in markdown:\n\n"
-                        f"{text}\n\n"
-                        f"User request: {user_prompt}\n\n"
-                        f"Please return the revised lesson chunk in markdown only."
-                    )
-                    response = self.llm.invoke(edit_prompt)
-                    edited = response.content if hasattr(response, 'content') else str(response)
-                    edited_chunks[text] = edited
-
-                # 5. Replace original chunks with edited ones
-                new_chunks = [edited_chunks.get(chunk, chunk) for chunk in chunks]
-
-            # 6. Reconstruct and return the lesson
-            return '\n\n'.join(new_chunks)
-        except Exception as e:
-            logger.error(f"Error editing lesson with prompt: {str(e)}", exc_info=True)
-            return lesson_text
-
-    def improve_lesson_content(self, lesson_id: int, current_content: str, improvement_prompt: str = "") -> str:
-        """Improve lesson content using AI based on user prompt"""
-        try:
-            # Create improvement prompt
-            if improvement_prompt:
-                prompt = f"""
-                You are an expert teacher. Please improve the following lesson content based on the user's specific request.
-                
-                User's Improvement Request:
-                {improvement_prompt}
-                
-                Current Lesson Content:
-                {current_content}
-                
-                Please provide an improved version of the lesson content that addresses the user's request.
-                Maintain the same structure and format, but enhance the content according to the improvement request.
-                Return only the improved content, no additional explanations.
-                """
-            else:
-                prompt = f"""
-                You are an expert teacher. Please improve the following lesson content to make it more engaging, 
-                comprehensive, and effective for students.
-                
-                Current Lesson Content:
-                {current_content}
-                
-                Please provide an improved version that:
-                1. Enhances clarity and readability
-                2. Adds more examples and explanations where needed
-                3. Improves the overall educational value
-                4. Maintains the same structure and format
-                
-                Return only the improved content, no additional explanations.
-                """
-            
-            # Generate improved content using LLM
-            response = self.llm.invoke(prompt)
-            improved_content = response.content.strip()
-            
-            logger.info(f"Successfully improved lesson {lesson_id} content")
-            return improved_content
-            
-        except Exception as e:
-            logger.error(f"Error improving lesson content: {str(e)}")
-            # Return original content if improvement fails
-            return current_content
-
-    def _extract_lesson_text_for_rag(self, lesson_data: Dict[str, Any]) -> str:
-        """Extract all text content from lesson data for RAG storage"""
-        try:
-            text_parts = []
-            
-            # Add title and summary
-            if lesson_data.get('title'):
-                text_parts.append(f"Title: {lesson_data['title']}")
-            if lesson_data.get('summary'):
-                text_parts.append(f"Summary: {lesson_data['summary']}")
-            
-            # Add learning objectives
-            if lesson_data.get('learning_objectives'):
-                text_parts.append("Learning Objectives:")
-                for obj in lesson_data['learning_objectives']:
-                    text_parts.append(f"- {obj}")
-            
-            # Add sections
-            if lesson_data.get('sections'):
-                for section in lesson_data['sections']:
-                    if section.get('heading'):
-                        text_parts.append(f"\n{section['heading']}:")
-                    if section.get('content'):
-                        text_parts.append(section['content'])
-            
-            # Add key concepts
-            if lesson_data.get('key_concepts'):
-                text_parts.append("\nKey Concepts:")
-                for concept in lesson_data['key_concepts']:
-                    text_parts.append(f"- {concept}")
-            
-            # Add background prerequisites
-            if lesson_data.get('background_prerequisites'):
-                text_parts.append("\nBackground Prerequisites:")
-                for prereq in lesson_data['background_prerequisites']:
-                    text_parts.append(f"- {prereq}")
-            
-            # Add creative activities
-            if lesson_data.get('creative_activities'):
-                text_parts.append("\nCreative Activities:")
-                for activity in lesson_data['creative_activities']:
-                    if activity.get('name'):
-                        text_parts.append(f"\n{activity['name']}:")
-                    if activity.get('description'):
-                        text_parts.append(activity['description'])
-                    if activity.get('learning_purpose'):
-                        text_parts.append(f"Purpose: {activity['learning_purpose']}")
-            
-            # Add STEM equations
-            if lesson_data.get('stem_equations'):
-                text_parts.append("\nSTEM Equations:")
-                for eq in lesson_data['stem_equations']:
-                    if eq.get('equation'):
-                        text_parts.append(f"Equation: {eq['equation']}")
-                    if eq.get('complete_equation_significance'):
-                        text_parts.append(f"Significance: {eq['complete_equation_significance']}")
-            
-            # Add assessment quiz
-            if lesson_data.get('assessment_quiz'):
-                text_parts.append("\nAssessment Quiz:")
-                for q in lesson_data['assessment_quiz']:
-                    if q.get('question'):
-                        text_parts.append(f"Q: {q['question']}")
-                    if q.get('answer'):
-                        text_parts.append(f"A: {q['answer']}")
-            
-            # Add teacher notes
-            if lesson_data.get('teacher_notes'):
-                text_parts.append("\nTeacher Notes:")
-                for note in lesson_data['teacher_notes']:
-                    text_parts.append(f"- {note}")
-            
-            return "\n".join(text_parts)
-            
-        except Exception as e:
-            teacher_logger.error(f"Error extracting lesson text for RAG: {str(e)}")
-            return ""
-
-    def _store_lesson_in_vector_db(self, lesson_content: str, filename: str):
-        """Store lesson content in vector database for AI review"""
-        try:
-            # Create a unique key for this lesson
-            lesson_key = f"lesson_{filename}_{hash(lesson_content) % 10000}"
-            
-            # Create documents from lesson content
-            from langchain_core.documents import Document
-            documents = [Document(page_content=lesson_content, metadata={"lesson_key": lesson_key, "filename": filename})]
-            
-            # Process with RAG service
-            rag_result = self.rag_service.process_document(documents, filename)
-            if 'error' not in rag_result:
-                # Store the RAG service instance for this lesson
-                self.lesson_vector_stores[lesson_key] = {
-                    'rag_service': self.rag_service,
-                    'filename': filename,
-                    'content': lesson_content
-                }
-                teacher_logger.info(f"Lesson stored in vector DB with key: {lesson_key}")
-            else:
-                teacher_logger.error(f"Failed to store lesson in vector DB: {rag_result['error']}")
-                
-        except Exception as e:
-            teacher_logger.error(f"Error storing lesson in vector DB: {str(e)}")
-
-    def review_lesson_with_rag(self, lesson_content: str, user_prompt: str, filename: str = "") -> str:
-        """Review lesson content using RAG to retrieve relevant information"""
-        try:
-            teacher_logger.info("=== RAG-BASED LESSON REVIEW STARTED ===")
-            teacher_logger.info(f"User prompt: {user_prompt}")
-            teacher_logger.info(f"Filename: {filename}")
-            
-            # Try to find existing vector store for this lesson
-            lesson_key = None
-            for key, store_data in self.lesson_vector_stores.items():
-                if store_data['filename'] == filename or store_data['content'] == lesson_content:
-                    lesson_key = key
-                    break
-            
-            if lesson_key and lesson_key in self.lesson_vector_stores:
-                teacher_logger.info(f"Using existing vector store: {lesson_key}")
-                rag_service = self.lesson_vector_stores[lesson_key]['rag_service']
-            else:
-                teacher_logger.info("Creating new vector store for lesson review")
-                # Create new RAG service for this lesson
-                from langchain_core.documents import Document
-                documents = [Document(page_content=lesson_content, metadata={"filename": filename})]
-                rag_service = RAGService()
-                rag_result = rag_service.process_document(documents, filename)
-                
-                if 'error' in rag_result:
-                    teacher_logger.error(f"Failed to create vector store: {rag_result['error']}")
-                    # Fallback to regular improvement
-                    return self.improve_lesson_content(0, lesson_content, user_prompt)
-            
-            # Retrieve relevant chunks
-            relevant_chunks = rag_service.retrieve_relevant_chunks(user_prompt, k=5)
-            if not relevant_chunks:
-                teacher_logger.warning("No relevant chunks found, using full content")
-                relevant_chunks = [Document(page_content=lesson_content, metadata={})]
-            
-            # Create RAG prompt
-            rag_prompt = rag_service.create_rag_prompt(user_prompt, relevant_chunks)
-            
-            # Generate response using RAG
-            teacher_logger.info("Generating RAG-based response")
-            response = self.llm.invoke(rag_prompt)
-            response_content = response.content if hasattr(response, 'content') else str(response)
-            
-            teacher_logger.info("=== RAG-BASED LESSON REVIEW COMPLETED ===")
-            return response_content
-            
-        except Exception as e:
-            teacher_logger.error(f"Error in RAG-based lesson review: {str(e)}")
-            # Fallback to regular improvement
-            return self.improve_lesson_content(0, lesson_content, user_prompt)
