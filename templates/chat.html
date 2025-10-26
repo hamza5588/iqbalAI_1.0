@@ -1957,6 +1957,15 @@ async function initializeApp() {
 
         // View FAQs for a specific lesson version
     async function viewLessonFAQs(lessonId, lessonTitle) {
+        // Prevent multiple simultaneous calls
+        if (window.isViewingFAQs) {
+            console.log('FAQ view already in progress, ignoring duplicate click');
+            return;
+        }
+        
+        // Set flag to prevent duplicate calls
+        window.isViewingFAQs = true;
+        
         try {
             console.log(`🔍 viewLessonFAQs called with lessonId: ${lessonId}, lessonTitle: ${lessonTitle}`);
 
@@ -1968,11 +1977,15 @@ async function initializeApp() {
             const faqContentEl = document.getElementById('faqModalContent');
             if (faqContentEl) {
                 faqContentEl.innerHTML = `
-                    <div class="py-10 text-center">
-                        <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-50">
-                            <i class="fas fa-spinner fa-spin text-[#05B0FC]"></i>
+                    <div class="flex flex-col items-center justify-center py-16">
+                        <div class="relative">
+                            <div class="w-16 h-16 border-4 border-blue-200 border-t-[#05B0FC] rounded-full animate-spin"></div>
+                            <div class="absolute inset-0 flex items-center justify-center">
+                                <i class="fas fa-question-circle text-[#05B0FC] text-2xl"></i>
+                            </div>
                         </div>
-                        <p class="mt-4 text-gray-600">Loading FAQs...</p>
+                        <p class="mt-6 text-gray-600 font-medium">Loading student questions...</p>
+                        <p class="text-sm text-gray-500 mt-2">Please wait</p>
                     </div>
                 `;
             }
@@ -1995,16 +2008,32 @@ async function initializeApp() {
                 if (faqs.length === 0) {
                     showNotification(`No student questions found for "${lessonTitle}"`, 'info');
                     document.getElementById('faqModalContent').innerHTML = `
-                        <div class="text-center py-8">
-                            <i class="fas fa-question-circle text-6xl text-gray-300 mb-4"></i>
-                            <h3 class="text-xl font-semibold text-gray-700 mb-2">No Questions Yet</h3>
-                            <p class="text-gray-600 mb-4">No student questions have been asked for this lesson version yet.</p>
-                            <p class="text-sm text-blue-600 bg-blue-50 px-4 py-2 rounded-lg inline-block">
-                                <i class="fas fa-info-circle mr-2"></i>
-                                This could indicate that the lesson is new or students haven't encountered any difficulties yet.
-                            </p>
+                        <div class="flex flex-col items-center justify-center py-16 px-4">
+                            <div class="relative mb-6">
+                                <div class="w-32 h-32 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center shadow-lg">
+                                    <i class="fas fa-question-circle text-6xl text-blue-400"></i>
+                                </div>
+                                <div class="absolute -bottom-2 -right-2 w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center shadow-md">
+                                    <i class="fas fa-info text-white text-sm"></i>
+                                </div>
+                            </div>
+                            <h3 class="text-2xl font-bold text-gray-800 mb-3">No Questions Yet</h3>
+                            <p class="text-center text-gray-600 max-w-md mb-6">No student questions have been asked for this lesson version yet.</p>
+                            <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-blue-500 rounded-lg p-5 max-w-md shadow-sm">
+                                <div class="flex items-start">
+                                    <i class="fas fa-lightbulb text-yellow-500 mr-3 mt-1"></i>
+                                    <div>
+                                        <p class="text-sm font-semibold text-gray-800 mb-1">Why no questions?</p>
+                                        <p class="text-xs text-gray-600">This could indicate that the lesson is new, students haven't encountered difficulties yet, or the content is clear and engaging.</p>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     `;
+                    // Reset flag before returning
+                    setTimeout(() => {
+                        window.isViewingFAQs = false;
+                    }, 300);
                     return;
                 }
 
@@ -2047,14 +2076,26 @@ async function initializeApp() {
                 showNotification(`Failed to load FAQs: ${errorMsg}`, 'error');
 
                 document.getElementById('faqModalContent').innerHTML = `
-                    <div class="text-center py-8">
-                        <i class="fas fa-exclamation-triangle text-6xl text-red-300 mb-4"></i>
-                        <h3 class="text-xl font-semibold text-gray-700 mb-2">Error Loading FAQs</h3>
-                        <p class="text-gray-600 mb-4">Unable to load questions due to an error. Please try again later.</p>
-                        <p class="text-sm text-red-600 bg-red-50 px-4 py-2 rounded-lg inline-block">
-                            <i class="fas fa-info-circle mr-2"></i>
-                            ${errorMsg}
-                        </p>
+                    <div class="flex flex-col items-center justify-center py-16 px-4">
+                        <div class="relative mb-6">
+                            <div class="w-32 h-32 bg-gradient-to-br from-red-100 to-pink-100 rounded-full flex items-center justify-center shadow-lg">
+                                <i class="fas fa-exclamation-triangle text-6xl text-red-400"></i>
+                            </div>
+                            <div class="absolute -top-2 -right-2 w-8 h-8 bg-red-500 rounded-full flex items-center justify-center shadow-md">
+                                <i class="fas fa-times text-white text-xs"></i>
+                            </div>
+                        </div>
+                        <h3 class="text-2xl font-bold text-gray-800 mb-3">Error Loading FAQs</h3>
+                        <p class="text-center text-gray-600 max-w-md mb-6">Unable to load questions due to an error. Please try again later.</p>
+                        <div class="bg-red-50 border-l-4 border-red-500 rounded-lg p-5 max-w-md shadow-sm">
+                            <div class="flex items-start">
+                                <i class="fas fa-info-circle text-red-500 mr-3 mt-1"></i>
+                                <div>
+                                    <p class="text-sm font-semibold text-gray-800 mb-1">Error Details</p>
+                                    <p class="text-xs text-gray-600">${errorMsg}</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 `;
             }
@@ -2063,16 +2104,33 @@ async function initializeApp() {
             showNotification('Error loading lesson FAQs. Please try again.', 'error');
 
             document.getElementById('faqModalContent').innerHTML = `
-                <div class="text-center py-8">
-                    <i class="fas fa-exclamation-triangle text-6xl text-red-300 mb-4"></i>
-                    <h3 class="text-xl font-semibold text-gray-700 mb-2">Unexpected Error</h3>
-                    <p class="text-gray-600 mb-4">An unexpected error occurred. Please try again later.</p>
-                    <p class="text-sm text-red-600 bg-red-50 px-4 py-2 rounded-lg inline-block">
-                        <i class="fas fa-info-circle mr-2"></i>
-                        Please refresh the page and try again.
-                    </p>
+                <div class="flex flex-col items-center justify-center py-16 px-4">
+                    <div class="relative mb-6">
+                        <div class="w-32 h-32 bg-gradient-to-br from-orange-100 to-red-100 rounded-full flex items-center justify-center shadow-lg">
+                            <i class="fas fa-exclamation-triangle text-6xl text-orange-400"></i>
+                        </div>
+                        <div class="absolute -top-2 -right-2 w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center shadow-md">
+                            <i class="fas fa-bug text-white text-xs"></i>
+                        </div>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800 mb-3">Unexpected Error</h3>
+                    <p class="text-center text-gray-600 max-w-md mb-6">An unexpected error occurred. Please try again later.</p>
+                    <div class="bg-orange-50 border-l-4 border-orange-500 rounded-lg p-5 max-w-md shadow-sm">
+                        <div class="flex items-start">
+                            <i class="fas fa-info-circle text-orange-500 mr-3 mt-1"></i>
+                            <div>
+                                <p class="text-sm font-semibold text-gray-800 mb-1">What to do?</p>
+                                <p class="text-xs text-gray-600">Please refresh the page and try again. If the problem persists, contact support.</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             `;
+        } finally {
+            // Reset flag after a short delay to allow the modal to be shown
+            setTimeout(() => {
+                window.isViewingFAQs = false;
+            }, 300);
         }
     }
 
@@ -2082,59 +2140,117 @@ async function initializeApp() {
         
         if (faqs.length === 0) {
             modalContent.innerHTML = `
-                <div class="text-center py-8">
-                    <i class="fas fa-question-circle text-6xl text-gray-300 mb-4"></i>
-                    <h3 class="text-xl font-semibold text-gray-700 mb-2">No Questions Yet</h3>
-                    <p class="text-gray-600 mb-4">No student questions have been asked for this lesson version yet.</p>
+                <div class="flex flex-col items-center justify-center py-16 px-4">
+                    <div class="relative mb-6">
+                        <div class="w-32 h-32 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center shadow-lg">
+                            <i class="fas fa-question-circle text-6xl text-blue-400"></i>
+                        </div>
+                        <div class="absolute -bottom-2 -right-2 w-8 h-8 bg-yellow-400 rounded-full flex items-center justify-center shadow-md">
+                            <i class="fas fa-info text-white text-sm"></i>
+                        </div>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-800 mb-3">No Questions Yet</h3>
+                    <p class="text-center text-gray-600 max-w-md mb-6">No student questions have been asked for this lesson version yet.</p>
                 </div>
             `;
             return;
         }
 
-        // Create FAQ table
-        const tableHTML = `
-            <div class="mb-4">
-                <div class="text-center mb-4">
-                    <p class="text-gray-600 mb-2">Viewing <strong>${faqs.length} real student questions</strong> asked for this specific lesson version.</p>
-                    <p class="text-sm text-blue-600 bg-blue-50 px-3 py-2 rounded-lg inline-block">
-                        <i class="fas fa-users mr-2"></i>
-                        These are actual questions asked by students, not AI-generated content
-                    </p>
+        // Create FAQ cards with modern design
+        const cardsHTML = `
+            <div class="mb-6">
+                <div class="bg-gradient-to-r from-blue-50 to-indigo-50 border-l-4 border-[#05B0FC] rounded-lg p-5 shadow-sm mb-6">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 bg-[#05B0FC] rounded-full flex items-center justify-center mr-3">
+                                <i class="fas fa-users text-white"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-lg font-semibold text-gray-800">
+                                    <strong class="text-[#05B0FC]">${faqs.length}</strong> Student Questions
+                                </h4>
+                                <p class="text-sm text-gray-600">Real questions asked by students in this lesson</p>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="bg-white rounded-lg shadow-md overflow-hidden overflow-x-auto">
-                <div class="divide-y divide-gray-200 min-w-full">
-                    ${faqs.map((faq, index) => `
-                        <div class="py-3 px-4 hover:bg-gray-50 transition-colors">
-                            <div class="grid grid-cols-12 gap-2">
-                                <div class="col-span-1 flex items-center text-sm text-gray-500">${index + 1}</div>
-                                <div class="col-span-6 flex items-center font-medium text-gray-900 text-sm">
-                                    ${faq.question}
-                                    ${faq.is_version ? `<span class="ml-2 px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">v${faq.version}</span>` : `<span class="ml-2 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full">Original</span>`}
-                                </div>
-                                <div class="col-span-2 flex items-center">
-                                    <span class="px-2 py-1 text-white bg-blue-300 rounded-xl text-xs">${faq.subject || ''}</span>
-                                </div>
-                                <div class="col-span-2 flex items-center">
-                                    <span class="px-2 py-1 text-blue-800 text-xs">${faq.grade || ''}</span>
-                                </div>
-                                <div class="col-span-1 flex items-center justify-center">
-                                    <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded text-xs font-semibold">${faq.count}</span>
+            
+            <div class="grid grid-cols-1 gap-4">
+                ${faqs.map((faq, index) => `
+                    <div class="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-300 border border-gray-100 overflow-hidden transform hover:-translate-y-1">
+                        <!-- Card Header -->
+                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-100">
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-center flex-1">
+                                    <div class="w-10 h-10 bg-gradient-to-br from-[#05B0FC] to-blue-600 rounded-full flex items-center justify-center text-white font-bold mr-4 shadow-lg">
+                                        ${index + 1}
+                                    </div>
+                                    <div class="flex-1">
+                                        <p class="text-gray-900 font-semibold text-base leading-relaxed">
+                                            <i class="fas fa-quote-left text-blue-400 mr-2"></i>${faq.question}<i class="fas fa-quote-right text-blue-400 ml-2"></i>
+                                        </p>
+                                        <div class="flex items-center gap-2 mt-2">
+                                            ${faq.is_version ? `
+                                                <span class="inline-flex items-center px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                                                    <i class="fas fa-code-branch mr-1"></i>Version ${faq.version}
+                                                </span>
+                                            ` : `
+                                                <span class="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
+                                                    <i class="fas fa-file-alt mr-1"></i>Original
+                                                </span>
+                                            `}
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
+                        </div>
+                        
+                        <!-- Card Content -->
+                        <div class="px-6 py-4">
                             ${faq.answer ? `
-                                <div class="mt-2 ml-8 mr-2 p-3 bg-gray-50 rounded border border-gray-200">
-                                    <div class="text-xs uppercase tracking-wide text-gray-500 mb-1">Latest Answer</div>
-                                    <div class="text-sm text-gray-800 whitespace-pre-wrap">${faq.answer}</div>
+                                <div class="bg-gradient-to-br from-gray-50 to-blue-50 rounded-lg p-4 border-l-4 border-indigo-400 mb-4">
+                                    <div class="flex items-center mb-2">
+                                        <i class="fas fa-lightbulb text-yellow-500 mr-2"></i>
+                                        <span class="text-xs font-semibold uppercase tracking-wide text-indigo-600">AI Response</span>
+                                    </div>
+                                    <p class="text-gray-800 leading-relaxed whitespace-pre-wrap">${faq.answer}</p>
                                 </div>
                             ` : ''}
+                            
+                            <!-- Stats Footer -->
+                            <div class="flex items-center justify-between pt-4 border-t border-gray-100">
+                                <div class="flex items-center gap-4">
+                                    ${faq.subject ? `
+                                        <div class="flex items-center">
+                                            <span class="px-3 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium">
+                                                <i class="fas fa-tag mr-1"></i>${faq.subject}
+                                            </span>
+                                        </div>
+                                    ` : ''}
+                                    ${faq.grade ? `
+                                        <div class="flex items-center">
+                                            <span class="px-3 py-1 bg-purple-100 text-purple-700 rounded-lg text-xs font-medium">
+                                                <i class="fas fa-graduation-cap mr-1"></i>${faq.grade}
+                                            </span>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <div class="flex items-center bg-gradient-to-r from-purple-100 to-pink-100 px-4 py-2 rounded-lg">
+                                        <i class="fas fa-fire text-orange-500 mr-2"></i>
+                                        <span class="text-sm font-bold text-purple-700">${faq.count}</span>
+                                        <span class="text-xs text-gray-600 ml-1">times asked</span>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                    `).join('')}
-                </div>
+                    </div>
+                `).join('')}
             </div>
         `;
         
-        modalContent.innerHTML = tableHTML;
+        modalContent.innerHTML = cardsHTML;
     }
 
     // Close FAQ modal
@@ -4422,6 +4538,11 @@ async function initializeApp() {
             showNotification('No lesson to download', 'error');
             return;
         }
+        
+        // Show loading spinner
+        const fileType = format === 'pdf' ? 'PDF' : format === 'pptx' ? 'PPT' : 'DOCX';
+        showFullPageLoading(`Preparing ${fileType} download...`);
+        
         try {
             let url;
             if (format === 'pdf') {
@@ -4444,6 +4565,10 @@ async function initializeApp() {
                 a.click();
                 window.URL.revokeObjectURL(a.href);
                 a.remove();
+                
+                // Hide loading spinner
+                hideFullPageLoading();
+                
                 showNotification(`Lesson downloaded as ${format.toUpperCase()}!`, 'success');
                     
                     // Clear the uploaded file after successful download
@@ -4456,9 +4581,15 @@ async function initializeApp() {
             } else {
                     const errorData = await response.json().catch(() => ({}));
                     const errorMessage = errorData.error || 'Error downloading lesson';
+                    
+                    // Hide loading spinner
+                    hideFullPageLoading();
+                    
                     showNotification(errorMessage, 'error');
             }
         } catch (error) {
+            // Hide loading spinner
+            hideFullPageLoading();
             showNotification('Error downloading lesson.', 'error');
         }
     }
@@ -5443,6 +5574,9 @@ async function initializeApp() {
 
     // Download lesson file
     async function downloadLessonFile(lessonId) {
+        // Show loading spinner
+        showFullPageLoading('Preparing DOCX download...');
+        
         try {
             const response = await fetch(`/api/lessons/download_lesson/${lessonId}`, {
                 method: 'GET',
@@ -5472,12 +5606,19 @@ async function initializeApp() {
                 window.URL.revokeObjectURL(url);
                 a.remove();
                 
+                // Hide loading spinner
+                hideFullPageLoading();
+                
                 showNotification('Lesson downloaded successfully!', 'success');
             } else {
+                // Hide loading spinner
+                hideFullPageLoading();
                 showNotification('Error downloading lesson', 'error');
             }
         } catch (error) {
             console.error('Error downloading lesson:', error);
+            // Hide loading spinner
+            hideFullPageLoading();
             showNotification('Error downloading lesson. Please try again.', 'error');
         }
     }
@@ -6886,6 +7027,15 @@ async function initializeApp() {
 
     // View lesson details and versions
     async function viewLesson(lessonId, lessonTitle) {
+        // Prevent multiple simultaneous calls
+        if (window.isViewingLesson) {
+            console.log('Lesson view already in progress, ignoring duplicate click');
+            return;
+        }
+        
+        // Set flag to prevent duplicate calls
+        window.isViewingLesson = true;
+        
         try {
             const response = await fetch(`/api/lessons/lesson/${lessonId}/view`, {
                 method: 'GET',
@@ -6933,6 +7083,11 @@ async function initializeApp() {
         } catch (error) {
             console.error('Error viewing lesson:', error);
             showNotification('Error loading lesson details', 'error');
+        } finally {
+            // Reset flag after a short delay to allow the modal to be shown
+            setTimeout(() => {
+                window.isViewingLesson = false;
+            }, 300);
         }
     }
 
@@ -6974,6 +7129,9 @@ async function initializeApp() {
 
     // Download lesson as PowerPoint
     async function downloadLessonPPT(lessonId) {
+        // Show loading spinner
+        showFullPageLoading('Preparing PPT download...');
+        
         try {
             const response = await fetch(`/api/lessons/download_lesson_ppt/${lessonId}`, {
                 method: 'GET',
@@ -7000,13 +7158,25 @@ async function initializeApp() {
                 a.click();
                 window.URL.revokeObjectURL(a.href);
                 a.remove();
+                
+                // Hide loading spinner
+                hideFullPageLoading();
+                
                 showNotification('Lesson downloaded as PowerPoint!', 'success');
             } else {
                 const errorData = await response.json();
+                
+                // Hide loading spinner
+                hideFullPageLoading();
+                
                 showNotification(`Error downloading PowerPoint: ${errorData.error || 'Download failed'}`, 'error');
             }
         } catch (error) {
             console.error('Error downloading PowerPoint:', error);
+            
+            // Hide loading spinner
+            hideFullPageLoading();
+            
             showNotification('Error downloading PowerPoint. Please try again.', 'error');
         }
     }
@@ -7125,94 +7295,169 @@ async function initializeApp() {
 
         // Show student lesson modal with ask question functionality
         function showStudentLessonModal(lesson) {
+            // Prevent multiple simultaneous calls
+            if (window.isShowingStudentModal) {
+                console.log('Student lesson modal already opening, ignoring duplicate call');
+                return;
+            }
+            
+            // Set flag to prevent duplicate calls
+            window.isShowingStudentModal = true;
+            
+            // Reset flag after modal is shown
+            setTimeout(() => {
+                window.isShowingStudentModal = false;
+            }, 300);
+            
             const studentModalContent = `
-            <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div class="bg-white rounded-lg p-6 max-w-6xl w-full mx-4 max-h-[90vh] overflow-y-auto transition-all duration-300" id="studentLessonModalContent">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-2xl font-bold text-gray-900">${lesson.title || 'Untitled Lesson'}</h2>
-                        <div class="flex items-center gap-2">
-                            <button onclick="toggleModalFullscreen('studentLessonModal')" class="text-gray-500 hover:text-gray-700 p-1 rounded" title="Toggle Fullscreen">
-                                <i class="fas fa-expand text-lg" id="studentLessonModalFullscreenIcon"></i>
-                            </button>
-                            <button onclick="closeStudentLessonModal()" class="text-gray-500 hover:text-gray-700">
-                                <i class="fas fa-times text-xl"></i>
-                            </button>
+            <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-modal-fade">
+                <div class="bg-white rounded-2xl shadow-2xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-hidden transform transition-all animate-modal-scale" id="studentLessonModalContent">
+                    <!-- Beautiful Header -->
+                    <div class="bg-gradient-to-r from-[#05B0FC] via-blue-500 to-blue-600 px-8 py-6 shadow-lg">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="flex items-center">
+                                <div class="w-14 h-14 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-4 shadow-lg">
+                                    <i class="fas fa-book-open text-2xl text-white"></i>
+                                </div>
+                                <div>
+                                    <h2 class="text-2xl font-bold text-white">${lesson.title || 'Untitled Lesson'}</h2>
+                                    <p class="text-blue-100 text-sm mt-1">
+                                        <i class="fas fa-user-graduate mr-1"></i>Student View
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button onclick="toggleModalFullscreen('studentLessonModal')" class="w-10 h-10 bg-white bg-opacity-10 hover:bg-opacity-20 rounded-full flex items-center justify-center transition-all duration-300">
+                                    <i class="fas fa-expand text-white text-lg" id="studentLessonModalFullscreenIcon"></i>
+                                </button>
+                                <button onclick="closeStudentLessonModal()" class="w-10 h-10 bg-white bg-opacity-10 hover:bg-opacity-20 rounded-full flex items-center justify-center transition-all duration-300 hover:rotate-90">
+                                    <i class="fas fa-times text-white text-xl"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Quick Info Badges -->
+                        <div class="flex flex-wrap items-center gap-3">
+                            ${lesson.focus_area ? `
+                                <span class="inline-flex items-center px-3 py-1 bg-white bg-opacity-20 text-white rounded-full text-xs font-semibold">
+                                    <i class="fas fa-tag mr-1"></i>${lesson.focus_area}
+                                </span>
+                            ` : ''}
+                            ${lesson.grade_level ? `
+                                <span class="inline-flex items-center px-3 py-1 bg-white bg-opacity-20 text-white rounded-full text-xs font-semibold">
+                                    <i class="fas fa-graduation-cap mr-1"></i>Grade ${lesson.grade_level}
+                                </span>
+                            ` : ''}
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <!-- Left Column: Lesson Content -->
-                        <div class="space-y-4">
-                            <div class="bg-gray-50 p-4 rounded-lg">
-                                <h3 class="text-lg font-semibold text-gray-800 mb-3">Lesson Details</h3>
-                                <div class="space-y-2 text-sm">
-                                    ${lesson.summary ? `<div><strong>Summary:</strong> ${lesson.summary}</div>` : ''}
-                                    ${lesson.lesson_prompt ? `<div><strong>Lesson Prompt:</strong> ${lesson.lesson_prompt}</div>` : ''}
-                                    ${lesson.focus_area ? `<div><strong>Focus Area:</strong> ${lesson.focus_area}</div>` : ''}
-                                    ${lesson.grade_level ? `<div><strong>Grade Level:</strong> ${lesson.grade_level}</div>` : ''}
+                    <div class="p-6 bg-gray-50 max-h-[calc(90vh-140px)] overflow-y-auto">
+                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <!-- Left Column: Lesson Content -->
+                            <div class="space-y-4">
+                                <!-- Lesson Details Card -->
+                                <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-100 shadow-sm">
+                                    <div class="flex items-center mb-4">
+                                        <div class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center mr-3">
+                                            <i class="fas fa-info-circle text-white"></i>
+                                        </div>
+                                        <h3 class="text-lg font-bold text-gray-800">Lesson Details</h3>
+                                    </div>
+                                    <div class="space-y-3 text-sm">
+                                        ${lesson.summary ? `
+                                            <div class="bg-white bg-opacity-70 rounded-lg p-3 border border-blue-200">
+                                                <div class="font-semibold text-blue-700 mb-1">Summary</div>
+                                                <div class="text-gray-700">${lesson.summary}</div>
+                                            </div>
+                                        ` : ''}
+                                        ${lesson.lesson_prompt ? `
+                                            <div class="bg-white bg-opacity-70 rounded-lg p-3 border border-blue-200">
+                                                <div class="font-semibold text-blue-700 mb-1">Learning Objectives</div>
+                                                <div class="text-gray-700">${lesson.lesson_prompt}</div>
+                                            </div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+
+                                <!-- Lesson Content Card -->
+                                <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+                                    <div class="bg-gradient-to-r from-gray-800 to-gray-700 px-5 py-3">
+                                        <h3 class="text-lg font-bold text-white flex items-center">
+                                            <i class="fas fa-file-alt mr-2"></i>Lesson Content
+                                        </h3>
+                                    </div>
+                                    <div class="p-5 prose max-w-none markdown-content zoomable-content" id="studentLessonContent">
+                                        ${lesson.content ? formatLessonContentWithNumbers(lesson.content) : '<div class="text-gray-500 text-center py-8">No content available</div>'}
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="bg-white border rounded-lg p-4">
-                                <h3 class="text-lg font-semibold text-gray-800 mb-3">Lesson Content</h3>
-                                <div class="prose max-w-none markdown-content zoomable-content" id="studentLessonContent">
-                                    ${lesson.content ? formatLessonContentWithNumbers(lesson.content) : 'No content available'}
+                            <!-- Right Column: Ask Question Section -->
+                            <div class="space-y-4">
+                                <!-- Ask Question Card -->
+                                <div class="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl shadow-md border border-blue-200 overflow-hidden">
+                                    <div class="bg-gradient-to-r from-blue-500 to-cyan-500 px-5 py-4">
+                                        <h3 class="text-lg font-bold text-white flex items-center">
+                                            <i class="fas fa-question-circle mr-2"></i>Ask Questions
+                                        </h3>
+                                        <p class="text-blue-100 text-sm mt-1">Get help from the AI assistant</p>
+                                    </div>
+                                    <div class="p-5">
+                                        <div class="space-y-3">
+                                            <textarea 
+                                                id="studentQuestionInput" 
+                                                rows="4" 
+                                                class="w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition-all" 
+                                                placeholder="What would you like to ask about this lesson?"
+                                            ></textarea>
+                                            <button 
+                                                onclick="submitStudentQuestion(${lesson.id}, '${lesson.title}')" 
+                                                class="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold"
+                                                id="submitStudentQuestionBtn"
+                                            >
+                                                <i class="fas fa-paper-plane mr-2"></i>Ask Question
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Previous Questions History -->
+                                <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+                                    <div class="bg-gradient-to-r from-purple-50 to-pink-50 px-5 py-3 border-b border-gray-200">
+                                        <div class="flex justify-between items-center">
+                                            <div class="flex items-center">
+                                                <i class="fas fa-history text-purple-600 mr-2"></i>
+                                                <h4 class="font-bold text-gray-800">Previous Questions</h4>
+                                            </div>
+                                            <button onclick="clearStudentLessonHistory(${lesson.id})" class="text-xs text-red-600 hover:text-red-800 px-2 py-1 rounded hover:bg-red-50 transition-colors">
+                                                <i class="fas fa-trash mr-1"></i>Clear
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div id="studentLessonQnAHistory" class="p-4 max-h-80 overflow-y-auto space-y-3">
+                                        <div class="text-gray-500 text-center py-8">
+                                            <i class="fas fa-comments text-gray-300 text-3xl mb-2"></i>
+                                            <p>No previous questions</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Right Column: Ask Question Section -->
-                        <div class="space-y-4">
-                            <div class="bg-blue-50 p-4 rounded-lg">
-                                <h3 class="text-lg font-semibold text-blue-800 mb-3">
-                                    <i class="fas fa-question-circle mr-2"></i>Ask Questions
-                                </h3>
-                                <p class="text-blue-700 text-sm mb-4">Have questions about this lesson? Ask the AI assistant for help!</p>
-                                
-                                <!-- Question Input -->
-                                <div class="space-y-3">
-                                    <textarea 
-                                        id="studentQuestionInput" 
-                                        rows="3" 
-                                        class="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" 
-                                        placeholder="Ask a question about this lesson..."
-                                    ></textarea>
-                                    <button 
-                                        onclick="submitStudentQuestion(${lesson.id}, '${lesson.title}')" 
-                                        class="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
-                                        id="submitStudentQuestionBtn"
-                                    >
-                                        <i class="fas fa-paper-plane mr-2"></i>Ask Question
-                                    </button>
-                                </div>
-                            </div>
-
-                            <!-- Previous Questions History -->
-                            <div class="bg-gray-50 p-4 rounded-lg">
-                                <div class="flex justify-between items-center mb-3">
-                                    <h4 class="text-sm font-semibold text-gray-700">Previous Questions</h4>
-                                    <button onclick="clearStudentLessonHistory(${lesson.id})" class="text-xs text-red-600 hover:text-red-800 px-2 py-1 rounded hover:bg-red-50">
-                                        <i class="fas fa-trash mr-1"></i>Clear History
-                                    </button>
-                                </div>
-                                <div id="studentLessonQnAHistory" class="max-h-64 overflow-y-auto space-y-3">
-                                    <div class="text-gray-500 text-center py-4">Loading previous questions...</div>
-                                </div>
+                        <!-- Beautiful Action Buttons -->
+                        <div class="mt-6 pt-6 border-t border-gray-200">
+                            <div class="flex flex-wrap justify-end gap-3">
+                                <button onclick="downloadLessonFile(${lesson.id})" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-semibold">
+                                    <i class="fas fa-download mr-2"></i>Download DOCX
+                                </button>
+                                <button onclick="downloadLessonPPT(${lesson.id})" class="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-semibold">
+                                    <i class="fas fa-file-powerpoint mr-2"></i>Download PPT
+                                </button>
+                                <button onclick="closeStudentLessonModal()" class="px-6 py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-all duration-200 font-semibold">
+                                    <i class="fas fa-times mr-2"></i>Close
+                                </button>
                             </div>
                         </div>
-                    </div>
-
-                    <!-- Action Buttons -->
-                    <div class="flex justify-end gap-3 mt-6 pt-4 border-t">
-                        <button onclick="downloadLessonFile(${lesson.id})" class="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
-                            <i class="fas fa-download mr-2"></i>Download DOCX
-                        </button>
-                        <button onclick="downloadLessonPPT(${lesson.id})" class="px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700">
-                            <i class="fas fa-file-powerpoint mr-2"></i>Download PPT
-                        </button>
-                        <button onclick="closeStudentLessonModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">
-                            Close
-                        </button>
                     </div>
                 </div>
             </div>
@@ -7267,7 +7512,13 @@ async function initializeApp() {
             if (!qnaDiv) return;
             
             if (history.length === 0) {
-                qnaDiv.innerHTML = '<div class="text-gray-500 text-center py-4">No previous questions for this lesson</div>';
+                qnaDiv.innerHTML = `
+                    <div class="text-gray-500 text-center py-8">
+                        <i class="fas fa-comments text-gray-300 text-3xl mb-2"></i>
+                        <p>No previous questions</p>
+                        <p class="text-xs text-gray-400 mt-1">Start asking questions to see them here</p>
+                    </div>
+                `;
                 return;
             }
 
@@ -7276,17 +7527,34 @@ async function initializeApp() {
                 // Format the answer properly
                 const formattedAnswer = formatMessageContent(item.answer);
                 historyHtml += `
-                    <div class="bg-white p-3 rounded border">
-                        <div class="mb-2">
-                            <span class="font-semibold text-blue-700">You:</span> 
-                            <span class="text-gray-800">${item.question}</span>
+                    <div class="bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl p-4 border border-gray-200 hover:shadow-md transition-shadow">
+                        <!-- Question Section -->
+                        <div class="flex items-start mb-3">
+                            <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mr-3">
+                                <i class="fas fa-user text-white text-xs"></i>
+                            </div>
+                            <div class="flex-1">
+                                <div class="font-semibold text-blue-700 mb-1">You asked:</div> 
+                                <div class="text-gray-800">${item.question}</div>
+                            </div>
                         </div>
-                        <div>
-                            <span class="font-semibold text-green-700">AI:</span> 
-                            <div class="text-gray-800 prose max-w-none mt-1">${formattedAnswer}</div>
+                        
+                        <!-- Answer Section -->
+                        <div class="flex items-start bg-white bg-opacity-70 rounded-lg p-3 border-l-4 border-green-400">
+                            <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mr-3">
+                                <i class="fas fa-robot text-white text-xs"></i>
+                            </div>
+                            <div class="flex-1">
+                                <div class="font-semibold text-green-700 mb-1">AI replied:</div> 
+                                <div class="text-gray-800 prose max-w-none text-sm">${formattedAnswer}</div>
+                            </div>
                         </div>
-                        <div class="text-xs text-gray-500 mt-1">
-                            ${new Date(item.created_at).toLocaleString()}
+                        
+                        <!-- Timestamp -->
+                        <div class="flex items-center justify-end mt-2">
+                            <span class="text-xs text-gray-500">
+                                <i class="far fa-clock mr-1"></i>${new Date(item.created_at).toLocaleString()}
+                            </span>
                         </div>
                     </div>
                 `;
@@ -7341,18 +7609,36 @@ async function initializeApp() {
                     // Add the new Q&A to the history display
                     const qnaDiv = document.getElementById('studentLessonQnAHistory');
                     if (qnaDiv) {
+                        const formattedAnswer = formatMessageContent(data.answer);
                         const newQnA = `
-                            <div class="bg-white p-3 rounded border">
-                                <div class="mb-2">
-                                    <span class="font-semibold text-blue-700">You:</span> 
-                                    <span class="text-gray-800">${question}</span>
+                            <div class="bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl p-4 border border-gray-200 hover:shadow-md transition-shadow">
+                                <!-- Question Section -->
+                                <div class="flex items-start mb-3">
+                                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mr-3">
+                                        <i class="fas fa-user text-white text-xs"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="font-semibold text-blue-700 mb-1">You asked:</div> 
+                                        <div class="text-gray-800">${question}</div>
+                                    </div>
                                 </div>
-                                <div>
-                                    <span class="font-semibold text-green-700">AI:</span> 
-                                    <span class="text-gray-800">${data.answer}</span>
+                                
+                                <!-- Answer Section -->
+                                <div class="flex items-start bg-white bg-opacity-70 rounded-lg p-3 border-l-4 border-green-400">
+                                    <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mr-3">
+                                        <i class="fas fa-robot text-white text-xs"></i>
+                                    </div>
+                                    <div class="flex-1">
+                                        <div class="font-semibold text-green-700 mb-1">AI replied:</div> 
+                                        <div class="text-gray-800 prose max-w-none text-sm">${formattedAnswer}</div>
+                                    </div>
                                 </div>
-                                <div class="text-xs text-gray-500 mt-1">
-                                    ${new Date().toLocaleString()}
+                                
+                                <!-- Timestamp -->
+                                <div class="flex items-center justify-end mt-2">
+                                    <span class="text-xs text-gray-500">
+                                        <i class="far fa-clock mr-1"></i>${new Date().toLocaleString()}
+                                    </span>
                                 </div>
                             </div>
                         `;
@@ -7473,6 +7759,16 @@ async function initializeApp() {
 
     // Show AI versioning modal
     function showAIVersioning(lessonId) {
+        // Prevent multiple simultaneous calls
+        if (window.isShowingAIVersioning) {
+            console.log('AI Versioning modal already opening, ignoring duplicate call');
+            return;
+        }
+        
+        // Set flag to prevent duplicate calls
+        window.isShowingAIVersioning = true;
+        
+        try {
             // Determine the source version content and metadata
             let selectedVersion = null;
             if (Array.isArray(window.currentLessonVersions)) {
@@ -7486,16 +7782,31 @@ async function initializeApp() {
                     .then(data => {
                         selectedVersion = data.lesson;
                         checkVersionCreationStatus(selectedVersion);
+                        // Reset flag after completion
+                        setTimeout(() => {
+                            window.isShowingAIVersioning = false;
+                        }, 300);
                     })
                     .catch(() => {
                         showNotification('Failed to load lesson content', 'error');
+                        // Reset flag on error
+                        window.isShowingAIVersioning = false;
                     });
                 return;
             }
             
             // Check version creation status before showing modal using fresh data
             checkVersionCreationStatusWithFreshData(selectedVersion);
+            
+            // Reset flag after showing modal
+            setTimeout(() => {
+                window.isShowingAIVersioning = false;
+            }, 300);
+        } catch (error) {
+            console.error('Error showing AI Versioning modal:', error);
+            window.isShowingAIVersioning = false;
         }
+    }
 
         // Check if a version can be created from the current lesson
         async function checkVersionCreationStatus(selectedVersion) {
@@ -8702,21 +9013,26 @@ async function initializeApp() {
   </style>
 
   <!-- FAQ Modal -->
-  <div id="faqModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+  <div id="faqModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4 animate-modal-fade">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-hidden transform transition-all animate-modal-scale">
       <!-- Modal Header -->
-      <div class="bg-gradient-to-r from-[#05B0FC] to-blue-600 px-6 py-4 flex justify-between items-center">
-        <h3 class="text-xl font-semibold text-white flex items-center">
-          <i class="fas fa-question-circle mr-3"></i>
-          <span id="faqModalTitle">Frequently Asked Questions</span>
-        </h3>
-        <button onclick="closeFaqModal()" class="text-white hover:text-gray-200 transition-colors">
-          <i class="fas fa-times text-xl"></i>
+      <div class="bg-gradient-to-r from-[#05B0FC] via-blue-500 to-blue-600 px-8 py-6 flex justify-between items-center shadow-md">
+        <div class="flex items-center">
+          <div class="w-12 h-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-4">
+            <i class="fas fa-question-circle text-2xl text-white"></i>
+          </div>
+          <div>
+            <h3 id="faqModalTitle" class="text-2xl font-bold text-white">Frequently Asked Questions</h3>
+            <p class="text-blue-100 text-sm mt-1">Student Questions Dashboard</p>
+          </div>
+        </div>
+        <button onclick="closeFaqModal()" class="w-10 h-10 bg-white bg-opacity-10 hover:bg-opacity-20 rounded-full flex items-center justify-center transition-all duration-300 hover:rotate-90">
+          <i class="fas fa-times text-white text-xl"></i>
         </button>
       </div>
       
       <!-- Modal Content -->
-      <div class="p-6 overflow-y-auto max-h-[calc(90vh-120px)] min-h-[300px]">
+      <div class="bg-gray-50 px-6 py-6 overflow-y-auto max-h-[calc(90vh-180px)] min-h-[400px]">
         <div id="faqModalContent">
           <!-- FAQ content will be populated here -->
         </div>

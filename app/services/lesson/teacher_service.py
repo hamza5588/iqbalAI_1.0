@@ -837,40 +837,105 @@ Answer:"""
                 for obj in lesson_data['learning_objectives']:
                     body.add_paragraph().text = str(obj)
             
+            # Helper function to split content intelligently
+            def split_content_into_chunks(content: str, max_length: int = 800) -> List[str]:
+                """Split content into manageable chunks respecting paragraph boundaries"""
+                if len(content) <= max_length:
+                    return [content]
+                
+                chunks = []
+                paragraphs = content.split('\n\n')
+                current_chunk = ""
+                
+                for para in paragraphs:
+                    para = para.strip()
+                    if not para:
+                        continue
+                    
+                    # If adding this paragraph would exceed the limit
+                    if current_chunk and len(current_chunk) + len(para) + 2 > max_length:
+                        chunks.append(current_chunk)
+                        current_chunk = para
+                    else:
+                        if current_chunk:
+                            current_chunk += "\n\n" + para
+                        else:
+                            current_chunk = para
+                    
+                    # If a single paragraph is too long, split it by sentences
+                    if len(para) > max_length:
+                        if current_chunk:
+                            chunks.append(current_chunk)
+                            current_chunk = ""
+                        # Split by sentences
+                        sentences = para.replace('. ', '.\n').split('\n')
+                        temp_chunk = ""
+                        for sent in sentences:
+                            if temp_chunk and len(temp_chunk) + len(sent) + 1 > max_length:
+                                chunks.append(temp_chunk)
+                                temp_chunk = sent
+                            else:
+                                temp_chunk += "\n" + sent if temp_chunk else sent
+                        current_chunk = temp_chunk
+                
+                if current_chunk:
+                    chunks.append(current_chunk)
+                
+                return chunks
+            
             # Sections
             sections = lesson_data.get('sections', [])
             if sections:
-                logger.info(f"Creating {len(sections)} section slides")
+                logger.info(f"Creating slides for {len(sections)} sections")
                 for section in sections:
-                    slide = prs.slides.add_slide(prs.slide_layouts[1])
-                    slide.shapes.title.text = section.get('heading', 'Section')
-                    body = slide.shapes.placeholders[1].text_frame
                     content = section.get('content', '')
-                    # Limit content to avoid slide overflow
-                    if len(content) > 1000:
-                        content = content[:1000] + "..."
-                    body.text = content
+                    heading = section.get('heading', 'Section')
+                    
+                    # Split content into manageable chunks
+                    content_chunks = split_content_into_chunks(content)
+                    
+                    for chunk_idx, chunk in enumerate(content_chunks):
+                        slide = prs.slides.add_slide(prs.slide_layouts[1])
+                        
+                        # Set title - append part number if multiple slides
+                        if len(content_chunks) > 1:
+                            slide.shapes.title.text = f"{heading} (Part {chunk_idx + 1}/{len(content_chunks)})"
+                        else:
+                            slide.shapes.title.text = heading
+                        
+                        body = slide.shapes.placeholders[1].text_frame
+                        body.text = chunk
+                        
+                        # Configure text formatting for readability
+                        body.word_wrap = True
+                        for paragraph in body.paragraphs:
+                            paragraph.space_after = Pt(6)
+                            paragraph.font.size = Pt(12)
             else:
                 # If no sections, create a content slide with the main content
                 if lesson_data.get('content'):
-                    logger.info("Creating content slide with main lesson content")
-                    slide = prs.slides.add_slide(prs.slide_layouts[1])
-                    slide.shapes.title.text = 'Lesson Content'
-                    body = slide.shapes.placeholders[1].text_frame
+                    logger.info("Creating content slides with main lesson content")
                     content = lesson_data['content']
-                    # Split long content into multiple slides if needed
-                    if len(content) > 1000:
-                        # Create multiple slides for long content
-                        chunks = [content[i:i+1000] for i in range(0, len(content), 1000)]
-                        logger.info(f"Splitting content into {len(chunks)} slides")
-                        for i, chunk in enumerate(chunks):
-                            if i > 0:  # First chunk already added above
-                                slide = prs.slides.add_slide(prs.slide_layouts[1])
-                                slide.shapes.title.text = f'Lesson Content (Continued {i+1})'
-                                body = slide.shapes.placeholders[1].text_frame
-                            body.text = chunk
-                    else:
-                        body.text = content
+                    
+                    # Split content into manageable chunks
+                    content_chunks = split_content_into_chunks(content)
+                    
+                    for chunk_idx, chunk in enumerate(content_chunks):
+                        slide = prs.slides.add_slide(prs.slide_layouts[1])
+                        
+                        if len(content_chunks) > 1:
+                            slide.shapes.title.text = f'Lesson Content (Part {chunk_idx + 1}/{len(content_chunks)})'
+                        else:
+                            slide.shapes.title.text = 'Lesson Content'
+                        
+                        body = slide.shapes.placeholders[1].text_frame
+                        body.text = chunk
+                        
+                        # Configure text formatting for readability
+                        body.word_wrap = True
+                        for paragraph in body.paragraphs:
+                            paragraph.space_after = Pt(6)
+                            paragraph.font.size = Pt(12)
             
             # Key Concepts
             if lesson_data.get('key_concepts'):
@@ -931,13 +996,27 @@ Answer:"""
             # If we only have a title slide, add a content slide
             if len(prs.slides) == 1 and lesson_data.get('content'):
                 logger.info("Adding content slide as only title slide exists")
-                slide = prs.slides.add_slide(prs.slide_layouts[1])
-                slide.shapes.title.text = 'Lesson Content'
-                body = slide.shapes.placeholders[1].text_frame
                 content = lesson_data['content']
-                if len(content) > 1000:
-                    content = content[:1000] + "..."
-                body.text = content
+                
+                # Split content into manageable chunks
+                content_chunks = split_content_into_chunks(content)
+                
+                for chunk_idx, chunk in enumerate(content_chunks):
+                    slide = prs.slides.add_slide(prs.slide_layouts[1])
+                    
+                    if len(content_chunks) > 1:
+                        slide.shapes.title.text = f'Lesson Content (Part {chunk_idx + 1}/{len(content_chunks)})'
+                    else:
+                        slide.shapes.title.text = 'Lesson Content'
+                    
+                    body = slide.shapes.placeholders[1].text_frame
+                    body.text = chunk
+                    
+                    # Configure text formatting for readability
+                    body.word_wrap = True
+                    for paragraph in body.paragraphs:
+                        paragraph.space_after = Pt(6)
+                        paragraph.font.size = Pt(12)
             
             logger.info(f"Created PowerPoint with {len(prs.slides)} slides")
             
