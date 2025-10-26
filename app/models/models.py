@@ -342,18 +342,9 @@ class LessonModel:
 
     def update_lesson(self, title: str = None, summary: str = None, learning_objectives: str = None,
                      focus_area: str = None, grade_level: str = None, content: str = None,
-                     is_public: bool = None) -> bool:
+                     is_public: bool = None, detailed_answer: str = None) -> bool:
         """Update lesson details"""
         try:
-            logger.info(f"DEBUG: LessonModel.update_lesson called for lesson_id {self.lesson_id} with:")
-            logger.info(f"  - title: {title}")
-            logger.info(f"  - summary: {summary}")
-            logger.info(f"  - learning_objectives: {learning_objectives}")
-            logger.info(f"  - focus_area: {focus_area}")
-            logger.info(f"  - grade_level: {grade_level}")
-            logger.info(f"  - content length: {len(content) if content else 0}")
-            logger.info(f"  - is_public: {is_public}")
-            
             db = get_db()
             updates = []
             params = []
@@ -376,25 +367,22 @@ class LessonModel:
             if content is not None:
                 updates.append('content = ?')
                 params.append(content)
+            if detailed_answer is not None:
+                updates.append('detailed_answer = ?')
+                params.append(detailed_answer)
             if is_public is not None:
                 updates.append('is_public = ?')
                 params.append(is_public)
             
             if not updates:
-                logger.warning("DEBUG: No updates to perform")
                 return True
             
             updates.append('updated_at = CURRENT_TIMESTAMP')
             params.append(self.lesson_id)
             
             query = f'UPDATE lessons SET {", ".join(updates)} WHERE id = ?'
-            logger.info(f"DEBUG: Executing query: {query}")
-            logger.info(f"DEBUG: With params: {params}")
-            
             db.execute(query, params)
             db.commit()
-            
-            logger.info(f"DEBUG: Lesson {self.lesson_id} updated successfully")
             return True
         except Exception as e:
             logger.error(f"Error updating lesson: {str(e)}")
