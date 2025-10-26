@@ -1,0 +1,103 @@
+2025-10-26 22:06:30,534 - INFO - ================================================================================
+2025-10-26 22:06:30,534 - INFO - Lesson Check Logger Initialized
+2025-10-26 22:06:30,534 - INFO - ================================================================================
+2025-10-26 22:07:31,117 - INFO - === LESSON CREATION STARTED ===
+2025-10-26 22:07:31,118 - INFO - Result structure: response_type=None, has_answer=False
+2025-10-26 22:07:31,119 - INFO - Result keys: ['lesson', 'docx_bytes', 'filename']
+2025-10-26 22:07:31,120 - INFO - About to save lesson content (first 300 chars): {"response_type": "direct_answer", "answer": "**Lesson Title: Who is Hamza?**\n\n**Grade Level: College**\n\n**Focus Area: Other**\n\n**Objective:** To understand the background, skills, and achievements of Hamza Nawaz, an AI Engineer specializing in Machine Learning, Deep Learning, and Full-Stack A
+2025-10-26 22:07:31,190 - INFO - Content type: <class 'str'>
+2025-10-26 22:07:31,191 - ERROR - CRITICAL: Content is still JSON! First 500 chars: {"response_type": "direct_answer", "answer": "**Lesson Title: Who is Hamza?**\n\n**Grade Level: College**\n\n**Focus Area: Other**\n\n**Objective:** To understand the background, skills, and achievements of Hamza Nawaz, an AI Engineer specializing in Machine Learning, Deep Learning, and Full-Stack AI Development.\n\n**Introduction:**\nHamza Nawaz is a highly skilled and experienced AI Engineer with a strong background in Machine Learning, Deep Learning, and Full-Stack AI Development. He has a pa
+2025-10-26 22:07:31,193 - INFO - Emergency extraction successful
+2025-10-26 22:07:31,194 - INFO - Final content before save (first 300 chars): **Lesson Title: Who is Hamza?**
+
+**Grade Level: College**
+
+**Focus Area: Other**
+
+**Objective:** To understand the background, skills, and achievements of Hamza Nawaz, an AI Engineer specializing in Machine Learning, Deep Learning, and Full-Stack AI Development.
+
+**Introduction:**
+Hamza Nawaz is a h
+2025-10-26 22:07:31,196 - INFO - === LESSON CREATION ENDED ===
+2025-10-26 22:10:13,592 - INFO - ================================================================================
+2025-10-26 22:10:13,592 - INFO - Lesson Check Logger Initialized
+2025-10-26 22:10:13,593 - INFO - ================================================================================
+2025-10-26 22:11:34,011 - INFO - === LESSON CREATION STARTED ===
+2025-10-26 22:11:34,012 - INFO - Result structure: response_type=None, has_answer=False
+2025-10-26 22:11:34,014 - INFO - Result keys: ['lesson', 'docx_bytes', 'filename']
+2025-10-26 22:11:34,017 - INFO - About to save lesson content (first 300 chars): {"response_type": "direct_answer", "answer": "**Lesson Title: Who is Hamza?**\n\n**Grade Level: College**\n\n**Focus Area: Other**\n\n**Objective:** To understand the background, skills, and achievements of Hamza Nawaz, an AI Engineer specializing in Machine Learning, Deep Learning, and Full-Stack A
+2025-10-26 22:11:34,019 - INFO - Content type: <class 'str'>
+2025-10-26 22:11:34,020 - ERROR - CRITICAL: Content is still JSON! First 500 chars: {"response_type": "direct_answer", "answer": "**Lesson Title: Who is Hamza?**\n\n**Grade Level: College**\n\n**Focus Area: Other**\n\n**Objective:** To understand the background, skills, and achievements of Hamza Nawaz, an AI Engineer specializing in Machine Learning, Deep Learning, and Full-Stack AI Development.\n\n**Comprehensive Answer:**\n\nHamza Nawaz is a highly skilled and experienced AI Engineer with a strong background in Machine Learning, Deep Learning, and Full-Stack AI Development. H
+2025-10-26 22:11:34,023 - INFO - Emergency extraction successful
+2025-10-26 22:11:34,028 - INFO - Final content before save (first 300 chars): **Lesson Title: Who is Hamza?**
+
+**Grade Level: College**
+
+**Focus Area: Other**
+
+**Objective:** To understand the background, skills, and achievements of Hamza Nawaz, an AI Engineer specializing in Machine Learning, Deep Learning, and Full-Stack AI Development.
+
+**Comprehensive Answer:**
+
+Hamza Naw
+2025-10-26 22:11:34,034 - INFO - === LESSON CREATION ENDED ===
+2025-10-26 22:22:40,860 - INFO - ================================================================================
+2025-10-26 22:22:40,860 - INFO - Lesson Check Logger Initialized
+2025-10-26 22:22:40,861 - INFO - ================================================================================
+2025-10-26 22:23:44,938 - INFO - === LESSON CREATION STARTED ===
+2025-10-26 22:23:44,938 - INFO - Result structure: response_type=None, has_answer=False
+2025-10-26 22:23:44,939 - INFO - Result keys: ['lesson', 'docx_bytes', 'filename']
+2025-10-26 22:23:44,940 - INFO - About to save lesson content (first 300 chars): {"response_type": "direct_answer", "answer": "**Lesson Title: Who is Hamza?**\n\n**Grade Level: College**\n\n**Focus Area: Other**\n\n**Objective:** To understand the background, skills, and achievements of Hamza Nawaz, an AI Engineer specializing in Machine Learning, Deep Learning, and Artificial I
+2025-10-26 22:23:44,941 - INFO - Content type: <class 'str'>
+2025-10-26 22:23:44,942 - ERROR - CRITICAL: Content is still JSON! First 500 chars: {"response_type": "direct_answer", "answer": "**Lesson Title: Who is Hamza?**\n\n**Grade Level: College**\n\n**Focus Area: Other**\n\n**Objective:** To understand the background, skills, and achievements of Hamza Nawaz, an AI Engineer specializing in Machine Learning, Deep Learning, and Artificial Intelligence.\n\n**Introduction:**\nHamza Nawaz is a highly skilled and experienced AI Engineer with a strong background in Machine Learning, Deep Learning, and Artificial Intelligence. He has a passio
+2025-10-26 22:23:44,944 - INFO - Emergency extraction successful
+2025-10-26 22:23:44,944 - INFO - Final content before save (first 300 chars): **Lesson Title: Who is Hamza?**
+
+**Grade Level: College**
+
+**Focus Area: Other**
+
+**Objective:** To understand the background, skills, and achievements of Hamza Nawaz, an AI Engineer specializing in Machine Learning, Deep Learning, and Artificial Intelligence.
+
+**Introduction:**
+Hamza Nawaz is a hig
+2025-10-26 22:23:44,947 - INFO - === LESSON CREATION ENDED ===
+2025-10-26 22:27:48,179 - INFO - ================================================================================
+2025-10-26 22:27:48,180 - INFO - Lesson Check Logger Initialized
+2025-10-26 22:27:48,180 - INFO - ================================================================================
+2025-10-26 22:28:58,457 - INFO - === LESSON CREATION STARTED ===
+2025-10-26 22:28:58,458 - INFO - Result structure: response_type=None, has_answer=False
+2025-10-26 22:28:58,458 - INFO - Result keys: ['lesson', 'docx_bytes', 'filename']
+2025-10-26 22:28:58,459 - INFO - About to save lesson content (first 300 chars): {"response_type": "direct_answer", "answer": "Based on the provided document context, Hamza Nawaz is a highly skilled and experienced AI Engineer with a strong background in Machine Learning, Deep Learning, and Artificial Intelligence. He is a specialist in various areas, including Generative AI, Ag
+2025-10-26 22:28:58,460 - INFO - Content type: <class 'str'>
+2025-10-26 22:28:58,461 - ERROR - CRITICAL: Content is still JSON! First 500 chars: {"response_type": "direct_answer", "answer": "Based on the provided document context, Hamza Nawaz is a highly skilled and experienced AI Engineer with a strong background in Machine Learning, Deep Learning, and Artificial Intelligence. He is a specialist in various areas, including Generative AI, Agentic AI, and Full-Stack AI Development.\n\nTo provide a comprehensive understanding of who Hamza is, let's break down the key points from the document context:\n\n1. **Professional Experience**: Hamz
+2025-10-26 22:28:58,463 - INFO - Emergency extraction successful
+2025-10-26 22:28:58,463 - INFO - Final content before save (first 300 chars): Based on the provided document context, Hamza Nawaz is a highly skilled and experienced AI Engineer with a strong background in Machine Learning, Deep Learning, and Artificial Intelligence. He is a specialist in various areas, including Generative AI, Agentic AI, and Full-Stack AI Development.
+
+To p
+2025-10-26 22:28:58,465 - INFO - === LESSON CREATION ENDED ===
+2025-10-26 22:47:11,123 - INFO - ================================================================================
+2025-10-26 22:47:11,123 - INFO - Lesson Check Logger Initialized
+2025-10-26 22:47:11,124 - INFO - ================================================================================
+2025-10-26 22:48:28,582 - INFO - === LESSON CREATION STARTED ===
+2025-10-26 22:48:28,583 - INFO - Result structure: response_type=None, has_answer=False
+2025-10-26 22:48:28,584 - INFO - Result keys: ['lesson', 'docx_bytes', 'filename']
+2025-10-26 22:48:28,585 - INFO - About to save lesson content (first 300 chars): {"response_type": "direct_answer", "answer": "**Lesson Title: Understanding Hamza Nawaz**\n\n**Grade Level: College**\n\n**Focus Area: Other**\n\n**Objective:** To provide a comprehensive understanding of Hamza Nawaz, an AI Engineer with expertise in Machine Learning, Deep Learning, and Artificial I
+2025-10-26 22:48:28,586 - INFO - Content type: <class 'str'>
+2025-10-26 22:48:28,587 - ERROR - CRITICAL: Content is still JSON! First 500 chars: {"response_type": "direct_answer", "answer": "**Lesson Title: Understanding Hamza Nawaz**\n\n**Grade Level: College**\n\n**Focus Area: Other**\n\n**Objective:** To provide a comprehensive understanding of Hamza Nawaz, an AI Engineer with expertise in Machine Learning, Deep Learning, and Artificial Intelligence.\n\n**Who is Hamza?**\n\nHamza Nawaz is a highly skilled and experienced AI Engineer with a strong background in Machine Learning, Deep Learning, and Artificial Intelligence. He is a speci
+2025-10-26 22:48:28,588 - INFO - Emergency extraction successful
+2025-10-26 22:48:28,589 - INFO - Final content before save (first 300 chars): **Lesson Title: Understanding Hamza Nawaz**
+
+**Grade Level: College**
+
+**Focus Area: Other**
+
+**Objective:** To provide a comprehensive understanding of Hamza Nawaz, an AI Engineer with expertise in Machine Learning, Deep Learning, and Artificial Intelligence.
+
+**Who is Hamza?**
+
+Hamza Nawaz is a hi
+2025-10-26 22:48:28,591 - INFO - === LESSON CREATION ENDED ===
+2025-10-26 22:54:17,627 - INFO - ================================================================================
+2025-10-26 22:54:17,628 - INFO - Lesson Check Logger Initialized
+2025-10-26 22:54:17,628 - INFO - ================================================================================

@@ -144,6 +144,7 @@ def init_db(app):
                     teacher_id INTEGER NOT NULL,
                     title TEXT NOT NULL,
                     summary TEXT,
+                    detailed_answer TEXT,
                     learning_objectives TEXT,
                     focus_area TEXT,
                     grade_level TEXT,
@@ -174,6 +175,12 @@ def init_db(app):
             # Add has_child_version flag if it doesn't exist
             try:
                 db.execute('ALTER TABLE lessons ADD COLUMN has_child_version BOOLEAN DEFAULT FALSE')
+            except:
+                pass  # Column already exists
+                
+            # Add detailed_answer column if it doesn't exist
+            try:
+                db.execute('ALTER TABLE lessons ADD COLUMN detailed_answer TEXT')
             except:
                 pass  # Column already exists
                 

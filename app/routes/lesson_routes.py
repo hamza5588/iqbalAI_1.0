@@ -10,20 +10,30 @@ from io import BytesIO
 import tempfile
 
 logger = logging.getLogger(__name__)
+
+# Create a custom logger for lesson checks
+lesson_check_logger = logging.getLogger('lesson_check')
+lesson_check_logger.setLevel(logging.DEBUG)
+
+# Ensure logs directory exists
+os.makedirs('logs', exist_ok=True)
+
+lesson_check_handler = logging.FileHandler('logs/lesson_check.log')
+lesson_check_handler.setLevel(logging.DEBUG)
+lesson_check_formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+lesson_check_handler.setFormatter(lesson_check_formatter)
+lesson_check_logger.addHandler(lesson_check_handler)
+lesson_check_logger.info("=" * 80)
+lesson_check_logger.info("Lesson Check Logger Initialized")
+lesson_check_logger.info("=" * 80)
+
 bp = Blueprint('lesson_routes', __name__)
 
 @bp.route('/create_lesson', methods=['POST'])
 # @teacher_required
 def create_lesson():
-    """Create a new lesson (teacher only)"""
+    """Create a new lesson or answer a question based on user input"""
     try:
-        if 'file' not in request.files:
-            return jsonify({'error': 'No file provided'}), 400
-        
-        file = request.files['file']
-        if not file or file.filename == '':
-            return jsonify({'error': 'No selected file'}), 400
-        
         # Get form data for lesson configuration
         lesson_title = request.form.get('lessonTitle', '')
         lesson_prompt = request.form.get('lessonPrompt', '')
@@ -31,69 +41,313 @@ def create_lesson():
         grade_level = request.form.get('gradeLevel', '')
         additional_notes = request.form.get('additionalNotes', '')
         
-        # Validate required fields
-        if not lesson_title or not lesson_prompt or not focus_area or not grade_level:
-            return jsonify({'error': 'All required fields must be filled'}), 400
+        # Get API key from session
+        api_key = session.get('groq_api_key')
+        if not api_key:
+            return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
         
-        # Check if lesson title already exists for this teacher
-        if LessonModel.check_title_exists(session['user_id'], lesson_title):
-            return jsonify({'error': 'This lesson title is already used. Please choose a different title.'}), 400
+        # Initialize lesson service
+        lesson_service = LessonService(api_key=api_key)
         
-        # Check file type
-        allowed_extensions = {'.pdf', '.doc', '.docx', '.txt'}
-        file_ext = os.path.splitext(file.filename.lower())[1]
-        if file_ext not in allowed_extensions:
-            return jsonify({'error': 'File type not supported. Please upload PDF, DOC, DOCX, or TXT files.'}), 400
+        # Check if file is provided - if yes, always treat as lesson generation
+        if 'file' in request.files and request.files['file'].filename != '':
+            # User uploaded a file - proceed with lesson generation regardless of prompt type
+            logger.info("File uploaded - proceeding with lesson generation")
+            file = request.files['file']
+            
+            # Validate required fields for lesson generation
+            if not lesson_title or not lesson_prompt or not focus_area or not grade_level:
+                return jsonify({'error': 'All required fields must be filled for lesson generation'}), 400
+            
+            # Check if lesson title already exists for this teacher
+            if LessonModel.check_title_exists(session['user_id'], lesson_title):
+                return jsonify({'error': 'This lesson title is already used. Please choose a different title.'}), 400
+            
+            # Check file type
+            allowed_extensions = {'.pdf', '.doc', '.docx', '.txt'}
+            file_ext = os.path.splitext(file.filename.lower())[1]
+            if file_ext not in allowed_extensions:
+                return jsonify({'error': 'File type not supported. Please upload PDF, DOC, DOCX, or TXT files.'}), 400
+            
+            # Prepare lesson details
+            lesson_details = {
+                'lesson_title': lesson_title,
+                'lesson_prompt': lesson_prompt,
+                'focus_area': focus_area,
+                'grade_level': grade_level,
+                'additional_notes': additional_notes
+            }
+            
+            # Process the file and generate lesson
+            result = lesson_service.process_file(file, lesson_details)
+            
+            if 'error' in result:
+                return jsonify({'error': result['error']}), 400
+            
+            # Debug: Log the result structure
+            lesson_check_logger.info(f"=== LESSON CREATION STARTED ===")
+            lesson_check_logger.info(f"Result structure: response_type={result.get('response_type')}, has_answer={'answer' in result}")
+            lesson_check_logger.info(f"Result keys: {list(result.keys())}")
+            
+            # Import json at the top level
+            import json
+            
+            # Check if result contains a 'lesson' field that might be a JSON string
+            if 'lesson' in result and isinstance(result['lesson'], str):
+                lesson_check_logger.info("Found 'lesson' as a string, attempting to parse it")
+                try:
+                    parsed_lesson = json.loads(result['lesson'])
+                    lesson_check_logger.info(f"Successfully parsed lesson, type: {type(parsed_lesson)}")
+                    if isinstance(parsed_lesson, dict):
+                        # Update result with parsed lesson
+                        result = parsed_lesson
+                        lesson_check_logger.info(f"Updated result keys: {list(result.keys())}")
+                except (json.JSONDecodeError, TypeError) as e:
+                    lesson_check_logger.error(f"Failed to parse lesson JSON: {e}")
+            
+            # Helper function to extract text content from JSON structures
+            def extract_text_content(data):
+                """Recursively extract text content from JSON structures"""
+                if isinstance(data, str):
+                    # Check if string is a JSON representation
+                    try:
+                        parsed = json.loads(data)
+                        lesson_check_logger.info(f"Parsed JSON string, recursing with type: {type(parsed)}")
+                        return extract_text_content(parsed)
+                    except (json.JSONDecodeError, TypeError):
+                        lesson_check_logger.info(f"String is not JSON, returning as-is (length: {len(data)})")
+                        return data
+                elif isinstance(data, dict):
+                    # Check if this is a response object
+                    if 'response_type' in data and 'answer' in data:
+                        lesson_check_logger.info("Found response object, extracting answer field")
+                        return extract_text_content(data['answer'])
+                    # Look for content in various fields
+                    for key in ['answer', 'response', 'content', 'text', 'message']:
+                        if key in data:
+                            lesson_check_logger.info(f"Found content in key: {key}")
+                            return extract_text_content(data[key])
+                    # No content field found - this shouldn't happen
+                    lesson_check_logger.error(f"No content field found in dict: {list(data.keys())}")
+                    return json.dumps(data, indent=2)
+                elif isinstance(data, list):
+                    return '\n'.join([extract_text_content(item) for item in data])
+                else:
+                    return str(data)
+            
+            # Save lesson to database
+            # Convert learning_objectives list to string for database storage
+            if result.get('response_type') == 'direct_answer':
+                learning_objectives_str = ''  # Direct answers don't have learning objectives
+                
+                # For direct answers, extract the answer content
+                raw_answer = result.get('answer', '')
+                lesson_check_logger.info(f"Raw answer type: {type(raw_answer)}, length: {len(str(raw_answer))}")
+                lesson_check_logger.info(f"Raw answer first 500 chars: {str(raw_answer)[:500]}")
+                
+                # Extract text content recursively
+                content_str = extract_text_content(raw_answer)
+                lesson_check_logger.info(f"After extraction - content_str length: {len(content_str)}")
+                
+                # Final safety check: ensure content is not a JSON string
+                if isinstance(content_str, str):
+                    trimmed = content_str.strip()
+                    if trimmed.startswith('{') and '"response_type"' in trimmed:
+                        lesson_check_logger.warning("Content is still JSON string, re-extracting...")
+                        try:
+                            parsed = json.loads(trimmed)
+                            content_str = extract_text_content(parsed.get('answer', ''))
+                            lesson_check_logger.info("Successfully re-extracted content")
+                        except Exception as e:
+                            lesson_check_logger.error(f"Failed to re-extract: {e}")
+                
+                # Validate final content is plain text
+                if isinstance(content_str, str) and not content_str.strip().startswith('{'):
+                    lesson_check_logger.info("Content validation passed: plain text")
+                else:
+                    lesson_check_logger.error(f"Content validation failed: {content_str[:100]}")
+                
+                summary_str = content_str[:200] + "..." if len(content_str) > 200 else content_str
+            else:
+                learning_objectives_list = result['lesson'].get('learning_objectives', [])
+                learning_objectives_str = ', '.join(learning_objectives_list) if isinstance(learning_objectives_list, list) else str(learning_objectives_list)
+                
+                # For structured lessons, convert to JSON string
+                content_str = json.dumps(result['lesson']) if isinstance(result['lesson'], dict) else str(result['lesson'])
+                summary_str = result['lesson'].get('summary', '')
+            
+            # Log what we're about to save
+            lesson_check_logger.info(f"About to save lesson content (first 300 chars): {content_str[:300]}")
+            lesson_check_logger.info(f"Content type: {type(content_str)}")
+            
+            # Ensure content_str is a plain string, not a JSON string
+            if isinstance(content_str, str):
+                # If it still looks like JSON at this point, log an error
+                if content_str.strip().startswith('{') and 'response_type' in content_str:
+                    lesson_check_logger.error(f"CRITICAL: Content is still JSON! First 500 chars: {content_str[:500]}")
+                    # Try one more extraction
+                    try:
+                        parsed = json.loads(content_str)
+                        if 'answer' in parsed:
+                            content_str = parsed['answer']
+                            lesson_check_logger.info("Emergency extraction successful")
+                    except:
+                        lesson_check_logger.error("Emergency extraction failed")
+            
+            lesson_check_logger.info(f"Final content before save (first 300 chars): {content_str[:300]}")
+            lesson_check_logger.info(f"=== LESSON CREATION ENDED ===")
+            
+            lesson_id = LessonModel.create_lesson(
+                teacher_id=session['user_id'],
+                title=lesson_title,
+                summary=summary_str,
+                learning_objectives=learning_objectives_str,
+                content=content_str,
+                grade_level=grade_level,
+                focus_area=focus_area,
+                is_public=True  # Make lessons public by default
+            )
+            
+            if not lesson_id:
+                return jsonify({'error': 'Failed to save lesson to database'}), 500
+            
+            # Get the full lesson response
+            lesson_response = LessonModel.get_lesson_by_id(lesson_id)
+            
+            # Handle different response types from the AI
+            if result.get('response_type') == 'direct_answer':
+                # For direct answers, the content is already stored as plain text
+                # Just ensure the lesson response has the right structure
+                lesson_response['title'] = lesson_title
+                lesson_response['grade_level'] = grade_level
+                lesson_response['focus_area'] = focus_area
+                lesson_response['learning_objectives'] = learning_objectives_str
+                lesson_response['isFinalized'] = False
+                # Content is already stored as plain text, no need to modify it
+                
+            else:
+                # For structured lessons, aggregate content for display
+                full_content = ""
+                if 'sections' in result['lesson']:
+                    for section in result['lesson']['sections']:
+                        full_content += f"## {section.get('heading', '')}\n{section.get('content', '')}\n\n"
+                lesson_response['content'] = full_content
+            
+            return jsonify({
+                'success': True,
+                'response_type': 'lesson_generation',
+                'lesson_id': lesson_id,
+                'lesson': lesson_response,
+                'message': 'Lesson created successfully!'
+            })
+        
+        else:
+            # No file uploaded - analyze query to determine if it's a question or lesson generation request
+            query_analysis = lesson_service.analyze_user_query(lesson_prompt)
+            logger.info(f"Query analysis: {query_analysis}")
+            
+            if query_analysis['query_type'] == 'QUESTION':
+                # User is asking a question - answer it using available lessons
+                logger.info("User query detected as question - answering using available lessons")
+                
+                # Get available lesson IDs for context
+                available_lessons = lesson_service._get_available_lesson_ids()
+                
+                # Answer the question using available lesson content
+                answer_result = lesson_service.answer_general_question(lesson_prompt, available_lessons)
+                
+                return jsonify({
+                    'success': True,
+                    'response_type': 'question_answer',
+                    'answer': answer_result['answer'],
+                    'source': answer_result.get('source', 'unknown'),
+                    'confidence': answer_result.get('confidence', 0.0),
+                    'lesson_context': answer_result.get('lesson_context', ''),
+                    'relevant_lessons': answer_result.get('relevant_lessons', []),
+                    'query_analysis': query_analysis,
+                    'message': 'Question answered based on available lesson content'
+                })
+            
+            else:
+                # User wants to generate a lesson but no file provided
+                return jsonify({'error': 'File is required for lesson generation. Please upload a PDF, DOC, DOCX, or TXT file.'}), 400
+        
+    except Exception as e:
+        logger.error(f"Lesson creation/query error: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to process request: {str(e)}'}), 500
+
+@bp.route('/ask_question_general', methods=['POST'])
+@login_required
+def ask_general_question():
+    """Ask a general question that will be answered using available lesson content"""
+    try:
+        data = request.get_json()
+        question = data.get('question', '').strip()
+        
+        if not question:
+            return jsonify({'error': 'Question is required'}), 400
         
         # Get API key from session
         api_key = session.get('groq_api_key')
         if not api_key:
             return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
         
-        # Generate lesson using LessonService
+        # Initialize lesson service
         lesson_service = LessonService(api_key=api_key)
-        lesson_details = {
-            'title': lesson_title,
-            'lesson_prompt': lesson_prompt,
-            'focus_area': focus_area,
-            'grade_level': grade_level,
-            'additional_notes': additional_notes
-        }
         
-        result = lesson_service.process_file(file, lesson_details)
+        # Get conversation history from all lessons for context
+        from app.models.models import LessonChatHistory
+        user_id = session['user_id']
         
-        if 'error' in result:
+        # Get recent conversation history from all lessons
+        conversation_history = []
+        available_lessons = lesson_service._get_available_lesson_ids()
+        
+        # Get recent Q&A from all lessons (last 5 from each lesson)
+        for lesson_id in available_lessons[:5]:  # Limit to first 5 lessons to avoid too much context
+            try:
+                lesson_history = LessonChatHistory.get_lesson_chat_history(lesson_id, user_id)
+                conversation_history.extend(lesson_history[-2:])  # Last 2 from each lesson
+            except Exception as e:
+                logger.warning(f"Error getting history for lesson {lesson_id}: {str(e)}")
+                continue
+        
+        # Sort by timestamp and take most recent
+        conversation_history = sorted(conversation_history, key=lambda x: x.get('created_at', ''), reverse=True)[:10]
+        
+        # Analyze the user's query to determine intent
+        query_analysis = lesson_service.analyze_user_query(question)
+        logger.info(f"General query analysis: {query_analysis}")
+        
+        if not available_lessons:
             return jsonify({
-                'error': result['error'],
-                'details': result.get('details', '')
-            }), 500
+                'success': True,
+                'response_type': 'no_content',
+                'answer': 'I don\'t have any lesson content available to answer your question. Please upload some educational materials first.',
+                'source': 'no_content',
+                'confidence': 0.0,
+                'query_analysis': query_analysis,
+                'message': 'No lesson content available'
+            })
         
-        # Aggregate all section contents into a single string for the content field
-        sections = result['lesson'].get('sections', [])
-        full_content = "\n\n".join([section.get('content', '') for section in sections if section.get('content')])
-        
-        # Store lesson in database
-        lesson_id = LessonModel.create_lesson(
-            teacher_id=session['user_id'],
-            title=lesson_title,
-            summary=result['lesson'].get('summary', ''),
-            learning_objectives=lesson_prompt,
-            focus_area=focus_area,
-            grade_level=grade_level,
-            content=full_content,
-            file_name=file.filename
-        )
+        # Answer the question using available lesson content with conversation context
+        answer_result = lesson_service.answer_general_question(question, available_lessons, conversation_history)
         
         return jsonify({
             'success': True,
-            'lesson_id': lesson_id,
-            'lesson': result['lesson'],
-            'message': 'Lesson created successfully!'
+            'response_type': 'question_answer',
+            'answer': answer_result['answer'],
+            'source': answer_result.get('source', 'unknown'),
+            'confidence': answer_result.get('confidence', 0.0),
+            'lesson_context': answer_result.get('lesson_context', ''),
+            'relevant_lessons': answer_result.get('relevant_lessons', []),
+            'query_analysis': query_analysis,
+            'message': 'Question answered based on available lesson content'
         })
         
     except Exception as e:
-        logger.error(f"Lesson creation error: {str(e)}", exc_info=True)
-        return jsonify({'error': f'Failed to create lesson: {str(e)}'}), 500
+        logger.error(f"Error answering general question: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to answer question: {str(e)}'}), 500
 
 @bp.route('/my_lessons', methods=['GET'])
 @teacher_required
@@ -156,8 +410,20 @@ def get_lesson(lesson_id):
             return jsonify({'error': 'Lesson not found'}), 404
         
         # Check if user can access this lesson
-        user_model = UserModel(session['user_id'])
-        if lesson['teacher_id'] != session['user_id'] and not lesson['is_public']:
+        user_id = session.get('user_id')
+        user_role = session.get('role', 'student')
+        lesson_teacher_id = lesson.get('teacher_id')
+        is_public = lesson.get('is_public', False)
+        
+        # Users can access their own lessons (regardless of role)
+        if lesson_teacher_id == user_id:
+            pass  # Allow access - user owns this lesson
+        # If lesson is public, allow access for anyone
+        elif is_public:
+            pass  # Allow access - lesson is public
+        # Otherwise deny access
+        else:
+            logger.info(f"Access denied for user {user_id} (role: {user_role}) to lesson {lesson_id} (teacher: {lesson_teacher_id}, public: {is_public})")
             return jsonify({'error': 'Access denied'}), 403
         
         return jsonify({
@@ -178,11 +444,20 @@ def view_lesson(lesson_id):
             return jsonify({'error': 'Lesson not found'}), 404
         
         # Check if user can access this lesson
-        # Teachers can access their own lessons, students can access public lessons
         user_role = session.get('role', 'student')
-        if user_role == 'teacher' and lesson['teacher_id'] != session['user_id']:
-            return jsonify({'error': 'Access denied'}), 403
-        elif user_role == 'student' and not lesson.get('is_public', True):
+        user_id = session.get('user_id')
+        lesson_teacher_id = lesson.get('teacher_id')
+        is_public = lesson.get('is_public', False)
+        
+        # Users can access their own lessons (regardless of role)
+        if lesson_teacher_id == user_id:
+            pass  # Allow access - user owns this lesson
+        # If lesson is public, allow access for anyone
+        elif is_public:
+            pass  # Allow access - lesson is public
+        # Otherwise deny access
+        else:
+            logger.info(f"Access denied for user {user_id} (role: {user_role}) to lesson {lesson_id} (teacher: {lesson_teacher_id}, public: {is_public})")
             return jsonify({'error': 'Access denied'}), 403
         
         # Get lesson versions
@@ -279,11 +554,20 @@ def download_lesson(lesson_id):
             return jsonify({'error': 'Lesson not found'}), 404
         
         # Check if user can access this lesson
-        # Teachers can access their own lessons, students can access public lessons
         user_role = session.get('role', 'student')
-        if user_role == 'teacher' and lesson['teacher_id'] != session['user_id']:
-            return jsonify({'error': 'Access denied'}), 403
-        elif user_role == 'student' and not lesson.get('is_public', True):
+        user_id = session.get('user_id')
+        lesson_teacher_id = lesson.get('teacher_id')
+        is_public = lesson.get('is_public', False)
+        
+        # Users can access their own lessons (regardless of role)
+        if lesson_teacher_id == user_id:
+            pass  # Allow access - user owns this lesson
+        # If lesson is public, allow access for anyone
+        elif is_public:
+            pass  # Allow access - lesson is public
+        # Otherwise deny access
+        else:
+            logger.info(f"Access denied for user {user_id} (role: {user_role}) to lesson {lesson_id} (teacher: {lesson_teacher_id}, public: {is_public})")
             return jsonify({'error': 'Access denied'}), 403
         
         # Create lesson structure for DOCX generation
@@ -313,6 +597,14 @@ def download_lesson(lesson_id):
         docx_buffer = BytesIO(docx_bytes)
         docx_buffer.seek(0)
         
+        # Delete FAISS index after successful download
+        try:
+            lesson_service = LessonService(api_key=api_key)
+            lesson_service._delete_faiss_index(lesson_id)
+            logger.info(f"Deleted FAISS index after download for lesson {lesson_id}")
+        except Exception as e:
+            logger.warning(f"Failed to delete FAISS index for lesson {lesson_id}: {str(e)}")
+        
         return send_file(
             docx_buffer,
             as_attachment=True,
@@ -333,11 +625,20 @@ def download_lesson_ppt(lesson_id):
         return jsonify({'error': 'Lesson not found'}), 404
 
     # Check if user can access this lesson
-    # Teachers can access their own lessons, students can access public lessons
     user_role = session.get('role', 'student')
-    if user_role == 'teacher' and lesson['teacher_id'] != session['user_id']:
-        return jsonify({'error': 'Access denied'}), 403
-    elif user_role == 'student' and not lesson.get('is_public', True):
+    user_id = session.get('user_id')
+    lesson_teacher_id = lesson.get('teacher_id')
+    is_public = lesson.get('is_public', False)
+    
+    # Users can access their own lessons (regardless of role)
+    if lesson_teacher_id == user_id:
+        pass  # Allow access - user owns this lesson
+    # If lesson is public, allow access for anyone
+    elif is_public:
+        pass  # Allow access - lesson is public
+    # Otherwise deny access
+    else:
+        logger.info(f"Access denied for user {user_id} (role: {user_role}) to lesson {lesson_id} (teacher: {lesson_teacher_id}, public: {is_public})")
         return jsonify({'error': 'Access denied'}), 403
 
     # Prepare lesson data for PPT generation
@@ -368,6 +669,14 @@ def download_lesson_ppt(lesson_id):
         ppt_buffer = BytesIO(ppt_bytes)
         ppt_buffer.seek(0)
         
+        # Delete FAISS index after successful download
+        try:
+            lesson_service = LessonService(api_key=api_key)
+            lesson_service._delete_faiss_index(lesson_id)
+            logger.info(f"Deleted FAISS index after PPT download for lesson {lesson_id}")
+        except Exception as e:
+            logger.warning(f"Failed to delete FAISS index for lesson {lesson_id}: {str(e)}")
+        
         return send_file(
             ppt_buffer,
             as_attachment=True,
@@ -389,9 +698,19 @@ def download_lesson_pdf(lesson_id):
 
         # Check if user can access this lesson
         user_role = session.get('role', 'student')
-        if user_role == 'teacher' and lesson['teacher_id'] != session['user_id']:
-            return jsonify({'error': 'Access denied'}), 403
-        elif user_role == 'student' and not lesson.get('is_public', True):
+        user_id = session.get('user_id')
+        lesson_teacher_id = lesson.get('teacher_id')
+        is_public = lesson.get('is_public', False)
+        
+        # Users can access their own lessons (regardless of role)
+        if lesson_teacher_id == user_id:
+            pass  # Allow access - user owns this lesson
+        # If lesson is public, allow access for anyone
+        elif is_public:
+            pass  # Allow access - lesson is public
+        # Otherwise deny access
+        else:
+            logger.info(f"Access denied for user {user_id} (role: {user_role}) to lesson {lesson_id} (teacher: {lesson_teacher_id}, public: {is_public})")
             return jsonify({'error': 'Access denied'}), 403
 
         # Try to generate PDF using reportlab (preferred method)
@@ -481,6 +800,14 @@ def download_lesson_pdf(lesson_id):
             # Create filename
             filename = lesson['title'].replace(' ', '_').replace('/', '_') + '.pdf'
             
+            # Delete FAISS index after successful download
+            try:
+                lesson_service = LessonService(api_key=api_key)
+                lesson_service._delete_faiss_index(lesson_id)
+                logger.info(f"Deleted FAISS index after PDF download for lesson {lesson_id}")
+            except Exception as e:
+                logger.warning(f"Failed to delete FAISS index for lesson {lesson_id}: {str(e)}")
+            
             return send_file(
                 pdf_buffer,
                 as_attachment=True,
@@ -540,6 +867,14 @@ def download_lesson_pdf(lesson_id):
                     pass
                 return response
 
+            # Delete FAISS index after successful download
+            try:
+                lesson_service = LessonService(api_key=api_key)
+                lesson_service._delete_faiss_index(lesson_id)
+                logger.info(f"Deleted FAISS index after PDF download for lesson {lesson_id}")
+            except Exception as e:
+                logger.warning(f"Failed to delete FAISS index for lesson {lesson_id}: {str(e)}")
+            
             return send_file(pdf_path, as_attachment=True, download_name=lesson['title'].replace('/', '_') + '.pdf', mimetype='application/pdf')
             
         except Exception as e:
@@ -565,19 +900,49 @@ def ask_lesson_question():
         return jsonify({'error': 'lesson_id and question are required'}), 400
     
     api_key = session.get('groq_api_key')
+    if not api_key:
+        return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
+    
     service = LessonService(api_key=api_key)
-    result = service.answer_lesson_question(lesson_id, question)
+    
+    # Get conversation history for context
+    from app.models.models import LessonChatHistory
+    user_id = session['user_id']
+    conversation_history = LessonChatHistory.get_lesson_chat_history(lesson_id, user_id)
+    
+    # Use the new query analysis system for better responses
+    query_analysis = service.analyze_user_query(question)
+    logger.info(f"Lesson question analysis: {query_analysis}")
+    
+    # Try to answer using the specific lesson first with conversation context
+    result = service.answer_lesson_question(lesson_id, question, conversation_history)
+    
+    # If the specific lesson doesn't have good results, try general search with context
+    if 'error' in result or not result.get('answer') or len(result.get('answer', '')) < 50:
+        logger.info("Specific lesson search didn't provide good results, trying general search")
+        
+        # Get available lesson IDs for broader context
+        available_lessons = service._get_available_lesson_ids()
+        if available_lessons:
+            general_result = service.answer_general_question(question, available_lessons, conversation_history)
+            if general_result.get('answer') and len(general_result.get('answer', '')) > 50:
+                result = general_result
+                logger.info("Using general search result for better answer")
     
     if 'error' in result:
         return jsonify({'error': result['error']}), 400
     
     # Save the Q&A to lesson chat history
-    from app.models.models import LessonChatHistory
-    user_id = session['user_id']
-    canonical = result.get('canonical_question')
+    canonical = result.get('canonical_question', question)
     LessonChatHistory.save_qa(lesson_id, user_id, question, result['answer'], canonical_question=canonical)
     
-    return jsonify({'answer': result['answer'], 'canonical_question': canonical})
+    return jsonify({
+        'answer': result['answer'], 
+        'canonical_question': canonical,
+        'source': result.get('source', 'unknown'),
+        'confidence': result.get('confidence', 0.8),
+        'query_analysis': query_analysis
+    })
 
 @bp.route('/lesson_chat_history/<int:lesson_id>', methods=['GET'])
 @login_required
@@ -1047,6 +1412,47 @@ def get_lesson_draft(lesson_id):
         logger.error(f"Error getting draft content: {str(e)}", exc_info=True)
         return jsonify({'error': f'Failed to get draft content: {str(e)}'}), 500
 
+@bp.route('/lesson/<int:lesson_id>/review_by_ai', methods=['POST'])
+@teacher_required
+def review_by_ai(lesson_id):
+    """Review lesson content by AI based on user query - provides fresh response without showing previous content"""
+    try:
+        # Check if lesson exists and belongs to the teacher
+        lesson = LessonModel.get_lesson_by_id(lesson_id)
+        if not lesson:
+            return jsonify({'error': 'Lesson not found'}), 404
+        
+        if lesson['teacher_id'] != session['user_id']:
+            return jsonify({'error': 'Access denied'}), 403
+        
+        data = request.get_json()
+        user_query = data.get('query', '')
+        
+        if not user_query.strip():
+            return jsonify({'error': 'Query is required'}), 400
+        
+        # Get API key from session
+        api_key = session.get('groq_api_key')
+        if not api_key:
+            return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
+        
+        # Use LessonService to provide AI review
+        lesson_service = LessonService(api_key=api_key)
+        ai_response = lesson_service.review_by_ai(
+            lesson_id=lesson_id,
+            user_query=user_query
+        )
+        
+        return jsonify({
+            'success': True,
+            'ai_response': ai_response,
+            'message': 'AI review completed successfully'
+        })
+            
+    except Exception as e:
+        logger.error(f"Error getting AI review: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to get AI review: {str(e)}'}), 500
+
 @bp.route('/lesson/<int:lesson_id>/apply_prompt', methods=['POST'])
 @teacher_required
 def apply_prompt_to_lesson(lesson_id):
@@ -1083,6 +1489,33 @@ def apply_prompt_to_lesson(lesson_id):
             improvement_prompt=prompt
         )
         
+        # Check if the improved content is a JSON string and extract the actual content
+        import json
+        
+        # Recursive function to extract text content from JSON
+        def extract_content(data):
+            if isinstance(data, str):
+                # Try to parse as JSON
+                try:
+                    parsed = json.loads(data)
+                    return extract_content(parsed)
+                except (json.JSONDecodeError, TypeError):
+                    return data
+            elif isinstance(data, dict):
+                # Look for content in various fields
+                for key in ['answer', 'response', 'content', 'text', 'message']:
+                    if key in data:
+                        return extract_content(data[key])
+                # If no content field found, return string representation
+                return str(data)
+            elif isinstance(data, list):
+                # Join list items
+                return '\n'.join([extract_content(item) for item in data])
+            else:
+                return str(data)
+        
+        improved_content = extract_content(improved_content)
+        
         # Save the improved content as draft
         success = LessonModel.save_draft_content(lesson_id, improved_content)
         
@@ -1118,6 +1551,29 @@ def finalize_lesson_version(lesson_id):
         if not draft_content.strip():
             return jsonify({'error': 'No draft content to finalize. Apply a prompt first.'}), 400
         
+        # Extract actual text content from JSON if needed
+        import json
+        
+        def extract_content(data):
+            if isinstance(data, str):
+                try:
+                    parsed = json.loads(data)
+                    return extract_content(parsed)
+                except (json.JSONDecodeError, TypeError):
+                    return data
+            elif isinstance(data, dict):
+                for key in ['answer', 'response', 'content', 'text', 'message']:
+                    if key in data:
+                        return extract_content(data[key])
+                return str(data)
+            elif isinstance(data, list):
+                return '\n'.join([extract_content(item) for item in data])
+            else:
+                return str(data)
+        
+        # Extract the actual content from JSON if the draft is in JSON format
+        draft_content = extract_content(draft_content)
+        
         # Determine the actual original lesson ID
         original_lesson_id = lesson.get('parent_lesson_id') or lesson_id
         
@@ -1134,6 +1590,18 @@ def finalize_lesson_version(lesson_id):
             file_name=lesson.get('file_name'),
             is_public=lesson.get('is_public', True)
         )
+        
+        # Update the new lesson with the final content in database
+        new_lesson_model = LessonModel(new_lesson_id)
+        new_lesson_model.update_lesson(content=draft_content)
+        
+        # Delete FAISS index after storing in database
+        try:
+            lesson_service = LessonService(api_key=session.get('groq_api_key'))
+            lesson_service._delete_faiss_index(new_lesson_id)
+            logger.info(f"Deleted FAISS index for finalized lesson {new_lesson_id}")
+        except Exception as e:
+            logger.warning(f"Failed to delete FAISS index for lesson {new_lesson_id}: {str(e)}")
         
         # Clear the draft content from the current lesson
         LessonModel.clear_draft_content(lesson_id)
