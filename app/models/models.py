@@ -342,7 +342,7 @@ class LessonModel:
 
     def update_lesson(self, title: str = None, summary: str = None, learning_objectives: str = None,
                      focus_area: str = None, grade_level: str = None, content: str = None,
-                     is_public: bool = None) -> bool:
+                     is_public: bool = None, detailed_answer: str = None) -> bool:
         """Update lesson details"""
         try:
             db = get_db()
@@ -367,6 +367,9 @@ class LessonModel:
             if content is not None:
                 updates.append('content = ?')
                 params.append(content)
+            if detailed_answer is not None:
+                updates.append('detailed_answer = ?')
+                params.append(detailed_answer)
             if is_public is not None:
                 updates.append('is_public = ?')
                 params.append(is_public)
