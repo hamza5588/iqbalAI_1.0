@@ -229,27 +229,20 @@ def update_api_key():
 
 @bp.route('/edit_lesson_with_prompt', methods=['POST'])
 def edit_lesson_with_prompt():
-    """Edit the lesson markdown using an AI prompt with RAG."""
+    """Edit the lesson markdown using an AI prompt."""
     if 'user_id' not in session:
         return jsonify({'error': 'Not authenticated'}), 401
     try:
         data = request.get_json()
         lesson_text = data.get('lesson_text')
         user_prompt = data.get('user_prompt')
-        filename = data.get('filename', '')  # Get filename if available
-        
         if not lesson_text or not user_prompt:
             return jsonify({'error': 'Missing lesson_text or user_prompt'}), 400
-        
         api_key = session.get('groq_api_key')
         if not api_key:
             return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
-        
         lesson_service = LessonService(api_key=api_key)
-        
-        # Use RAG-based review for better content retrieval
-        new_markdown = lesson_service.review_lesson_with_rag(lesson_text, user_prompt, filename)
-        
+        new_markdown = lesson_service.edit_lesson_with_prompt(lesson_text, user_prompt)
         return jsonify({'lesson_markdown': new_markdown})
     except Exception as e:
         logger.error(f"Edit lesson with prompt error: {str(e)}", exc_info=True)
