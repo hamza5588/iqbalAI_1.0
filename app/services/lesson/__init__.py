@@ -1,19 +1,30 @@
 """
-Lesson service package
+Lesson service package with structured approach
 """
+from .base_service import BaseLessonService
 from .teacher_service import TeacherLessonService
 from .student_service import StudentLessonService
-from .base_service import BaseLessonService
-from .models import LessonPlan, LessonResponse, DirectAnswer
+from .rag_service import RAGService
+from .models import (
+    LessonPlan, 
+    LessonResponse, 
+    CreativeActivity, 
+    STEMEquation, 
+    QuizQuestion, 
+    LessonSection
+)
 
 __all__ = [
-    'TeacherLessonService',
-    'StudentLessonService', 
     'BaseLessonService',
+    'TeacherLessonService', 
+    'StudentLessonService',
+    'RAGService',
     'LessonPlan',
     'LessonResponse',
-    'DirectAnswer'
+    'CreativeActivity',
+    'STEMEquation', 
+    'QuizQuestion',
+    'LessonSection'
 ]
-
 
 
