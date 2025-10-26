@@ -906,7 +906,7 @@ def ask_lesson_question():
     service = LessonService(api_key=api_key)
     
     # Get conversation history for context
-    from app.models.models import LessonChatHistory
+    from app.models.models import LessonChatHistory, LessonFAQ
     user_id = session['user_id']
     conversation_history = LessonChatHistory.get_lesson_chat_history(lesson_id, user_id)
     
@@ -935,6 +935,13 @@ def ask_lesson_question():
     # Save the Q&A to lesson chat history
     canonical = result.get('canonical_question', question)
     LessonChatHistory.save_qa(lesson_id, user_id, question, result['answer'], canonical_question=canonical)
+    
+    # Log the question to FAQ table for teacher visibility
+    try:
+        LessonFAQ.log_question(lesson_id, canonical)
+        logger.info(f"Question logged to FAQ table for lesson {lesson_id}: {canonical}")
+    except Exception as e:
+        logger.error(f"Error logging question to FAQ table: {str(e)}")
     
     return jsonify({
         'answer': result['answer'], 
