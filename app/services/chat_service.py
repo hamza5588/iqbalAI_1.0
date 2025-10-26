@@ -1,470 +1,494 @@
-# # app/services/chat_service.py
-# from typing import List, Dict, Optional, Any
-# from app.models import ChatModel, ConversationModel, VectorStoreModel
+# import os
 # import logging
-# from datetime import datetime
+# from urllib.parse import quote
+# from pathlib import Path
+# from typing import Optional, Union
+# from langchain_groq import ChatGroq
+# # from langchain.text_splitters import RecursiveCharacterTextSplitter
+# from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+# from langchain.chains.combine_documents import create_stuff_documents_chain
+# from langchain_core.prompts import ChatPromptTemplate
+# from langchain.chains import create_retrieval_chain
+# from langchain_community.vectorstores import FAISS
+# from langchain_community.embeddings import HuggingFaceEmbeddings
+
+# from langchain_community.document_loaders import PyPDFLoader, PyPDFDirectoryLoader
+# from langchain_nomic.embeddings import NomicEmbeddings
+# from app.models.models import UserModel
+
+# # Logging setup
+# logging.basicConfig(level=logging.INFO)
 # logger = logging.getLogger(__name__)
 
-# class ChatService:
-#     """Service class for handling chat-related business logic"""
-    
-#     def __init__(self, user_id: int, api_key: str):
+
+# class DocumentChatBot:
+#     def __init__(self, user_id: Optional[int] = None, document_path: Optional[Union[str, Path]] = None):
 #         self.user_id = user_id
-#         self.chat_model = ChatModel(api_key)
-#         self.conversation_model = ConversationModel(user_id)
-#         self.vector_store = VectorStoreModel()
         
-#     def format_chat_history(self, history: List[Dict]) -> List[Dict]:
-#         """Format chat history for the LLM"""
-#         formatted_history = []
-#         for msg in history:
-#             # Map 'bot' role to 'assistant' and ensure we access the correct message field
-#             role = 'assistant' if msg.get('role') == 'bot' else msg.get('role', 'user')
-#             content = msg.get('message', '')  # Get message content with default empty string
+#         # Get API keys from database if user_id is provided, otherwise from environment
+#         if user_id:
+#             user_model = UserModel(user_id)
+#             self.groq_api_key = user_model.get_api_key()
+#             if not self.groq_api_key:
+#                 raise ValueError(f"User {user_id} does not have a GROQ API key set")
+#         else:
+#             self.groq_api_key = os.getenv('GROQ_API_KEY')
+#             if not self.groq_api_key:
+#                 raise ValueError("GROQ_API_KEY environment variable not set")
+        
+#         # NOMIC API key is still from environment as it's not user-specific
+#         self.nomic_api_key = os.getenv('NOMIC_API_KEY')
+#         if not self.nomic_api_key:
+#             raise ValueError("NOMIC_API_KEY environment variable not set")
             
-#             if content and role:  # Only add if we have both content and role
-#                 formatted_history.append({
-#                     'role': role,
-#                     'content': content
-#                 })
-#         return formatted_history
+#         self.llm = ChatGroq(groq_api_key=self.groq_api_key, model_name="llama-3.3-70b-versatile")
+#         self.prompt = self._create_prompt()
+#         self.vectors = None
+#         self.embeddings = None
+#         self.awaiting_confirmation = False
+#         self.support_phone = "+92 317 5161606"
+#         self.default_message = "Hi, I need help with my issue."
+#         self.document_path = self._resolve_document_path(document_path)
+#         self._initialize_embeddings()
+
+#     def get_whatsapp_url(self) -> str:
+#         """Generate properly formatted WhatsApp URL"""
+#         # Remove all non-digit characters
+#         clean_phone = ''.join(c for c in self.support_phone if c.isdigit())
+#         if clean_phone.startswith('92'):
+#             phone_number = clean_phone
+#         else:
+#             phone_number = '92' + clean_phone.lstrip('0')
         
-#     def process_message(self, message: str, 
-#                        conversation_id: Optional[int] = None,
-#                        system_prompt: Optional[str] = None) -> Dict[str, Any]:
-#         """Process a user message and generate a response"""
+#         # Encode the message
+#         encoded_message = quote(self.default_message)
+#         return f"https://wa.me/{phone_number}?text={encoded_message}"
+
+#     def _resolve_document_path(self, document_path: Optional[Union[str, Path]]) -> Path:
+#         if document_path:
+#             doc_path = Path(document_path)
+#         else:
+#             if os.getenv('DOCKER_ENV') == 'true':
+#                 doc_path = Path('/app/app/IqbalAI_FAQ.pdf')
+#             else:
+#                 doc_path = Path(__file__).parent.parent / 'app' / 'IqbalAI_FAQ.pdf'
+
+#         if not doc_path.exists():
+#             fallback_paths = [
+#                 Path('/app/IqbalAI_FAQ.pdf'),
+#                 Path('app/IqbalAI_FAQ.pdf'),
+#                 Path(__file__).parent / 'IqbalAI_FAQ.pdf'
+#             ]
+#             for alt in fallback_paths:
+#                 if alt.exists():
+#                     return alt
+#             raise FileNotFoundError(
+#                 f"PDF file not found at any known location.\nChecked: {doc_path} and alternatives."
+#             )
+#         return doc_path
+
+#     def _create_prompt(self) -> ChatPromptTemplate:
+#         return ChatPromptTemplate.from_template("""
+#        You are a helpful customer support assistant. Answer questions based on the context.
+    
+#     Response Format Rules:
+#     - ALWAYS use proper bullet points (•) for lists, NEVER asterisks (*)
+#     - Start each step with "• " (bullet and space)
+#     - Put each step on a new line
+#     - Keep responses concise
+
+#     <context>
+#     {context}
+#     </context>
+
+#     Question: {input}
+
+#     Answer:""")
+
+#     def _get_document_loader(self):
+#         logger.info(f"Document path: {self.document_path}")
+#         if not self.document_path.exists():
+#             raise FileNotFoundError(f"Path does not exist: {self.document_path}")
+#         if self.document_path.is_file() and self.document_path.suffix.lower() == '.pdf':
+#             return PyPDFLoader(str(self.document_path))
+#         elif self.document_path.is_dir():
+#             return PyPDFDirectoryLoader(str(self.document_path))
+#         else:
+#             raise ValueError("Provided path must be a .pdf file or directory containing PDFs.")
+
+#     def _initialize_embeddings(self):
 #         try:
-#             # Create new conversation if needed
-#             if not conversation_id:
-#                 conversation_id = self.conversation_model.create_conversation(
-#                     title=message[:50]
-#                 )
-            
-#             # Save user message
-#             self.conversation_model.save_message(
-#                 conversation_id=conversation_id,
-#                 message=message,
-#                 role='user'
-#             )
-            
-#             # Get relevant context from vector store
-#             context = ""
-#             try:
-#                 if self.vector_store._vectorstore:
-#                     relevant_docs = self.vector_store.search_similar(message, k=3)
-#                     if relevant_docs:
-#                         context = "Using the provided documents, I found this relevant information:\n\n" + "\n".join(
-#                             [f"• {doc.page_content.strip()}" for doc in relevant_docs]
-#                         )
-#                         logger.info("Found relevant context from documents")
-#             except Exception as e:
-#                 logger.warning(f"Error retrieving context: {str(e)}")
-            
-#             # Get and format chat history
-#             raw_history = self.conversation_model.get_chat_history(conversation_id)
-#             formatted_history = self.format_chat_history(raw_history)
-            
-#             # For debugging
-#             logger.debug(f"Formatted history: {formatted_history}")
-            
-#             # Use the provided system prompt or default to teaching framework
-#             if not system_prompt:
-#                 system_prompt = self.DEFAULT_PROMPT
-            
-#             # Generate response
-#             response = self.chat_model.generate_response(
-#                 input_text=message,
-#                 system_prompt=system_prompt,
-#                 chat_history=formatted_history
-#             )
-            
-#             # Save bot response
-#             self.conversation_model.save_message(
-#                 conversation_id=conversation_id,
-#                 message=response,
-#                 role='bot'
-#             )
-            
+#             # self.embeddings = NomicEmbeddings(
+#             #     model="nomic-embed-text-v1",
+#             #     nomic_api_key=self.nomic_api_key
+#             # )
+#             self.embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+
+
+#             loader = self._get_document_loader()
+#             docs = loader.load()
+#             if not docs:
+#                 logger.warning("No documents found.")
+#                 return
+
+#             text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+#             split_docs = text_splitter.split_documents(docs)
+
+#             self.vectors = FAISS.from_documents(split_docs, self.embeddings)
+#             logger.info("Vector store initialized.")
+#         except Exception as e:
+#             logger.error(f"API connection failed: {str(e)}")
+#             self.vectors = None
+#             raise
+
+#     def _handle_support_handoff(self, user_response: str) -> dict:
+#         """Handle user response to support handoff request."""
+#         user_response = user_response.lower().strip()
+#         if user_response in ['yes', 'y', 'yeah', 'sure', 'ok', 'okay', 'redirect me']:
+#             self.awaiting_confirmation = False
 #             return {
-#                 'response': response,
-#                 'conversation_id': conversation_id
+#                 "redirect": True,
+#                 "message": "I'm connecting you to our support team on WhatsApp...",
+#                 "whatsapp_url": self.get_whatsapp_url()
+#             }
+#         elif user_response in ['no', 'n', 'not now']:
+#             self.awaiting_confirmation = False
+#             return {
+#                 "redirect": False,
+#                 "message": "No problem! How else can I assist you today?",
+#                 "whatsapp_url": ""
+#             }
+#         else:
+#             return {
+#                 "redirect": False,
+#                 "message": "I didn't understand. Would you like me to connect you with human support? (yes/no)",
+#                 "whatsapp_url": ""
+#             }
+
+#     def get_response(self, question: str) -> dict:
+#         """Get response from chatbot. Returns dict with response and redirect info."""
+#         if not question.strip():
+#             return {
+#                 "redirect": False,
+#                 "message": "Please ask a valid question.",
+#                 "whatsapp_url": ""
+#             }
+            
+#         if self.awaiting_confirmation:
+#             return self._handle_support_handoff(question)
+            
+#         if not self.vectors:
+#             return {
+#                 "redirect": True,
+#                 "message": "Our knowledge base is unavailable. Please contact our support team on WhatsApp.",
+#                 "whatsapp_url": self.get_whatsapp_url()
+#             }
+            
+#         try:
+#             document_chain = create_stuff_documents_chain(self.llm, self.prompt)
+#             retriever = self.vectors.as_retriever()
+#             #used pipe operator
+#             retrieval_chain = document_chain | retriever
+            
+#             retrieval_chain = create_retrieval_chain(retriever, document_chain)
+#             response = retrieval_chain.invoke({'input': question})
+#             bot_answer = response.get('answer', '')
+#             formatted_answer = self._format_response(bot_answer)
+            
+#             # Check if the bot couldn't answer (fallback response)
+#             fallback_phrases = [
+#                 "I'm not sure", 
+#                 "I don't know", 
+#                 "Sorry", 
+#                 "unable to help", 
+#                 "I couldn't find",
+#                 "connect you"
+#             ]
+            
+#             if any(phrase.lower() in bot_answer.lower() for phrase in fallback_phrases):
+#                 self.awaiting_confirmation = True
+#                 return {
+#                     "redirect": False,
+#                     "message": "I couldn't find that information. Would you like me to connect you with our human support team on WhatsApp? (yes/no)",
+#                     "whatsapp_url": ""
+#                 }
+                
+#             return {
+#                 "redirect": False,
+#                 "message": formatted_answer,
+#                 "whatsapp_url": ""
 #             }
             
 #         except Exception as e:
-#             logger.error(f"Error processing message: {str(e)}")
-#             raise
+#             logger.error(f"Error during response generation: {e}")
+#             return {
+#                 "redirect": True,
+#                 "message": "I'm having trouble answering that. You can contact our support team on WhatsApp.",
+#                 "whatsapp_url": self.get_whatsapp_url()
+#             }
+        
+#     def update_documents(self, new_path: Union[str, Path]):
+#         self.document_path = Path(new_path)
+#         self._initialize_embeddings()
+    
 
-#     def get_recent_conversations(self, limit: int = 4) -> List[Dict[str, Any]]:
-#         """Get user's recent conversations"""
-#         try:
-#             return self.conversation_model.get_conversations(limit=limit)
-#         except Exception as e:
-#             logger.error(f"Error retrieving conversations: {str(e)}")
-#             raise
-
-#     def get_conversation_messages(self, conversation_id: int) -> List[Dict[str, Any]]:
-#         """Get messages for a specific conversation"""
-#         try:
-#             raw_messages = self.conversation_model.get_chat_history(conversation_id)
-#             return [
-#                 {
-#                     'role': msg.get('role', 'user'),
-#                     'message': msg.get('message', ''),
-#                     'created_at': msg.get('created_at', datetime.now().isoformat())
-#                 }
-#                 for msg in raw_messages
-#             ]
-#         except Exception as e:
-#             logger.error(f"Error retrieving messages: {str(e)}")
-#             raise
-
-#     def create_conversation(self, title: str) -> int:
-#         """Create a new conversation"""
-#         try:
-#             return self.conversation_model.create_conversation(title)
-#         except Exception as e:
-#             logger.error(f"Error creating conversation: {str(e)}")
-#             raise
-
-#     def delete_conversation(self, conversation_id: int) -> None:
-#         """Delete a conversation"""
-#         try:
-#             self.conversation_model.delete_conversation(conversation_id)
-#         except Exception as e:
-#             logger.error(f"Error deleting conversation: {str(e)}")
-#             raise
-
-#     def clean_old_conversations(self, max_conversations: int = 50) -> None:
-#         """Clean up old conversations beyond the maximum limit"""
-#         try:
-#             conversations = self.conversation_model.get_conversations()
-#             if len(conversations) > max_conversations:
-#                 for conv in conversations[max_conversations:]:
-#                     self.delete_conversation(conv['id'])
-#         except Exception as e:
-#             logger.error(f"Error cleaning old conversations: {str(e)}")
-#             raise
-
-
-
-# app/services/chat_service.py
-# app/services/chat_service.py
-# app/services/chat_service.py
-# app/services/chat_service.py
-from typing import List, Dict, Optional, Any, Tuple
-from app.models import ChatModel, ConversationModel, VectorStoreModel
+#     def _format_response(self, text: str) -> str:
+#         """Format the response text for better readability"""
+#         text=text.replace("• ", "- ")
+#         lines=text.split('\n')
+#         formatted_lines=[]
+#         for line in lines:
+#             if line.strip().startswith(('1.', '2.', '3.', '4.', '5.')):
+#                 line = "- " + line[2:].strip()
+#             formatted_lines.append(line)
+#         return '\n'.join(formatted_lines)
+import os
 import logging
-from datetime import datetime
-import re
-import httpx
-import time
-from app.utils.constants import MAX_MESSAGE_WINDOW, MAX_CONTEXT_TOKENS, SUMMARY_THRESHOLD, DEFAULT_PROMPT
-import tiktoken
+from urllib.parse import quote
+from pathlib import Path
+from typing import Optional, Union
+from langchain_groq import ChatGroq
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.runnables import RunnablePassthrough
+from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.document_loaders import PyPDFLoader, PyPDFDirectoryLoader
+from app.models.models import UserModel
 
+# Logging setup
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class ChatService:
-    """Service class for handling chat-related business logic"""
-    
-    def __init__(self, user_id: int, api_key: str):
+
+class DocumentChatBot:
+    def __init__(self, user_id: Optional[int] = None, document_path: Optional[Union[str, Path]] = None):
         self.user_id = user_id
-        self.api_key = api_key
-        self._chat_model = None  # Will be lazily initialized
-        self.conversation_model = ConversationModel(user_id)
-        self.vector_store = VectorStoreModel(user_id=user_id)
-        self._document_context_cache = {}  # Cache for document contexts
-        self._cache_ttl = 180  # Reduced from 300 (3 minutes instead of 5)
-        self._cache_cleanup_interval = 60  # Clean up cache every minute
-        self._last_cache_cleanup = time.time()
-        self._tokenizer = tiktoken.get_encoding("cl100k_base")  # For token counting
-        self._system_prompt = DEFAULT_PROMPT  # Use the default prompt from constants
-    
-    @property
-    def chat_model(self):
-        """Lazy initialization of chat model with caching"""
-        if not self._chat_model:
-            self._chat_model = ChatModel(api_key=self.api_key, user_id=self.user_id)
-        return self._chat_model
-
-    def _create_new_chat_model(self):
-        """Create a fresh chat model instance for each conversation"""
-        return ChatModel(api_key=self.api_key, user_id=self.user_id)
         
-    def _count_tokens(self, text: str) -> int:
-        """Count the number of tokens in a text string."""
-        return len(self._tokenizer.encode(text))
-
-    def _summarize_history(self, history: List[Dict]) -> str:
-        """Summarize old messages in the conversation history."""
-        try:
-            # Get the most recent messages
-            recent_messages = history[-MAX_MESSAGE_WINDOW:]
-            
-            # Create a summary of older messages
-            older_messages = history[:-MAX_MESSAGE_WINDOW]
-            if not older_messages:
-                return ""
-                
-            summary_prompt = "Summarize the following conversation in a concise way, maintaining the context and key points:\n\n"
-            for msg in older_messages:
-                role = msg.get('role', 'user')
-                content = msg.get('message', '')
-                summary_prompt += f"{role}: {content}\n"
-            
-            # Use the chat model to generate a summary
-            summary = self.chat_model.generate_response(
-                input_text=summary_prompt,
-                system_prompt="You are a helpful assistant that summarizes conversations concisely while maintaining context and key points.",
-                chat_history=[]
-            )
-            
-            return f"[Previous conversation summary: {summary}]\n\n"
-        except Exception as e:
-            logger.error(f"Error summarizing history: {str(e)}")
-            return ""
-
-    def _manage_context_window(self, history: List[Dict]) -> Tuple[List[Dict], str]:
-        """Manage the context window by implementing a sliding window and summarization."""
-        if len(history) <= MAX_MESSAGE_WINDOW:
-            return history, ""
-            
-        # If we have more messages than the window size, summarize older ones
-        if len(history) > SUMMARY_THRESHOLD:
-            summary = self._summarize_history(history)
-            recent_messages = history[-MAX_MESSAGE_WINDOW:]
-            return recent_messages, summary
-            
-        # Otherwise, just keep the most recent messages
-        return history[-MAX_MESSAGE_WINDOW:], ""
-
-    def format_chat_history(self, history: List[Dict]) -> List[Dict]:
-        """Format chat history for the LLM with memory management."""
-        # Apply memory management
-        managed_history, summary = self._manage_context_window(history)
+        # Get API keys from database if user_id is provided, otherwise from environment
+        if user_id:
+            user_model = UserModel(user_id)
+            self.groq_api_key = user_model.get_api_key()
+            if not self.groq_api_key:
+                raise ValueError(f"User {user_id} does not have a GROQ API key set")
+        else:
+            self.groq_api_key = os.getenv('GROQ_API_KEY')
+            if not self.groq_api_key:
+                raise ValueError("GROQ_API_KEY environment variable not set")
         
-        formatted_history = []
-        if summary:
-            formatted_history.append({
-                'role': 'system',
-                'content': summary
-            })
+        # NOMIC API key is still from environment as it's not user-specific
+        self.nomic_api_key = os.getenv('NOMIC_API_KEY')
+        if not self.nomic_api_key:
+            raise ValueError("NOMIC_API_KEY environment variable not set")
             
-        for msg in managed_history:
-            role = 'assistant' if msg.get('role') == 'bot' else msg.get('role', 'user')
-            content = msg.get('message', '')
-            
-            if content and role:
-                formatted_history.append({
-                    'role': role,
-                    'content': content
-                })
-                
-        return formatted_history
+        self.llm = ChatGroq(groq_api_key=self.groq_api_key, model_name="llama-3.3-70b-versatile")
+        self.prompt = self._create_prompt()
+        self.vectors = None
+        self.embeddings = None
+        self.retriever = None
+        self.chain = None
+        self.awaiting_confirmation = False
+        self.support_phone = "+92 317 5161606"
+        self.default_message = "Hi, I need help with my issue."
+        self.document_path = self._resolve_document_path(document_path)
+        self._initialize_embeddings()
+
+    def get_whatsapp_url(self) -> str:
+        """Generate properly formatted WhatsApp URL"""
+        # Remove all non-digit characters
+        clean_phone = ''.join(c for c in self.support_phone if c.isdigit())
+        if clean_phone.startswith('92'):
+            phone_number = clean_phone
+        else:
+            phone_number = '92' + clean_phone.lstrip('0')
         
-    def _cleanup_cache(self):
-        """Clean up expired cache entries"""
-        current_time = time.time()
-        if current_time - self._last_cache_cleanup >= self._cache_cleanup_interval:
-            expired_keys = [
-                key for key, value in self._document_context_cache.items()
-                if current_time - value['timestamp'] >= self._cache_ttl
-            ]
-            for key in expired_keys:
-                del self._document_context_cache[key]
-            self._last_cache_cleanup = current_time
+        # Encode the message
+        encoded_message = quote(self.default_message)
+        return f"https://wa.me/{phone_number}?text={encoded_message}"
 
-    def get_document_context(self, message: str) -> str:
-        """Get relevant context from uploaded documents with optimized caching"""
-        try:
-            # Clean up cache periodically
-            self._cleanup_cache()
-            
-            # Check cache first
-            cache_key = f"{self.user_id}:{message}"
-            cached_result = self._document_context_cache.get(cache_key)
-            if cached_result and time.time() - cached_result['timestamp'] < self._cache_ttl:
-                return cached_result['context']
-
-            if self.vector_store._vectorstore:
-                # Check if the query is asking about a specific page
-                page_match = re.search(r'page\s*(\d+)', message.lower())
-                page_number = int(page_match.group(1)) if page_match else None
-                
-                # Reduce k from 3 to 2 for faster search
-                relevant_docs = self.vector_store.search_similar(message, k=2)
-                if relevant_docs:
-                    context_parts = []
-                    for doc in relevant_docs:
-                        page = doc.metadata.get('page', 1)
-                        if page_number is not None and page != page_number:
-                            continue
-                        context_parts.append(
-                            f"Page {page}:\n{doc.page_content.strip()}"
-                        )
-                    
-                    if context_parts:
-                        context = "Based on the uploaded documents:\n\n" + "\n\n".join(context_parts)
-                        # Cache the result
-                        self._document_context_cache[cache_key] = {
-                            'context': context,
-                            'timestamp': time.time()
-                        }
-                        return context
-                    elif page_number is not None:
-                        return f"I couldn't find any relevant information on page {page_number}."
-            
-            return ""
-            
-        except Exception as e:
-            logger.warning(f"Error retrieving document context: {str(e)}")
-            return ""
-            
-    def process_message(self, message: str, 
-                       conversation_id: Optional[int] = None) -> Dict[str, Any]:
-        """Process a user message and generate a response"""
-        try:
-            # Create new conversation if needed
-            if not conversation_id:
-                conversation_id = self.conversation_model.create_conversation(
-                    title=message[:50]
-                )
-                # For new conversations, don't include any chat history
-                formatted_history = []
+    def _resolve_document_path(self, document_path: Optional[Union[str, Path]]) -> Path:
+        if document_path:
+            doc_path = Path(document_path)
+        else:
+            if os.getenv('DOCKER_ENV') == 'true':
+                doc_path = Path('/app/app/IqbalAI_FAQ.pdf')
             else:
-                # Get and format chat history only for existing conversations
-                raw_history = self.conversation_model.get_chat_history(conversation_id)
-                formatted_history = self.format_chat_history(raw_history)
-            
-            # Save user message
-            self.conversation_model.save_message(
-                conversation_id=conversation_id,
-                message=message,
-                role='user'
-            )
-            
-            # Get document context
-            document_context = self.get_document_context(message)
-            
-            # For debugging
-            logger.debug(f"Formatted history: {formatted_history}")
-            
-            # Enhance system prompt with document context
-            enhanced_prompt = self._system_prompt
-            if document_context:
-                enhanced_prompt = f"{self._system_prompt}\n\nDocument Context:\n{document_context}\n\nWhen answering questions, prioritize information from the provided documents. If the answer is not in the documents, clearly state that and provide a general explanation based on your knowledge."
-            
-            # Generate response
-            response = self.chat_model.generate_response(
-                input_text=message,
-                system_prompt=enhanced_prompt,
-                chat_history=formatted_history
-            )
-            
-            # Save bot response
-            self.conversation_model.save_message(
-                conversation_id=conversation_id,
-                message=response,
-                role='bot'
-            )
-            
-            return {
-                'response': response,
-                'conversation_id': conversation_id
-            }
-            
-        except Exception as e:
-            logger.error(f"Error processing message: {str(e)}")
-            raise
+                doc_path = Path(__file__).parent.parent / 'app' / 'IqbalAI_FAQ.pdf'
 
-    def get_recent_conversations(self, limit: int = 4) -> List[Dict[str, Any]]:
-        """Get user's recent conversations"""
-        try:
-            return self.conversation_model.get_conversations(limit=limit)
-        except Exception as e:
-            logger.error(f"Error retrieving conversations: {str(e)}")
-            raise
-
-    def get_conversation_messages(self, conversation_id: int) -> List[Dict[str, Any]]:
-        """Get messages for a specific conversation"""
-        try:
-            raw_messages = self.conversation_model.get_chat_history(conversation_id)
-            return [
-                {
-                    'role': msg.get('role', 'user'),
-                    'message': msg.get('message', ''),
-                    'created_at': msg.get('created_at', datetime.now().isoformat())
-                }
-                for msg in raw_messages
+        if not doc_path.exists():
+            fallback_paths = [
+                Path('/app/IqbalAI_FAQ.pdf'),
+                Path('app/IqbalAI_FAQ.pdf'),
+                Path(__file__).parent / 'IqbalAI_FAQ.pdf'
             ]
-        except Exception as e:
-            logger.error(f"Error retrieving messages: {str(e)}")
-            raise
+            for alt in fallback_paths:
+                if alt.exists():
+                    return alt
+            raise FileNotFoundError(
+                f"PDF file not found at any known location.\nChecked: {doc_path} and alternatives."
+            )
+        return doc_path
 
-    def create_conversation(self, title: str) -> int:
-        """Create a new conversation and clear user vector store context"""
-        try:
-            # Clear user vector store documents for a truly fresh chat
-            self.vector_store.delete_user_documents()
-            return self.conversation_model.create_conversation(title)
-        except Exception as e:
-            logger.error(f"Error creating conversation: {str(e)}")
-            raise
-
-    def delete_conversation(self, conversation_id: int) -> None:
-        """Delete a conversation"""
-        try:
-            self.conversation_model.delete_conversation(conversation_id)
-        except Exception as e:
-            logger.error(f"Error deleting conversation: {str(e)}")
-            raise
+    def _create_prompt(self) -> ChatPromptTemplate:
+        return ChatPromptTemplate.from_template("""
+       You are a helpful customer support assistant. Answer questions based on the context.
     
-    def update_conversation_title(self, conversation_id: int, new_title: str) -> bool:
-        """Update the title of a conversation"""
+    Response Format Rules:
+    - ALWAYS use proper bullet points (•) for lists, NEVER asterisks (*)
+    - Start each step with "• " (bullet and space)
+    - Put each step on a new line
+    - Keep responses concise
+
+    <context>
+    {context}
+    </context>
+
+    Question: {input}
+
+    Answer:""")
+
+    def _get_document_loader(self):
+        logger.info(f"Document path: {self.document_path}")
+        if not self.document_path.exists():
+            raise FileNotFoundError(f"Path does not exist: {self.document_path}")
+        if self.document_path.is_file() and self.document_path.suffix.lower() == '.pdf':
+            return PyPDFLoader(str(self.document_path))
+        elif self.document_path.is_dir():
+            return PyPDFDirectoryLoader(str(self.document_path))
+        else:
+            raise ValueError("Provided path must be a .pdf file or directory containing PDFs.")
+
+    def _format_docs(self, docs):
+        """Format retrieved documents into a single string"""
+        return "\n\n".join(doc.page_content for doc in docs)
+
+    def _initialize_embeddings(self):
         try:
-            return self.conversation_model.update_conversation_title(conversation_id, new_title)
+            self.embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+
+            loader = self._get_document_loader()
+            docs = loader.load()
+            if not docs:
+                logger.warning("No documents found.")
+                return
+
+            text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+            split_docs = text_splitter.split_documents(docs)
+
+            self.vectors = FAISS.from_documents(split_docs, self.embeddings)
+            self.retriever = self.vectors.as_retriever()
+            
+            # Create the RAG chain using LCEL (pipe operator)
+            self.chain = (
+                {
+                    "context": self.retriever | self._format_docs,
+                    "input": RunnablePassthrough()
+                }
+                | self.prompt
+                | self.llm
+                | StrOutputParser()
+            )
+            
+            logger.info("Vector store and RAG chain initialized.")
         except Exception as e:
-            logger.error(f"Error updating conversation title: {str(e)}")
-            raise
-    
-    def get_conversation_details(self, conversation_id: int) -> Dict[str, Any]:
-        """Get conversation details including title"""
-        try:
-            return self.conversation_model.get_conversation_by_id(conversation_id)
-        except Exception as e:
-            logger.error(f"Error retrieving conversation details: {str(e)}")
+            logger.error(f"API connection failed: {str(e)}")
+            self.vectors = None
+            self.chain = None
             raise
 
-    def clean_old_conversations(self, max_conversations: int = 50) -> None:
-        """Clean up old conversations beyond the maximum limit"""
-        try:
-            conversations = self.conversation_model.get_conversations()
-            if len(conversations) > max_conversations:
-                for conv in conversations[max_conversations:]:
-                    self.delete_conversation(conv['id'])
-        except Exception as e:
-            logger.error(f"Error cleaning old conversations: {str(e)}")
-            raise
-
-    def reset_all_conversations(self) -> None:
-        """Delete all conversations for the current user"""
-        try:
-            conversations = self.conversation_model.get_conversations()
-            for conv in conversations:
-                self.delete_conversation(conv['id'])
-        except Exception as e:
-            logger.error(f"Error resetting conversations: {str(e)}")
-            raise
-
-    def get_token_usage(self) -> Dict[str, Any]:
-        """Get current token usage information"""
-        try:
-            return self.chat_model.get_token_usage()
-        except Exception as e:
-            logger.error(f"Error getting token usage: {str(e)}")
+    def _handle_support_handoff(self, user_response: str) -> dict:
+        """Handle user response to support handoff request."""
+        user_response = user_response.lower().strip()
+        if user_response in ['yes', 'y', 'yeah', 'sure', 'ok', 'okay', 'redirect me']:
+            self.awaiting_confirmation = False
             return {
-                'daily_limit': '100,000',
-                'used_tokens': '0',
-                'requested_tokens': '0',
-                'wait_time': None
+                "redirect": True,
+                "message": "I'm connecting you to our support team on WhatsApp...",
+                "whatsapp_url": self.get_whatsapp_url()
             }
+        elif user_response in ['no', 'n', 'not now']:
+            self.awaiting_confirmation = False
+            return {
+                "redirect": False,
+                "message": "No problem! How else can I assist you today?",
+                "whatsapp_url": ""
+            }
+        else:
+            return {
+                "redirect": False,
+                "message": "I didn't understand. Would you like me to connect you with human support? (yes/no)",
+                "whatsapp_url": ""
+            }
+
+    def get_response(self, question: str) -> dict:
+        """Get response from chatbot. Returns dict with response and redirect info."""
+        if not question.strip():
+            return {
+                "redirect": False,
+                "message": "Please ask a valid question.",
+                "whatsapp_url": ""
+            }
+            
+        if self.awaiting_confirmation:
+            return self._handle_support_handoff(question)
+            
+        if not self.chain:
+            return {
+                "redirect": True,
+                "message": "Our knowledge base is unavailable. Please contact our support team on WhatsApp.",
+                "whatsapp_url": self.get_whatsapp_url()
+            }
+            
+        try:
+            # Use the LCEL chain with pipe operator
+            bot_answer = self.chain.invoke(question)
+            formatted_answer = self._format_response(bot_answer)
+            
+            # Check if the bot couldn't answer (fallback response)
+            fallback_phrases = [
+                "I'm not sure", 
+                "I don't know", 
+                "Sorry", 
+                "unable to help", 
+                "I couldn't find",
+                "connect you"
+            ]
+            
+            if any(phrase.lower() in bot_answer.lower() for phrase in fallback_phrases):
+                self.awaiting_confirmation = True
+                return {
+                    "redirect": False,
+                    "message": "I couldn't find that information. Would you like me to connect you with our human support team on WhatsApp? (yes/no)",
+                    "whatsapp_url": ""
+                }
+                
+            return {
+                "redirect": False,
+                "message": formatted_answer,
+                "whatsapp_url": ""
+            }
+            
+        except Exception as e:
+            logger.error(f"Error during response generation: {e}")
+            return {
+                "redirect": True,
+                "message": "I'm having trouble answering that. You can contact our support team on WhatsApp.",
+                "whatsapp_url": self.get_whatsapp_url()
+            }
+        
+    def update_documents(self, new_path: Union[str, Path]):
+        self.document_path = Path(new_path)
+        self._initialize_embeddings()
+    
+    def _format_response(self, text: str) -> str:
+        """Format the response text for better readability"""
+        text = text.replace("• ", "- ")
+        lines = text.split('\n')
+        formatted_lines = []
+        for line in lines:
+            if line.strip().startswith(('1.', '2.', '3.', '4.', '5.')):
+                line = "- " + line[2:].strip()
+            formatted_lines.append(line)
+        return '\n'.join(formatted_lines)
