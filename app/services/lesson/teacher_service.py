@@ -20,6 +20,8 @@ from .base_service import BaseLessonService
 from .models import LessonResponse, LessonPlan
 from .rag_service import RAGService
 
+from app.models.models import LessonModel
+
 logger = logging.getLogger(__name__)
 
 # Set up detailed teacher service logging
@@ -106,6 +108,11 @@ class TeacherLessonService(BaseLessonService):
                 teacher_logger.error(f"RAG processing failed: {rag_result['error']}")
                 return rag_result
             
+            # Store the original document's RAG service immediately after processing
+            if rag_result['use_rag']:
+                self._store_original_document_rag(file.filename)
+                teacher_logger.info("Original document RAG service stored for AI review")
+            
             # Check if RAG should be used
             if rag_result['use_rag']:
                 teacher_logger.info("Using RAG for large document processing")
@@ -124,7 +131,7 @@ class TeacherLessonService(BaseLessonService):
                 
                 # Generate lesson using RAG prompt
                 teacher_logger.info("Starting AI lesson generation with RAG")
-                lesson_data = self._generate_structured_lesson_with_rag(rag_prompt, lesson_details)
+                lesson_response = self._llm_responce(rag_prompt, lesson_details)
             else:
                 teacher_logger.info("Document is small, using direct processing")
                 
@@ -141,38 +148,32 @@ class TeacherLessonService(BaseLessonService):
                 
                 # Generate structured lesson
                 teacher_logger.info("Starting AI lesson generation")
-                lesson_data = self._generate_structured_lesson(full_text, lesson_details)
+                lesson_response = self._generate_structured_lesson(full_text, lesson_details)
             
-            if 'error' in lesson_data:
-                teacher_logger.error(f"Lesson generation failed: {lesson_data['error']}")
-                return lesson_data
+            # Check if lesson generation was successful
+            if lesson_response.startswith("Error generating lesson:"):
+                teacher_logger.error(f"Lesson generation failed: {lesson_response}")
+                return {"error": lesson_response}
             
             teacher_logger.info("Lesson generation completed successfully")
-            teacher_logger.info(f"Generated lesson type: {lesson_data.get('response_type', 'unknown')}")
-            
-            # Store lesson content in vector database for future AI review
-            if lesson_data.get('response_type') == 'lesson_plan' and 'lesson' in lesson_data:
-                lesson_content = self._extract_lesson_text_for_rag(lesson_data['lesson'])
-                if lesson_content:
-                    self._store_lesson_in_vector_db(lesson_content, file.filename)
-                    teacher_logger.info("Lesson content stored in vector database for AI review")
-            
-            # Generate DOCX if it's a lesson plan
-            if lesson_data.get('response_type') == 'lesson_plan' and 'lesson' in lesson_data:
+            teacher_logger.info(f"Generated lesson response length: {len(lesson_response)} characters")
+
+            # Generate DOCX from the lesson response
+            if lesson_response and not lesson_response.startswith("Error"):
                 teacher_logger.info("Generating DOCX document")
-                docx_bytes = self._create_docx(lesson_data['lesson'])
+                docx_bytes = self._create_docx_from_text(lesson_response, lesson_details)
                 base_name = os.path.splitext(file.filename)[0]
                 filename = f"lesson_{base_name}.docx"
                 teacher_logger.info(f"DOCX generated: {filename}, size: {len(docx_bytes)} bytes")
             else:
-                teacher_logger.info("Skipping DOCX generation for direct answer")
+                teacher_logger.info("Skipping DOCX generation due to error")
                 docx_bytes = None
                 filename = None
             
             teacher_logger.info("=== TEACHER FILE PROCESSING COMPLETED ===")
             
             return {
-                "lesson": lesson_data,
+                "lesson": lesson_response,
                 "docx_bytes": docx_bytes,
                 "filename": filename
             }
@@ -192,16 +193,110 @@ class TeacherLessonService(BaseLessonService):
                     teacher_logger.warning(f"Could not remove temporary file {temp_path}: {str(e)}")
                     logger.warning(f"Could not remove temporary file {temp_path}: {str(e)}")
 
-    def _generate_structured_lesson_with_rag(self, rag_prompt: str, lesson_details: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+
+    def interactive_chat(self, lesson_id: int, user_query: str) -> str:
+        """Interactive chat with the lesson"""
+        # Retrieve relevant chunks
+        relevant_chunks = self.rag_service.retrieve_relevant_chunks(user_query, k=5)
+        if not relevant_chunks:
+            teacher_logger.warning("No relevant chunks found, using first few chunks")
+            relevant_chunks = self.rag_service.documents[:3]
+        
+        # Create RAG prompt
+        rag_prompt = self.rag_service.create_rag_prompt(user_prompt, relevant_chunks, lesson_details)
+        
+        # Generate lesson using RAG prompt
+        teacher_logger.info("Starting AI lesson generation with RAG")
+        lesson_response = self._llm_responce(rag_prompt, lesson_details)
+        return lesson_response
+
+
+        return 
+    # def _generate_structured_lesson_with_rag(self, rag_prompt: str, lesson_details: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    #     """
+    #     Generate structured lesson using RAG prompt (for large documents)
+        
+    #     Args:
+    #         rag_prompt: Pre-formatted prompt with retrieved context
+    #         lesson_details: Additional lesson details
+            
+    #     Returns:
+    #         Dictionary with lesson data or error
+    #     """
+    #     teacher_logger.info("=== AI LESSON GENERATION WITH RAG STARTED ===")
+    #     teacher_logger.info(f"RAG prompt length: {len(rag_prompt)} characters")
+        
+    #     try:
+    #         # Use the RAG prompt directly with the LLM
+    #         response = self.llm.invoke(rag_prompt)
+
+    #         teacher_logger.info("LLM response received")
+            
+    #         # Extract content from AIMessage if needed
+    #         if hasattr(response, 'content'):
+    #             response_content = response.content
+    #         else:
+    #             response_content = str(response)
+            
+    #         # Check if the response is in JSON format and extract the actual content
+    #         try:
+    #             import json
+    #             parsed_response = json.loads(response_content)
+    #             if isinstance(parsed_response, dict) and 'answer' in parsed_response:
+    #                 response_content = parsed_response['answer']
+    #             elif isinstance(parsed_response, dict) and 'response' in parsed_response:
+    #                 response_content = parsed_response['response']
+    #             elif isinstance(parsed_response, dict) and 'content' in parsed_response:
+    #                 response_content = parsed_response['content']
+    #         except (json.JSONDecodeError, AttributeError):
+    #             pass
+            
+    #         teacher_logger.info(f"Response content length: {len(response_content)} characters")
+            
+    #         # Parse the response
+    #         if lesson_details and self._user_wants_lesson_plan(lesson_details.get('lesson_prompt', '')):
+    #             # Try to parse as structured lesson plan
+    #             try:
+    #                 parser = PydanticOutputParser(pydantic_object=LessonResponse)
+    #                 lesson_response = parser.parse(response_content)
+    #                 teacher_logger.info("Successfully parsed as lesson plan")
+    #                 return {
+    #                     "response_type": "lesson_plan",
+    #                     "lesson": lesson_response.dict(),
+    #                     "user_question": lesson_details.get('lesson_prompt', '')
+    #                 }
+    #             except Exception as e:
+    #                 teacher_logger.warning(f"Failed to parse as lesson plan: {str(e)}")
+    #                 # Fallback to direct answer
+    #                 return {
+    #                     "response_type": "direct_answer",
+    #                     "answer": response_content,
+    #                     "user_question": lesson_details.get('lesson_prompt', '')
+    #                 }
+    #         else:
+    #             # Direct answer
+    #             teacher_logger.info("Generated direct answer")
+    #             return {
+    #                 "response_type": "direct_answer",
+    #                 "answer": response_content,
+    #                 "user_question": lesson_details.get('lesson_prompt', '') if lesson_details else ''
+    #             }
+                
+    #     except Exception as e:
+    #         teacher_logger.error(f"Error in RAG lesson generation: {str(e)}")
+    #         return {"error": f"Error generating lesson: {str(e)}"}
+
+
+    def _llm_responce(self, rag_prompt: str, lesson_details: Optional[Dict[str, str]] = None) -> str:
         """
-        Generate structured lesson using RAG prompt (for large documents)
+        Generate lesson response using RAG prompt (for large documents)
         
         Args:
             rag_prompt: Pre-formatted prompt with retrieved context
             lesson_details: Additional lesson details
             
         Returns:
-            Dictionary with lesson data or error
+            String response from LLM
         """
         teacher_logger.info("=== AI LESSON GENERATION WITH RAG STARTED ===")
         teacher_logger.info(f"RAG prompt length: {len(rag_prompt)} characters")
@@ -211,62 +306,26 @@ class TeacherLessonService(BaseLessonService):
             response = self.llm.invoke(rag_prompt)
             teacher_logger.info("LLM response received")
             
-            # Extract content from AIMessage if needed
+            # Extract content from AIMessage
             if hasattr(response, 'content'):
                 response_content = response.content
             else:
                 response_content = str(response)
             
-            # Check if the response is in JSON format and extract the actual content
-            try:
-                import json
-                parsed_response = json.loads(response_content)
-                if isinstance(parsed_response, dict) and 'answer' in parsed_response:
-                    response_content = parsed_response['answer']
-                elif isinstance(parsed_response, dict) and 'response' in parsed_response:
-                    response_content = parsed_response['response']
-                elif isinstance(parsed_response, dict) and 'content' in parsed_response:
-                    response_content = parsed_response['content']
-            except (json.JSONDecodeError, AttributeError):
-                pass
-            
             teacher_logger.info(f"Response content length: {len(response_content)} characters")
+            teacher_logger.info("=== AI LESSON GENERATION WITH RAG COMPLETED ===")
             
-            # Parse the response
-            if lesson_details and self._user_wants_lesson_plan(lesson_details.get('lesson_prompt', '')):
-                # Try to parse as structured lesson plan
-                try:
-                    parser = PydanticOutputParser(pydantic_object=LessonResponse)
-                    lesson_response = parser.parse(response_content)
-                    teacher_logger.info("Successfully parsed as lesson plan")
-                    return {
-                        "response_type": "lesson_plan",
-                        "lesson": lesson_response.dict(),
-                        "user_question": lesson_details.get('lesson_prompt', '')
-                    }
-                except Exception as e:
-                    teacher_logger.warning(f"Failed to parse as lesson plan: {str(e)}")
-                    # Fallback to direct answer
-                    return {
-                        "response_type": "direct_answer",
-                        "answer": response_content,
-                        "user_question": lesson_details.get('lesson_prompt', '')
-                    }
-            else:
-                # Direct answer
-                teacher_logger.info("Generated direct answer")
-                return {
-                    "response_type": "direct_answer",
-                    "answer": response_content,
-                    "user_question": lesson_details.get('lesson_prompt', '') if lesson_details else ''
-                }
+            return response_content
                 
         except Exception as e:
             teacher_logger.error(f"Error in RAG lesson generation: {str(e)}")
-            return {"error": f"Error generating lesson: {str(e)}"}
+            return f"Error generating lesson: {str(e)}"
 
-    def _generate_structured_lesson(self, text: str, lesson_details: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
-        """Generate structured lesson or direct answer based on user intent."""
+
+        
+
+    def _generate_structured_lesson(self, text: str, lesson_details: Optional[Dict[str, str]] = None) -> str:
+        """Generate lesson response based on user intent."""
         teacher_logger.info("=== AI LESSON GENERATION STARTED ===")
         teacher_logger.info(f"Text length: {len(text)} characters")
         
@@ -290,57 +349,46 @@ class TeacherLessonService(BaseLessonService):
             teacher_logger.info(f"Grade level: {grade_level}")
             teacher_logger.info(f"Focus area: {focus_area}")
 
-            # Simple logic: Check if user wants a lesson plan or just an answer
-            wants_lesson_plan = self._user_wants_lesson_plan(user_prompt)
-            teacher_logger.info(f"User intent analysis: wants_lesson_plan = {wants_lesson_plan}")
-            
-            if wants_lesson_plan:
-                teacher_logger.info("Generating comprehensive lesson plan")
-                logger.info("User wants a lesson plan - generating comprehensive lesson")
-                return self._generate_lesson_plan(text, user_prompt, grade_level, focus_area)
-            else:
-                teacher_logger.info("Generating direct answer")
-                logger.info("User wants a direct answer - providing detailed response")
-                return self._generate_direct_answer(text, user_prompt)
+            return self._generate_direct_answer(text, user_prompt)
 
         except Exception as e:
             teacher_logger.error(f"Structured lesson generation failed: {str(e)}")
             logger.error(f"Error generating structured lesson: {str(e)}", exc_info=True)
-            return self._create_fallback_lesson(text)
+            return f"Error generating lesson: {str(e)}"
 
-    def _user_wants_lesson_plan(self, user_prompt: str) -> bool:
-        """Determine if user wants a lesson plan or just an answer"""
-        if not user_prompt:
-            return True  # Default to lesson plan if no prompt
+    # def _user_wants_lesson_plan(self, user_prompt: str) -> bool:
+    #     """Determine if user wants a lesson plan or just an answer"""
+    #     if not user_prompt:
+    #         return True  # Default to lesson plan if no prompt
         
-        # Keywords that indicate user wants a lesson plan
-        lesson_keywords = [
-            "generate lesson", "create lesson", "make lesson", "lesson plan",
-            "teaching plan", "educational plan", "curriculum", "syllabus",
-            "lesson from", "lesson based on", "teach this", "explain as lesson"
-        ]
+    #     # Keywords that indicate user wants a lesson plan
+    #     lesson_keywords = [
+    #         "generate lesson", "create lesson", "make lesson", "lesson plan",
+    #         "teaching plan", "educational plan", "curriculum", "syllabus",
+    #         "lesson from", "lesson based on", "teach this", "explain as lesson"
+    #     ]
         
-        # Keywords that indicate user wants a direct answer
-        question_keywords = [
-            "what is", "how does", "explain", "tell me", "describe",
-            "why", "when", "where", "which", "who", "how",
-            "question", "answer", "help me understand"
-        ]
+    #     # Keywords that indicate user wants a direct answer
+    #     question_keywords = [
+    #         "what is", "how does", "explain", "tell me", "describe",
+    #         "why", "when", "where", "which", "who", "how",
+    #         "question", "answer", "help me understand"
+    #     ]
         
-        prompt_lower = user_prompt.lower()
+    #     prompt_lower = user_prompt.lower()
         
-        # Check for lesson keywords first
-        for keyword in lesson_keywords:
-            if keyword in prompt_lower:
-                return True
+    #     # Check for lesson keywords first
+    #     for keyword in lesson_keywords:
+    #         if keyword in prompt_lower:
+    #             return True
         
-        # Check for question keywords
-        for keyword in question_keywords:
-            if keyword in prompt_lower:
-                return False
+    #     # Check for question keywords
+    #     for keyword in question_keywords:
+    #         if keyword in prompt_lower:
+    #             return False
         
-        # Default to lesson plan if unclear
-        return True
+    #     # Default to lesson plan if unclear
+    #     return True
 
     def _generate_lesson_plan(self, text: str, user_prompt: str, grade_level: str, focus_area: str) -> Dict[str, Any]:
         """Generate a comprehensive lesson plan"""
@@ -424,7 +472,7 @@ Focus on subject area: {focus_area}
             logger.error(f"Error generating lesson plan: {str(e)}")
             return self._create_fallback_lesson(text)
 
-    def _generate_direct_answer(self, text: str, user_prompt: str) -> Dict[str, Any]:
+    def _generate_direct_answer(self, text: str, user_prompt: str) -> str:
         """Generate a direct detailed answer to user's question"""
         teacher_logger.info("=== DIRECT ANSWER GENERATION STARTED ===")
         teacher_logger.info(f"Text length: {len(text)}")
@@ -447,39 +495,23 @@ Answer:"""
 
             teacher_logger.info("Invoking LLM for direct answer")
             response = self.llm.invoke(answer_prompt)
-            answer_text = response.content.strip() if hasattr(response, 'content') else str(response).strip()
             
-            # Check if the response is in JSON format and extract the actual content
-            try:
-                import json
-                parsed_response = json.loads(answer_text)
-                if isinstance(parsed_response, dict) and 'answer' in parsed_response:
-                    answer_text = parsed_response['answer']
-                elif isinstance(parsed_response, dict) and 'response' in parsed_response:
-                    answer_text = parsed_response['response']
-                elif isinstance(parsed_response, dict) and 'content' in parsed_response:
-                    answer_text = parsed_response['content']
-            except (json.JSONDecodeError, AttributeError):
-                pass
+            # Extract content from AIMessage
+            if hasattr(response, 'content'):
+                answer_text = response.content.strip()
+            else:
+                answer_text = str(response).strip()
             
             teacher_logger.info(f"Direct answer generated successfully - length: {len(answer_text)}")
             teacher_logger.info("=== DIRECT ANSWER GENERATION COMPLETED ===")
             logger.info(f"Generated direct answer (length: {len(answer_text)})")
             
-            return {
-                "response_type": "direct_answer",
-                "user_question": user_prompt,
-                "answer": answer_text
-            }
+            return answer_text
             
         except Exception as e:
             teacher_logger.error(f"Direct answer generation failed: {str(e)}")
             logger.error(f"Error generating direct answer: {str(e)}")
-            return {
-                "response_type": "direct_answer",
-                "user_question": user_prompt,
-                "answer": f"I apologize, but I encountered an error while processing your question: {str(e)}"
-            }
+            return f"I apologize, but I encountered an error while processing your question: {str(e)}"
 
     def _create_fallback_lesson(self, text: str) -> Dict[str, Any]:
         """Create a fallback lesson when AI generation fails"""
@@ -596,6 +628,32 @@ Answer:"""
             teacher_logger.error(f"Error extracting lesson text for RAG: {str(e)}")
             return ""
 
+    def _store_original_document_rag(self, filename: str):
+        """Store the original document's RAG service for AI review"""
+        try:
+            # Create a unique key for this document
+            document_key = f"document_{filename}_{hash(filename) % 10000}"
+            
+            # Store the current RAG service instance (which contains the original document)
+            if hasattr(self.rag_service, 'vector_store') and self.rag_service.vector_store:
+                # Create a copy of the RAG service to avoid overwriting
+                from copy import deepcopy
+                rag_service_copy = deepcopy(self.rag_service)
+                
+                self.lesson_vector_stores[document_key] = {
+                    'rag_service': rag_service_copy,
+                    'filename': filename,
+                    'content': 'original_document',  # Mark as original document
+                    'type': 'original_document'
+                }
+                teacher_logger.info(f"Original document RAG service stored with key: {document_key}")
+                teacher_logger.info(f"Vector store contains {len(rag_service_copy.documents)} chunks")
+            else:
+                teacher_logger.warning("No vector store available to store")
+                
+        except Exception as e:
+            teacher_logger.error(f"Error storing original document RAG: {str(e)}")
+
     def _store_lesson_in_vector_db(self, lesson_content: str, filename: str):
         """Store lesson content in vector database for AI review"""
         try:
@@ -664,64 +722,107 @@ Answer:"""
             # Generate response using RAG
             teacher_logger.info("Generating RAG-based response")
             response = self.llm.invoke(rag_prompt)
-            response_content = response.content if hasattr(response, 'content') else str(response)
+
+            response=response.content
+            
+            # response_content = response.content if hasattr(response, 'content') else str(response)
+
+            
             
             # Check if the response is in JSON format and extract the actual content
-            try:
-                import json
-                parsed_response = json.loads(response_content)
-                if isinstance(parsed_response, dict) and 'answer' in parsed_response:
-                    response_content = parsed_response['answer']
-                elif isinstance(parsed_response, dict) and 'response' in parsed_response:
-                    response_content = parsed_response['response']
-                elif isinstance(parsed_response, dict) and 'content' in parsed_response:
-                    response_content = parsed_response['content']
-            except (json.JSONDecodeError, AttributeError):
-                pass
+            # try:
+            #     import json
+            #     parsed_response = json.loads(response_content)
+            #     if isinstance(parsed_response, dict) and 'answer' in parsed_response:
+            #         response_content = parsed_response['answer']
+            #     elif isinstance(parsed_response, dict) and 'response' in parsed_response:
+            #         response_content = parsed_response['response']
+            #     elif isinstance(parsed_response, dict) and 'content' in parsed_response:
+            #         response_content = parsed_response['content']
+            # except (json.JSONDecodeError, AttributeError):
+            #     pass
             
             teacher_logger.info("=== RAG-BASED LESSON REVIEW COMPLETED ===")
-            return response_content
+            return response
             
         except Exception as e:
             teacher_logger.error(f"Error in RAG-based lesson review: {str(e)}")
             # Fallback to regular improvement
-            return self.improve_lesson_content(0, lesson_content, user_prompt)
+            return "no relevant info found"
+            # return self.improve_lesson_content(0, lesson_content, user_prompt)
 
     def improve_lesson_content(self, lesson_id: int, current_content: str, improvement_prompt: str = "") -> str:
         """Improve lesson content using AI based on user prompt"""
         try:
             # Create improvement prompt
+            #fetch the original content from lesson id
+            original_content = LessonModel.get_lesson_by_id(lesson_id)['original_content']
             if improvement_prompt:
-                prompt = f"""
-                You are an expert teacher. Please improve the following lesson content based on the user's specific request.
                 
-                User's Improvement Request:
-                {improvement_prompt}
-                
-                Current Lesson Content:
-                {current_content}
-                
-                Please provide an improved version of the lesson content that addresses the user's request.
-                Maintain the same structure and format, but enhance the content according to the improvement request.
-                Return only the improved content, no additional explanations.
-                """
-            else:
-                prompt = f"""
-                You are an expert teacher. Please improve the following lesson content to make it more engaging, 
-                comprehensive, and effective for students.
-                
-                Current Lesson Content:
-                {current_content}
-                
-                Please provide an improved version that:
-                1. Enhances clarity and readability
-                2. Adds more examples and explanations where needed
-                3. Improves the overall educational value
-                4. Maintains the same structure and format
-                
-                Return only the improved content, no additional explanations.
-                """
+                prompt = f"""You are an expert assistant. Improve or modify the following content based on the user's specific request or if user ask any question from the content also respond the answer from the content as well.
+
+            User's Request:
+            {improvement_prompt}
+
+            Original Content:
+            {original_content}
+
+            Current Content:
+            {current_content}
+
+            CRITICAL INSTRUCTIONS:
+
+            1. CONTENT SOURCES:
+            - You have access to BOTH the original and current versions of the content
+            - Use whichever version (or combination of both) best fulfills the user's request
+            - If user wants to add back something from original: Pull from original content
+            - If user wants to keep recent changes: Use current content
+            - If user wants the best of both: Intelligently combine information from both versions
+            - Default: Use current content as the primary base, but reference original if it helps
+
+            2. MANDATORY FORMAT - Always use proper markdown formatting:
+            - Use ## for main headers, ### for subheaders
+            - Use **bold** for key terms and important concepts
+            - Use - or * for bullet points
+            - Use 1. 2. 3. for numbered lists
+            - Use > for quotes or callouts
+            - Use `code` for technical terms when appropriate
+            - EXCEPTION: If user requests "one line" or "single line", output everything as ONE CONTINUOUS SENTENCE with NO line breaks, but still use **bold** and *italic* for emphasis
+
+            3. CONTENT MODIFICATIONS based on user request:
+            - "one line" or "single line" or "give me response in one line": 
+                * MUST condense EVERYTHING into literally ONE SENTENCE
+                * NO line breaks, NO bullet points, NO numbered lists, NO headers
+                * Use **bold** for key terms within that single sentence
+                * Example: "**John Doe** is a software engineer specializing in web development, cloud computing, and AI integration with 5 years of experience building scalable applications."
             
+            - "concise" or "summary": 2-4 sentences with markdown formatting
+            
+            - "detailed" or "expanded": Multiple paragraphs with full markdown structure (headers, bullets, bold terms)
+            
+            - "structured": Organize with clear headers, subheaders, and bullet points
+            
+            - "combine both versions": Merge the best elements from original and current
+            
+            - "use original" or "revert to original": Base response primarily on original content
+            
+            - Any other request: Apply it flexibly using information from both versions as needed
+
+            4. ABSOLUTE RULES:
+            - If user says "one line" → Output must be EXACTLY one continuous sentence, no exceptions
+            - For all other requests: ALWAYS use proper markdown formatting
+            - User's request is the TOP priority - use original, current, or both as needed to satisfy it
+            - Return ONLY the improved content
+            - NO meta-commentary like "Since the user requested..." or "I have condensed..."
+            - NO explanations about what you did or why
+            - Just return the final improved content directly
+
+            ##always follow this instruction##
+              when user ask the question from the content also give the answer consiley if user exlicity request for
+              **one** line answer also give the answer in one line
+              if user say gave me two line answer gove the answer in two line
+              if the user say give me detailed answer give the answer in detailed manner
+            """
             # Generate improved content using LLM
             response = self.llm.invoke(prompt)
             improved_content = response.content.strip()
@@ -750,8 +851,104 @@ Answer:"""
             # Return original content if improvement fails
             return current_content
 
-    def edit_lesson_with_prompt(self, lesson_text: str, user_prompt: str) -> str:
-        """Use a FAISS vector database for semantic chunk retrieval and editing"""
+    def edit_lesson_with_prompt(self, lesson_text: str, user_prompt: str, filename: str = "") -> str:
+        """Use RAG system for semantic chunk retrieval and editing"""
+        try:
+            teacher_logger.info("=== AI REVIEW WITH RAG STARTED ===")
+            teacher_logger.info(f"User prompt: {user_prompt}")
+            teacher_logger.info(f"Filename: {filename}")
+            teacher_logger.info(f"Lesson text length: {len(lesson_text)}")
+            
+            # Try to find existing vector store for this lesson/document
+            lesson_key = None
+            for key, store_data in self.lesson_vector_stores.items():
+                if (store_data['filename'] == filename or filename in store_data['filename']) and store_data.get('type') == 'original_document':
+                    lesson_key = key
+                    break
+
+            #retced the relevnt chunk from saved faiss
+            from langchain_community.vectorstores import FAISS
+            from langchain_community.embeddings import HuggingFaceEmbeddings
+            import tempfile
+            import os
+            # embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+
+            # vector_db = FAISS.load_local("vector_store.faiss", embeddings, allow_dangerous_deserialization=True)
+            # relevant_docs = vector_db.similarity_search(user_prompt, k=10)
+            # # relevant_texts = [doc.page_content for doc in relevant_docs]
+            # # lesson_text=["\n the previous version context".join(lesson_text)]
+
+            # lesson_doc = Document(page_content="\n the previous version context".join(lesson_text))
+            # relevant_docs.append(lesson_doc)
+            from langchain_core.documents import Document
+            from langchain_community.vectorstores import FAISS
+            from langchain_community.embeddings import HuggingFaceEmbeddings
+
+            embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+            vector_db = FAISS.load_local("vector_store.faiss", embeddings, allow_dangerous_deserialization=True)
+
+            # Retrieve relevant docs (these are already Document objects)
+            relevant_docs = vector_db.similarity_search(user_prompt, k=10)
+
+            # Add the full lesson text as another Document
+            lesson_doc = Document(page_content="\n the previous version context".join(lesson_text))
+            relevant_docs.append(lesson_doc)
+            #combined with relevant chunks
+            # relevant_texts=relevant_texts+lesson_text
+            rag_service=RAGService()
+
+            
+
+            #combine
+            rag_prompt = rag_service.create_rag_prompt(user_prompt, relevant_docs)
+                
+                # Generate response using RAG
+            teacher_logger.info("Generating RAG-based response from original document")
+            response = self.llm.invoke(rag_prompt)
+            response_content = response.content
+            return response_content
+            
+            if lesson_key and lesson_key in self.lesson_vector_stores:
+                teacher_logger.info(f"Using existing original document vector store: {lesson_key}")
+                rag_service = self.lesson_vector_stores[lesson_key]['rag_service']
+                
+                # Retrieve relevant chunks from original document
+                relevant_chunks = rag_service.retrieve_relevant_chunks(user_prompt, k=10)
+                if not relevant_chunks:
+                    teacher_logger.warning("No relevant chunks found, using first few chunks")
+                    relevant_chunks = rag_service.documents[:9]
+                
+                # Create RAG prompt with retrieved context
+                rag_prompt = rag_service.create_rag_prompt(user_prompt, relevant_chunks)
+                
+                # Generate response using RAG
+                teacher_logger.info("Generating RAG-based response from original document")
+                response = self.llm.invoke(rag_prompt)
+                
+                if hasattr(response, 'content'):
+                    response_content = response.content
+                else:
+                    response_content = str(response)
+                
+                teacher_logger.info("=== AI REVIEW WITH RAG COMPLETED ===")
+                return response_content
+                
+            else:
+                teacher_logger.info("No existing original document vector store found, creating new one from lesson text")
+
+                print("-----------------------fallback responce---------------------")
+                print(lesson_text)
+                print("-----------------------fallback responce---------------------")
+                # Fallback to creating vector store from lesson text
+                return self._edit_lesson_with_fallback_rag(lesson_text, user_prompt)
+                
+        except Exception as e:
+            teacher_logger.error(f"Error in RAG-based lesson editing: {str(e)}")
+            # Fallback to simple editing
+            return self._edit_lesson_simple(lesson_text, user_prompt)
+    
+    def _edit_lesson_with_fallback_rag(self, lesson_text: str, user_prompt: str) -> str:
+        """Fallback method to create RAG from lesson text"""
         try:
             from langchain_community.vectorstores import FAISS
             from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -780,10 +977,10 @@ Answer:"""
                 edited_chunks = {}
                 for text in relevant_texts:
                     edit_prompt = (
-                        f"You are an expert teacher assistant. Here is a lesson chunk in markdown:\n\n"
+                        f"You are an expert teacher assistant. Here is a lesson chunk:\n\n"
                         f"{text}\n\n"
                         f"User request: {user_prompt}\n\n"
-                        f"Please return the revised lesson chunk in markdown only."
+                        f"Please return the revised lesson chunk."
                     )
                     response = self.llm.invoke(edit_prompt)
                     edited = response.content if hasattr(response, 'content') else str(response)
@@ -809,7 +1006,29 @@ Answer:"""
             # 6. Reconstruct and return the lesson
             return '\n\n'.join(new_chunks)
         except Exception as e:
-            logger.error(f"Error editing lesson with prompt: {str(e)}", exc_info=True)
+            logger.error(f"Error in fallback RAG editing: {str(e)}", exc_info=True)
+            return self._edit_lesson_simple(lesson_text, user_prompt)
+    
+    def _edit_lesson_simple(self, lesson_text: str, user_prompt: str) -> str:
+        """Simple editing without RAG"""
+        try:
+            edit_prompt = f"""You are an expert teacher assistant. Please improve the following lesson content based on the user's request.
+
+Lesson Content:
+{lesson_text}
+
+User Request:
+{user_prompt}
+
+Please provide an improved version of the lesson content that addresses the user's request. Return only the improved content."""
+
+            response = self.llm.invoke(edit_prompt)
+            if hasattr(response, 'content'):
+                return response.content
+            else:
+                return str(response)
+        except Exception as e:
+            logger.error(f"Error in simple lesson editing: {str(e)}")
             return lesson_text
 
     def create_ppt(self, lesson_data: dict) -> bytes:
@@ -1030,6 +1249,35 @@ Answer:"""
         except Exception as e:
             logger.error(f"Error creating PPTX: {str(e)}", exc_info=True)
             return b''
+
+    def _create_docx_from_text(self, lesson_text: str, lesson_details: Optional[Dict[str, str]] = None) -> bytes:
+        """Create DOCX from plain text lesson response"""
+        try:
+            doc = DocxDocument()
+            
+            # Add title
+            title = lesson_details.get('lesson_title', 'Generated Lesson') if lesson_details else 'Generated Lesson'
+            doc.add_heading(title, level=1)
+            
+            # Add lesson content
+            doc.add_paragraph(lesson_text)
+            
+            # Save to bytes buffer
+            buffer = BytesIO()
+            doc.save(buffer)
+            buffer.seek(0)
+            return buffer.getvalue()
+            
+        except Exception as e:
+            logger.error(f"Error creating DOCX from text: {str(e)}")
+            # Return a simple DOCX with error message
+            doc = DocxDocument()
+            doc.add_heading("Lesson Generation", level=1)
+            doc.add_paragraph("A lesson has been generated from your content.")
+            buffer = BytesIO()
+            doc.save(buffer)
+            buffer.seek(0)
+            return buffer.getvalue()
 
     def _create_docx(self, lesson_data: Dict[str, Any]) -> bytes:
         """Convert structured lesson to DOCX format with improved formatting"""

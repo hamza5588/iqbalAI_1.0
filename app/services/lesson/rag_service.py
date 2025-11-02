@@ -50,7 +50,7 @@ class RAGService:
             
             # Check if document is large enough for RAG
             total_text = "\n".join([doc.page_content for doc in documents])
-            if len(total_text) < 5000:  # Small documents don't need RAG
+            if len(total_text) < 400:  # Small documents don't need RAG
                 logger.info("Document is small, RAG not needed")
                 return {
                     'use_rag': False,
@@ -58,8 +58,22 @@ class RAGService:
                 }
             
             # Split documents into chunks
+            # all_chunks = []
+            # for doc in documents:
+            #     chunks = self.text_splitter.split_documents([doc])
+            #     all_chunks.extend(chunks)
+            # 
+
+
+            
+            from langchain_core.documents import Document
+
             all_chunks = []
-            for doc in documents:
+            for doc_text in documents:
+                if isinstance(doc_text, str):
+                    doc = Document(page_content=doc_text)
+                else:
+                    doc = doc_text
                 chunks = self.text_splitter.split_documents([doc])
                 all_chunks.extend(chunks)
             
@@ -68,6 +82,13 @@ class RAGService:
             # Create embeddings and vector store
             self.documents = all_chunks
             self.vector_store = FAISS.from_documents(all_chunks, self.embeddings)
+            #saved the vector
+
+            self.vector_store.save_local("vector_store.faiss")
+
+            
+           
+            logger.info("Vector store saved successfully")
             self.use_rag = True
             
             logger.info("Vector store created successfully")
@@ -126,41 +147,27 @@ class RAGService:
             context = "\n\n".join([chunk.page_content for chunk in relevant_chunks])
             
             # Create base prompt
-            prompt = f"""You are an expert teacher. Based on the following context from the document, please address the user's request.
+            prompt = f"""
+            You are an intelligent and articulate assistant that answers questions using a provided document.
+            If the document does not contain the information, you may use your general knowledge.
 
-Document Context:
-{context}
+            INSTRUCTIONS:
+            1. Read the user's question carefully and focus only on what they are asking.
+            2. Understand the user’s intent and adjust the level of detail accordingly:
+            - If the user asks for a **concise**, **short**, or **1-line** answer → respond briefly and directly in one line.
+            - Otherwise (by default) → provide a **comprehensive, detailed, and well-structured** explanation with clear sections and examples when useful.
+            3. Use the document as the primary information source. If the answer is not found in the document, use accurate general knowledge.
+            4. If the user asks for a **lesson**, generate it in a detailed and educational format with headings and subheadings.
+            5. Do **not** mention phrases like "based on the provided document" or "from the context" in your answer.
+            6. Always respond clearly, professionally, and in an engaging tone.
 
-User Request:
-{user_prompt}"""
+            
 
-            # Add lesson details if provided
-            if lesson_details:
-                if lesson_details.get('grade_level'):
-                    prompt += f"\n\nGrade Level: {lesson_details['grade_level']}"
-                if lesson_details.get('focus_area'):
-                    prompt += f"\nFocus Area: {lesson_details['focus_area']}"
-                if lesson_details.get('lesson_title'):
-                    prompt += f"\nLesson Title: {lesson_details['lesson_title']}"
+            Document Context:
+            {context}
 
-            # Add instruction based on user intent
-            if any(keyword in user_prompt.lower() for keyword in ['lesson', 'plan', 'generate', 'create', 'make']):
-                prompt += """
-
-Please create a comprehensive lesson plan that includes:
-- Clear title and summary
-- Learning objectives
-- Background prerequisites
-- Structured sections with detailed content
-- Creative activities for students
-- Assessment questions
-- Teacher notes
-
-Use the document context to inform your lesson plan and ensure it's appropriate for the specified grade level and focus area."""
-            else:
-                prompt += """
-
-Please provide a detailed, comprehensive answer that directly addresses the user's question. Use information from the document context to support your answer. Be thorough and educational."""
+            User Request:
+            {user_prompt}"""
 
             logger.info(f"Created RAG prompt with {len(context)} characters of context")
             return prompt

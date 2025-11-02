@@ -317,6 +317,41 @@ class LessonModel:
             raise
 
     @staticmethod
+    def get_public_latest_lessons(grade_level: str = None, focus_area: str = None) -> List[Dict[str, Any]]:
+        """Get only the latest public version per logical lesson (grouped by lesson_id)"""
+        try:
+            db = get_db()
+            query = '''
+                SELECT l.*, u.username as teacher_name
+                FROM lessons l
+                JOIN users u ON l.teacher_id = u.id
+                JOIN (
+                    SELECT lesson_id, MAX(version_number) AS max_ver
+                    FROM lessons
+                    WHERE is_public = TRUE
+                    GROUP BY lesson_id
+                ) lv ON l.lesson_id = lv.lesson_id AND l.version_number = lv.max_ver
+                WHERE l.is_public = TRUE
+            '''
+            params = []
+
+            if grade_level:
+                query += ' AND l.grade_level = ?'
+                params.append(grade_level)
+
+            if focus_area:
+                query += ' AND l.focus_area = ?'
+                params.append(focus_area)
+
+            query += ' ORDER BY l.created_at DESC'
+
+            lessons = db.execute(query, params).fetchall()
+            return [dict(lesson) for lesson in lessons]
+        except Exception as e:
+            logger.error(f"Error retrieving latest public lessons: {str(e)}")
+            raise
+
+    @staticmethod
     def search_lessons(search_term: str, grade_level: str = None) -> List[Dict[str, Any]]:
         """Search lessons by title, content, or focus area (including all versions)"""
         try:
@@ -1428,9 +1463,23 @@ class ConversationModel:
             raise
     
     def save_message(self, conversation_id: int, message: str, role: str) -> int:
-        """Save a message to the chat history"""
+        """Save a message to the chat history - verifies user ownership"""
         try:
             db = get_db()
+            
+            # First verify that the conversation belongs to this user
+            conversation = db.execute(
+                '''SELECT id FROM conversations 
+                   WHERE id = ? AND user_id = ?''',
+                (conversation_id, self.user_id)
+            ).fetchone()
+            
+            if not conversation:
+                # Conversation doesn't exist or doesn't belong to this user
+                logger.warning(f"User {self.user_id} attempted to save message to conversation {conversation_id} without ownership")
+                raise ValueError(f"Conversation {conversation_id} does not belong to user {self.user_id}")
+            
+            # Now safely save the message
             cursor = db.execute(
                 'INSERT INTO chat_history (conversation_id, message, role) VALUES (?, ?, ?)',
                 (conversation_id, message, role)
@@ -1439,8 +1488,8 @@ class ConversationModel:
             # Update conversation's last activity
             from datetime import datetime
             db.execute(
-                'UPDATE conversations SET updated_at = ? WHERE id = ?',
-                (datetime.now().isoformat(), conversation_id)
+                'UPDATE conversations SET updated_at = ? WHERE id = ? AND user_id = ?',
+                (datetime.now().isoformat(), conversation_id, self.user_id)
             )
             
             db.commit()
@@ -1450,15 +1499,29 @@ class ConversationModel:
             raise
     
     def get_chat_history(self, conversation_id: int) -> List[Dict]:
-        """Get chat history for a conversation"""
+        """Get chat history for a conversation - verifies user ownership"""
         try:
             db = get_db()
+            # First verify that the conversation belongs to this user
+            conversation = db.execute(
+                '''SELECT id FROM conversations 
+                   WHERE id = ? AND user_id = ?''',
+                (conversation_id, self.user_id)
+            ).fetchone()
+            
+            if not conversation:
+                # Conversation doesn't exist or doesn't belong to this user
+                logger.warning(f"User {self.user_id} attempted to access conversation {conversation_id} without ownership")
+                return []
+            
+            # Now safely retrieve messages for this conversation
             messages = db.execute(
-                '''SELECT message, role, created_at
-                   FROM chat_history
-                   WHERE conversation_id = ?
-                   ORDER BY created_at''',
-                (conversation_id,)
+                '''SELECT ch.message, ch.role, ch.created_at
+                   FROM chat_history ch
+                   INNER JOIN conversations c ON ch.conversation_id = c.id
+                   WHERE ch.conversation_id = ? AND c.user_id = ?
+                   ORDER BY ch.created_at''',
+                (conversation_id, self.user_id)
             ).fetchall()
             return [dict(msg) for msg in messages]
         except Exception as e:
