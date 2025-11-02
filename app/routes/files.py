@@ -236,13 +236,15 @@ def edit_lesson_with_prompt():
         data = request.get_json()
         lesson_text = data.get('lesson_text')
         user_prompt = data.get('user_prompt')
+        filename = data.get('filename', '')  # Get filename for RAG lookup
+        
         if not lesson_text or not user_prompt:
             return jsonify({'error': 'Missing lesson_text or user_prompt'}), 400
         api_key = session.get('groq_api_key')
         if not api_key:
             return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
         lesson_service = LessonService(api_key=api_key)
-        new_markdown = lesson_service.edit_lesson_with_prompt(lesson_text, user_prompt)
+        new_markdown = lesson_service.edit_lesson_with_prompt(lesson_text, user_prompt, filename)
         return jsonify({'lesson_markdown': new_markdown})
     except Exception as e:
         logger.error(f"Edit lesson with prompt error: {str(e)}", exc_info=True)

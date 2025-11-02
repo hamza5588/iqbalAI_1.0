@@ -86,115 +86,42 @@ def create_lesson():
             
             # Debug: Log the result structure
             lesson_check_logger.info(f"=== LESSON CREATION STARTED ===")
-            lesson_check_logger.info(f"Result structure: response_type={result.get('response_type')}, has_answer={'answer' in result}")
             lesson_check_logger.info(f"Result keys: {list(result.keys())}")
+            lesson_check_logger.info(f"Lesson content type: {type(result.get('lesson'))}")
             
-            # Import json at the top level
-            import json
+            # Extract lesson content (now a string)
+            lesson_content = result.get('lesson', '')
+            if not lesson_content:
+                return jsonify({'error': 'No lesson content generated'}), 400
             
-            # Check if result contains a 'lesson' field that might be a JSON string
-            if 'lesson' in result and isinstance(result['lesson'], str):
-                lesson_check_logger.info("Found 'lesson' as a string, attempting to parse it")
-                try:
-                    parsed_lesson = json.loads(result['lesson'])
-                    lesson_check_logger.info(f"Successfully parsed lesson, type: {type(parsed_lesson)}")
-                    if isinstance(parsed_lesson, dict):
-                        # Update result with parsed lesson
-                        result = parsed_lesson
-                        lesson_check_logger.info(f"Updated result keys: {list(result.keys())}")
-                except (json.JSONDecodeError, TypeError) as e:
-                    lesson_check_logger.error(f"Failed to parse lesson JSON: {e}")
+            lesson_check_logger.info(f"Lesson content length: {len(lesson_content)}")
+            lesson_check_logger.info(f"Lesson content preview: {lesson_content[:200]}...")
             
-            # Helper function to extract text content from JSON structures
-            def extract_text_content(data):
-                """Recursively extract text content from JSON structures"""
-                if isinstance(data, str):
-                    # Check if string is a JSON representation
-                    try:
-                        parsed = json.loads(data)
-                        lesson_check_logger.info(f"Parsed JSON string, recursing with type: {type(parsed)}")
-                        return extract_text_content(parsed)
-                    except (json.JSONDecodeError, TypeError):
-                        lesson_check_logger.info(f"String is not JSON, returning as-is (length: {len(data)})")
-                        return data
-                elif isinstance(data, dict):
-                    # Check if this is a response object
-                    if 'response_type' in data and 'answer' in data:
-                        lesson_check_logger.info("Found response object, extracting answer field")
-                        return extract_text_content(data['answer'])
-                    # Look for content in various fields
-                    for key in ['answer', 'response', 'content', 'text', 'message']:
-                        if key in data:
-                            lesson_check_logger.info(f"Found content in key: {key}")
-                            return extract_text_content(data[key])
-                    # No content field found - this shouldn't happen
-                    lesson_check_logger.error(f"No content field found in dict: {list(data.keys())}")
-                    return json.dumps(data, indent=2)
-                elif isinstance(data, list):
-                    return '\n'.join([extract_text_content(item) for item in data])
-                else:
-                    return str(data)
+            # Create summary from content
+            summary_str = lesson_content[:200] + "..." if len(lesson_content) > 200 else lesson_content
             
-            # Save lesson to database
-            # Convert learning_objectives list to string for database storage
-            if result.get('response_type') == 'direct_answer':
-                learning_objectives_str = ''  # Direct answers don't have learning objectives
-                
-                # For direct answers, extract the answer content
-                raw_answer = result.get('answer', '')
-                lesson_check_logger.info(f"Raw answer type: {type(raw_answer)}, length: {len(str(raw_answer))}")
-                lesson_check_logger.info(f"Raw answer first 500 chars: {str(raw_answer)[:500]}")
-                
-                # Extract text content recursively
-                content_str = extract_text_content(raw_answer)
-                lesson_check_logger.info(f"After extraction - content_str length: {len(content_str)}")
-                
-                # Final safety check: ensure content is not a JSON string
-                if isinstance(content_str, str):
-                    trimmed = content_str.strip()
-                    if trimmed.startswith('{') and '"response_type"' in trimmed:
-                        lesson_check_logger.warning("Content is still JSON string, re-extracting...")
-                        try:
-                            parsed = json.loads(trimmed)
-                            content_str = extract_text_content(parsed.get('answer', ''))
-                            lesson_check_logger.info("Successfully re-extracted content")
-                        except Exception as e:
-                            lesson_check_logger.error(f"Failed to re-extract: {e}")
-                
-                # Validate final content is plain text
-                if isinstance(content_str, str) and not content_str.strip().startswith('{'):
-                    lesson_check_logger.info("Content validation passed: plain text")
-                else:
-                    lesson_check_logger.error(f"Content validation failed: {content_str[:100]}")
-                
-                summary_str = content_str[:200] + "..." if len(content_str) > 200 else content_str
-            else:
-                learning_objectives_list = result['lesson'].get('learning_objectives', [])
-                learning_objectives_str = ', '.join(learning_objectives_list) if isinstance(learning_objectives_list, list) else str(learning_objectives_list)
-                
-                # For structured lessons, convert to JSON string
-                content_str = json.dumps(result['lesson']) if isinstance(result['lesson'], dict) else str(result['lesson'])
-                summary_str = result['lesson'].get('summary', '')
+            # For string responses, we don't have structured learning objectives
+            learning_objectives_str = ''
             
             # Log what we're about to save
-            lesson_check_logger.info(f"About to save lesson content (first 300 chars): {content_str[:300]}")
-            lesson_check_logger.info(f"Content type: {type(content_str)}")
+            lesson_check_logger.info(f"About to save lesson content (first 300 chars): {lesson_content[:300]}")
+            lesson_check_logger.info(f"Content type: {type(lesson_content)}")
             
-            # Ensure content_str is a plain string, not a JSON string
-            if isinstance(content_str, str):
+            # Ensure lesson_content is a plain string
+            if isinstance(lesson_content, str):
                 # If it still looks like JSON at this point, log an error
-                if content_str.strip().startswith('{') and 'response_type' in content_str:
-                    lesson_check_logger.error(f"CRITICAL: Content is still JSON! First 500 chars: {content_str[:500]}")
+                if lesson_content.strip().startswith('{') and 'response_type' in lesson_content:
+                    lesson_check_logger.error(f"CRITICAL: Content is still JSON! First 500 chars: {lesson_content[:500]}")
                     # Try one more extraction
                     try:
-                        parsed = json.loads(content_str)
+                        parsed = json.loads(lesson_content)
                         if 'answer' in parsed:
-                            content_str = parsed['answer']
+                            lesson_content = parsed['answer']
                             lesson_check_logger.info("Emergency extraction successful")
                     except:
                         lesson_check_logger.error("Emergency extraction failed")
             
-            lesson_check_logger.info(f"Final content before save (first 300 chars): {content_str[:300]}")
+            lesson_check_logger.info(f"Final content before save (first 300 chars): {lesson_content[:300]}")
             lesson_check_logger.info(f"=== LESSON CREATION ENDED ===")
             
             lesson_id = LessonModel.create_lesson(
@@ -202,7 +129,7 @@ def create_lesson():
                 title=lesson_title,
                 summary=summary_str,
                 learning_objectives=learning_objectives_str,
-                content=content_str,
+                content=lesson_content,
                 grade_level=grade_level,
                 focus_area=focus_area,
                 is_public=True  # Make lessons public by default
@@ -214,24 +141,13 @@ def create_lesson():
             # Get the full lesson response
             lesson_response = LessonModel.get_lesson_by_id(lesson_id)
             
-            # Handle different response types from the AI
-            if result.get('response_type') == 'direct_answer':
-                # For direct answers, the content is already stored as plain text
-                # Just ensure the lesson response has the right structure
-                lesson_response['title'] = lesson_title
-                lesson_response['grade_level'] = grade_level
-                lesson_response['focus_area'] = focus_area
-                lesson_response['learning_objectives'] = learning_objectives_str
-                lesson_response['isFinalized'] = False
-                # Content is already stored as plain text, no need to modify it
-                
-            else:
-                # For structured lessons, aggregate content for display
-                full_content = ""
-                if 'sections' in result['lesson']:
-                    for section in result['lesson']['sections']:
-                        full_content += f"## {section.get('heading', '')}\n{section.get('content', '')}\n\n"
-                lesson_response['content'] = full_content
+            # For string responses, ensure the lesson response has the right structure
+            lesson_response['title'] = lesson_title
+            lesson_response['grade_level'] = grade_level
+            lesson_response['focus_area'] = focus_area
+            lesson_response['learning_objectives'] = learning_objectives_str
+            lesson_response['isFinalized'] = False
+            # Content is already stored as plain text
             
             return jsonify({
                 'success': True,
@@ -371,7 +287,7 @@ def browse_lessons():
         grade_level = request.args.get('grade_level')
         focus_area = request.args.get('focus_area')
         
-        lessons = LessonModel.get_public_lessons(grade_level=grade_level, focus_area=focus_area)
+        lessons = LessonModel.get_public_latest_lessons(grade_level=grade_level, focus_area=focus_area)
         return jsonify({
             'success': True,
             'lessons': lessons
@@ -1622,6 +1538,51 @@ def finalize_lesson_version(lesson_id):
     except Exception as e:
         logger.error(f"Error finalizing version: {str(e)}", exc_info=True)
         return jsonify({'error': f'Failed to finalize version: {str(e)}'}), 500
+
+
+#interactive chat with lesson
+
+@bp.route('/lesson/<int:lesson_id>/interactive_chat', methods=['POST'])
+@teacher_required
+def interactive_chat(lesson_id):
+    """Interactive chat with lesson"""
+    try:
+        # Check if lesson exists and belongs to the teacher
+        lesson = LessonModel.get_lesson_by_id(lesson_id)
+        if not lesson:
+            return jsonify({'error': 'Lesson not found'}), 404
+        
+        if lesson['teacher_id'] != session['user_id']:
+            return jsonify({'error': 'Access denied'}), 403
+        
+        data = request.get_json()
+        user_query = data.get('query', '')
+        
+        if not user_query.strip():
+            return jsonify({'error': 'Query is required'}), 400
+        
+        # Get API key from session
+        api_key = session.get('groq_api_key')
+        if not api_key:
+            return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
+        
+        # Use LessonService to provide interactive chat
+        lesson_service = LessonService(api_key=api_key)
+        ai_response = lesson_service.interactive_chat(
+            lesson_id=lesson_id,
+            user_query=user_query
+        )
+        
+        return jsonify({
+            'success': True,
+            'ai_response': ai_response,
+            'message': 'Interactive chat completed successfully'
+        })
+            
+    except Exception as e:
+        logger.error(f"Error getting interactive chat: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to get interactive chat: {str(e)}'}), 500
+
 
 @bp.route('/lesson/<int:lesson_id>/clear_draft', methods=['DELETE'])
 @teacher_required
