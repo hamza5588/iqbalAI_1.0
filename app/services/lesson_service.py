@@ -37,13 +37,17 @@ class LessonService:
         """Generate a basic PPTX file from the lesson structure using python-pptx."""
         return self.teacher_service.create_ppt(lesson_data)
 
-    def edit_lesson_with_prompt(self, lesson_text: str, user_prompt: str) -> str:
+    def edit_lesson_with_prompt(self, lesson_text: str, user_prompt: str, filename: str = "") -> str:
         """Use a FAISS vector database for semantic chunk retrieval and editing."""
-        return self.teacher_service.edit_lesson_with_prompt(lesson_text, user_prompt)
+        return self.teacher_service.edit_lesson_with_prompt(lesson_text, user_prompt, filename)
 
     def improve_lesson_content(self, lesson_id: int, current_content: str, improvement_prompt: str = "") -> str:
         """Improve lesson content using AI based on user prompt"""
         return self.teacher_service.improve_lesson_content(lesson_id, current_content, improvement_prompt)
+
+    def interactive_chat(self, lesson_id: int, user_query: str) -> str:
+        """Interactive chat with the lesson"""
+        return self.teacher_service.interactive_chat(lesson_id, user_query)
 
     def review_lesson_with_rag(self, lesson_content: str, user_prompt: str, filename: str = "") -> str:
         """Review lesson content using RAG to retrieve relevant information from vector database"""

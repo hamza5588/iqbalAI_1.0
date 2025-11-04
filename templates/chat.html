@@ -29,6 +29,7 @@
   
   <!-- Custom styles for Markdown content -->
   <style>
+    /* Enhanced Prose Styles */
     .prose {
       color: #374151;
       max-width: none;
@@ -36,75 +37,518 @@
     
     .prose h1, .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
       color: #1f2937;
-      font-weight: 600;
+      font-weight: 700;
       margin-top: 1.5em;
-      margin-bottom: 0.5em;
+      margin-bottom: 0.75em;
+      position: relative;
+    }
+
+    /* Override first heading margin-top in lesson content */
+    #lessonSummary .lesson-content-wrapper .prose > h1:first-child,
+    #lessonSummary .lesson-content-wrapper .prose > h2:first-child,
+    #lessonSummary .lesson-content-wrapper .prose > h3:first-child,
+    #lessonSummary .lesson-content-wrapper .prose > h4:first-child,
+    #lessonSummary .lesson-content-wrapper .prose > p:first-child,
+    #lessonSummary .lesson-content-wrapper .prose > div:first-child > h1:first-child,
+    #lessonSummary .lesson-content-wrapper .prose > div:first-child > h2:first-child {
+      margin-top: 0 !important;
     }
     
     .prose h1 {
-      font-size: 1.875rem;
-      border-bottom: 2px solid #e5e7eb;
-      padding-bottom: 0.5rem;
+      font-size: 2.25rem;
+      background: linear-gradient(135deg, #05B0FC 0%, #2563eb 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      border-bottom: 3px solid #05B0FC;
+      padding-bottom: 0.75rem;
+      margin-bottom: 1.5rem;
     }
     
     .prose h2 {
-      font-size: 1.5rem;
-      border-bottom: 1px solid #e5e7eb;
-      padding-bottom: 0.25rem;
+      font-size: 1.875rem;
+      background: linear-gradient(135deg, #1e40af 0%, #05B0FC 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      border-bottom: 2px solid #e5e7eb;
+      padding-bottom: 0.5rem;
+      margin-top: 2rem;
     }
     
     .prose h3 {
+      font-size: 1.5rem;
+      color: #1e40af;
+      margin-top: 1.75rem;
+    }
+    
+    .prose h4 {
       font-size: 1.25rem;
+      color: #2563eb;
+      margin-top: 1.5rem;
     }
     
     .prose p {
-      margin-bottom: 1rem;
-      line-height: 1.7;
+      margin-bottom: 1.25rem;
+      line-height: 1.8;
+      font-size: 1.05rem;
+      color: #4b5563;
     }
     
     .prose ul, .prose ol {
-      margin-bottom: 1rem;
-      padding-left: 1.5rem;
+      margin-bottom: 1.5rem;
+      padding-left: 1.75rem;
     }
     
     .prose li {
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.75rem;
+      line-height: 1.7;
+      position: relative;
+    }
+    
+    .prose ul li::marker {
+      color: #05B0FC;
+      font-weight: bold;
+    }
+    
+    .prose ol li {
+      counter-increment: list-counter;
+      padding-left: 0.5rem;
     }
     
     .prose strong {
-      font-weight: 600;
+      font-weight: 700;
       color: #1f2937;
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+      padding: 0.125rem 0.375rem;
+      border-radius: 0.25rem;
     }
     
     .prose em {
       font-style: italic;
+      color: #6b7280;
     }
     
     .prose code {
-      background-color: #f3f4f6;
-      padding: 0.125rem 0.25rem;
-      border-radius: 0.25rem;
-      font-family: 'Courier New', monospace;
-      font-size: 0.875em;
+      background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.375rem;
+      font-family: 'Courier New', 'Monaco', monospace;
+      font-size: 0.9em;
+      border: 1px solid #d1d5db;
+      color: #1f2937;
+      font-weight: 500;
     }
     
     .prose blockquote {
       border-left: 4px solid #05B0FC;
-      padding-left: 1rem;
-      margin: 1rem 0;
+      padding: 1rem 1.5rem;
+      margin: 1.5rem 0;
       font-style: italic;
-      color: #6b7280;
+      color: #4b5563;
+      background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+      border-radius: 0 0.5rem 0.5rem 0;
+      box-shadow: 0 2px 4px rgba(5, 176, 252, 0.1);
     }
     
     .prose hr {
       border: none;
-      border-top: 1px solid #e5e7eb;
+      border-top: 2px solid #e5e7eb;
+      margin: 2.5rem 0;
+      position: relative;
+    }
+    
+    .prose hr::after {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: -2px;
+      transform: translateX(-50%);
+      width: 60px;
+      height: 2px;
+      background: linear-gradient(90deg, #05B0FC, #2563eb);
+    }
+
+    /* Lesson Content Animation & Styling */
+    @keyframes slideInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeInScale {
+      from {
+        opacity: 0;
+        transform: scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+
+    @keyframes shimmer {
+      0% {
+        background-position: -1000px 0;
+      }
+      100% {
+        background-position: 1000px 0;
+      }
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% {
+        box-shadow: 0 0 20px rgba(5, 176, 252, 0.3);
+      }
+      50% {
+        box-shadow: 0 0 30px rgba(5, 176, 252, 0.6);
+      }
+    }
+
+    @keyframes fade-in {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .animate-fade-in {
+      animation: fade-in 0.3s ease-out;
+    }
+
+    /* Lesson Content Container */
+    #lessonSummary {
+      animation: fadeInScale 0.6s ease-out;
+    }
+
+    /* Remove top margin from first prose element inside lesson content */
+    #lessonSummary .lesson-content-wrapper .prose > *:first-child {
+      margin-top: 0 !important;
+    }
+
+    /* Tighter spacing for lesson content prose elements */
+    #lessonSummary .lesson-content-wrapper .prose {
+      margin-top: 0;
+      margin-bottom: 0;
+    }
+
+    /* Reduce heading margins in lesson content */
+    #lessonSummary .lesson-content-wrapper .prose h1 {
+      margin-top: 0.75rem !important;
+      margin-bottom: 0.75rem !important;
+      padding-bottom: 0.5rem !important;
+    }
+
+    #lessonSummary .lesson-content-wrapper .prose h2 {
+      margin-top: 1rem !important;
+      margin-bottom: 0.5rem !important;
+      padding-bottom: 0.375rem !important;
+    }
+
+    #lessonSummary .lesson-content-wrapper .prose h3 {
+      margin-top: 0.875rem !important;
+      margin-bottom: 0.5rem !important;
+    }
+
+    #lessonSummary .lesson-content-wrapper .prose h4 {
+      margin-top: 0.75rem !important;
+      margin-bottom: 0.5rem !important;
+    }
+
+    /* Reduce paragraph margins in lesson content */
+    #lessonSummary .lesson-content-wrapper .prose p {
+      margin-top: 0.5rem !important;
+      margin-bottom: 0.75rem !important;
+      line-height: 1.6 !important;
+    }
+
+    /* Reduce list margins in lesson content */
+    #lessonSummary .lesson-content-wrapper .prose ul,
+    #lessonSummary .lesson-content-wrapper .prose ol {
+      margin-top: 0.5rem !important;
+      margin-bottom: 0.75rem !important;
+    }
+
+    #lessonSummary .lesson-content-wrapper .prose li {
+      margin-top: 0.25rem !important;
+      margin-bottom: 0.25rem !important;
+      line-height: 1.6 !important;
+    }
+
+    /* Reduce blockquote margins */
+    #lessonSummary .lesson-content-wrapper .prose blockquote {
+      margin-top: 0.75rem !important;
+      margin-bottom: 0.75rem !important;
+      padding: 0.75rem 1.25rem !important;
+    }
+
+    /* Reduce HR margins */
+    #lessonSummary .lesson-content-wrapper .prose hr {
+      margin-top: 1rem !important;
+      margin-bottom: 1rem !important;
+    }
+
+    #lessonSummary .lesson-content-wrapper {
+      /* background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+      border: 1px solid #e2e8f0;
+      border-radius: 1rem;
+      padding: 0.25rem 2rem 1rem 2rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      position: relative;
+      overflow: hidden; */
+
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    padding: 0.5rem 1.5rem;      /* Reduced vertical & horizontal padding */
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1),
+                0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;      /* Ensure content stacks naturally */
+    gap: 0.75rem;  
+    }
+
+    #lessonSummary .lesson-content-wrapper::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(5, 176, 252, 0.05), transparent);
+      animation: shimmer 3s infinite;
+    }
+
+    #lessonSummary .lesson-content-header {
+      /* display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0;
+      margin-bottom: 0.5rem;
+      padding-top: 0;
+      padding-bottom: 0.5rem;
+      border-bottom: 2px solid #e5e7eb;
+      position: relative; */
+
+
+
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: -260px;
+    margin-bottom: -12.5rem;
+    padding-top: 0;
+    padding-bottom: -0.5rem;
+    border-bottom: -2px solid #e5e7eb;
+    position: relative;
+    }
+
+    #lessonSummary .lesson-content-header::after {
+      content: '';
+      position: absolute;
+      bottom: -2px;
+      left: 0;
+      width: 60px;
+      height: 2px;
+      background: linear-gradient(90deg, #05B0FC, #2563eb);
+    }
+
+    #lessonSummary .lesson-content-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, #05B0FC 0%, #2563eb 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(5, 176, 252, 0.3);
+      animation: pulse-glow 2s infinite;
+      flex-shrink: 0;
+    }
+
+    #lessonSummary .lesson-content-icon i {
+      color: white;
+      font-size: 0.875rem;
+    }
+
+    /* Compact header text styling */
+    #lessonSummary .lesson-content-header h4 {
+      font-size: 0.9375rem !important;
+      line-height: 1.3 !important;
+      margin: 0 !important;
+      font-weight: 700 !important;
+    }
+
+    #lessonSummary .lesson-content-header p {
+      font-size: 0.625rem !important;
+      line-height: 1.2 !important;
+      margin: 0 !important;
+      margin-top: 0.125rem !important;
+    }
+
+    /* Lesson Generation Loading Animation */
+    .lesson-generation-loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+      border-radius: 1rem;
+      border: 2px dashed #05B0FC;
       margin: 2rem 0;
+    }
+
+    .lesson-generation-loader .loader-spinner {
+      width: 64px;
+      height: 64px;
+      border: 4px solid #e0f2fe;
+      border-top: 4px solid #05B0FC;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 1.5rem;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .lesson-generation-loader .loader-text {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #1e40af;
+      margin-bottom: 0.5rem;
+    }
+
+    .lesson-generation-loader .loader-subtext {
+      font-size: 0.875rem;
+      color: #64748b;
+      text-align: center;
+      max-width: 400px;
+    }
+
+    .lesson-generation-dots {
+      display: inline-flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+
+    .lesson-generation-dots span {
+      width: 8px;
+      height: 8px;
+      background: #05B0FC;
+      border-radius: 50%;
+      animation: dot-bounce 1.4s infinite ease-in-out both;
+    }
+
+    .lesson-generation-dots span:nth-child(1) { animation-delay: -0.32s; }
+    .lesson-generation-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+    @keyframes dot-bounce {
+      0%, 80%, 100% {
+        transform: scale(0);
+        opacity: 0.5;
+      }
+      40% {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+
+    /* Enhanced Generate Button */
+    #generateLessonFormBtn {
+      position: relative;
+      overflow: hidden;
+    }
+
+    #generateLessonFormBtn::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.3);
+      transform: translate(-50%, -50%);
+      transition: width 0.6s, height 0.6s;
+    }
+
+    #generateLessonFormBtn:hover::before {
+      width: 300px;
+      height: 300px;
+    }
+
+    #generateLessonFormBtn:active {
+      transform: scale(0.98);
+    }
+
+    /* Enhanced Lesson Display Container */
+    #lessonDisplay {
+      animation: slideInUp 0.5s ease-out;
+    }
+
+    #lessonDisplay .bg-gradient-to-br {
+      backdrop-filter: blur(10px);
+    }
+
+    /* Smooth content reveal */
+    .lesson-content-reveal {
+      animation: slideInUp 0.8s ease-out;
+    }
+
+    /* Beautiful scrollbar for lesson content */
+    #lessonSummary::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    #lessonSummary::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 10px;
+    }
+
+    #lessonSummary::-webkit-scrollbar-thumb {
+      background: linear-gradient(135deg, #05B0FC, #2563eb);
+      border-radius: 10px;
+    }
+
+    #lessonSummary::-webkit-scrollbar-thumb:hover {
+      background: linear-gradient(135deg, #2563eb, #1e40af);
+    }
+
+    /* Success checkmark animation */
+    @keyframes checkmark-draw {
+      0% {
+        stroke-dashoffset: 100;
+      }
+      100% {
+        stroke-dashoffset: 0;
+      }
+    }
+
+    .checkmark-circle {
+      stroke-dasharray: 100;
+      stroke-dashoffset: 100;
+      animation: checkmark-draw 0.6s ease-out forwards;
     }
   </style>
 </head>
 
-<body class="h-screen bg-gray-100 font-inter">
+<body class="h-screen bg-gray-100 font-inter overflow-hidden">
+  <!-- PDF.js (for client-side PDF text extraction) -->
+  <script src="https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.min.js"></script>
   <div class="flex h-full">
 
     <!-- Sidebar -->
@@ -401,26 +845,11 @@
             <div id="lessonGeneratorContent"
                 class="hidden flex-1 px-2 sm:px-4 lg:px-6 pt-2 sm:pt-4 lg:pt-6 overflow-y-auto">
             <!-- Combined Lesson Generator Form -->
-                <div id="lessonFormStep" class="max-w-4xl mx-auto px-2 sm:px-4">
+                <div id="lessonFormStep" class="w-full max-w-none mx-0 px-2 sm:px-4 lg:px-6">
                     <!-- Enhanced Header Section -->
-                    <div class="text-center mb-6">
-                        <div class="relative inline-block mb-3">
-                            <div class="w-12 h-12 bg-gradient-to-r from-[#05B0FC] to-blue-600 rounded-full flex items-center justify-center shadow-xl mx-auto">
-                                <i class="fas fa-magic text-white text-lg"></i>
-                            </div>
-                            <div class="absolute -top-1 -right-1 w-5 h-5 bg-yellow-400 rounded-full flex items-center justify-center animate-pulse">
-                                <i class="fas fa-sparkles text-yellow-800 text-xs"></i>
-                            </div>
-                        </div>
-                        <h2 class="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-[#05B0FC] to-blue-600 bg-clip-text text-transparent mb-2">
-                            Create Your Lesson
-                        </h2>
-                        <p class="text-gray-600 text-base sm:text-lg max-w-xl mx-auto">
-                            Upload materials and fill in lesson details to generate a personalized AI-powered lesson
-                        </p>
-                    </div>
+                    
 
-                    <div class="bg-gradient-to-br from-white to-blue-50 rounded-3xl shadow-2xl border border-blue-200 overflow-hidden">
+                    <div class="bg-white/80 backdrop-blur-md rounded-none md:rounded-3xl shadow-2xl border border-blue-200/70 overflow-hidden ring-1 ring-blue-200/60">
                         <!-- Enhanced Header -->
                         <div class="bg-gradient-to-r from-[#05B0FC] to-blue-600 px-4 sm:px-6 py-4">
                             <div class="flex items-center gap-3">
@@ -448,7 +877,7 @@
                                         </div>
                                     </div>
                                     
-                                    <div id="lessonDropZone" class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center bg-gradient-to-br from-gray-50 to-blue-50 cursor-pointer hover:bg-gradient-to-br hover:from-blue-50 hover:to-blue-100 hover:border-[#05B0FC] transition-all duration-300 min-h-24 flex flex-col items-center justify-center group"
+                                    <div id="lessonDropZone" class="border-2 border-dashed border-blue-200 rounded-2xl p-6 text-center bg-gradient-to-br from-blue-50 to-indigo-50 cursor-pointer hover:bg-gradient-to-br hover:from-blue-100 hover:to-indigo-100 hover:border-[#05B0FC] transition-all duration-300 min-h-28 flex flex-col items-center justify-center group shadow-sm"
                                         onclick="document.getElementById('lessonFileInput').click()">
                                         <div class="flex gap-2 mb-3">
                                             <div class="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
@@ -465,13 +894,13 @@
                                             <i class="fas fa-cloud-upload-alt text-2xl text-[#05B0FC] mb-2 group-hover:scale-110 transition-transform"></i>
                                         </div>
                                         <p class="text-gray-700 text-sm mb-1 font-semibold">Drop your file here or click to browse</p>
-                                        <p class="text-gray-500 text-xs">Support PDF, DOCX, PPT files up to 100MB</p>
+                                        <p class="text-gray-500 text-xs">PDF, DOCX, PPT up to 100MB</p>
                                         
                                         <input type="file" id="lessonFileInput" class="hidden" accept=".pdf,.doc,.docx,.txt,.ppt,.pptx"
                                             onchange="handleFileSelect(event)">
                                     </div>
                                     
-                                    <div id="selectedFileName" class="hidden mt-4 p-4 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-xl shadow-sm">
+                                    <div id="selectedFileName" class="hidden mt-4 p-4 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-xl shadow">
                                         <div class="flex items-center justify-between">
                                             <div class="flex items-center gap-2">
                                                 <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
@@ -482,9 +911,14 @@
                                                     <span class="text-green-700 font-medium text-xs"></span>
                                                 </div>
                                             </div>
-                                            <button type="button" onclick="removeSelectedFile()" class="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded-full transition-colors">
-                                                <i class="fas fa-trash text-xs"></i>
-                                            </button>
+                                            <div class="flex items-center gap-2">
+                                                <button type="button" id="viewPdfTextBtn" onclick="viewUploadedPdfText()" class="hidden text-[#05B0FC] hover:text-blue-700 p-1 hover:bg-blue-50 rounded-full transition-colors" title="View PDF text">
+                                                    <i class="fas fa-eye text-xs"></i>
+                                                </button>
+                                                <button type="button" onclick="removeSelectedFile()" class="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded-full transition-colors" title="Remove file">
+                                                    <i class="fas fa-trash text-xs"></i>
+                                                </button>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -501,18 +935,18 @@
                                         </div>
                                     </div>
 
-                                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
                                         <!-- Left Column -->
                                         <div class="space-y-4">
                                             <!-- Lesson Title -->
                                             <div class="group">
-                                                <label class="block text-gray-700 text-xs font-bold mb-1 flex items-center gap-2" for="lessonTitle">
+                                                <label class="block text-gray-700 text-sm font-bold mb-1 flex items-center gap-2" for="lessonTitle">
                                                     <i class="fas fa-heading text-[#05B0FC] text-xs"></i>
                                                     Lesson Title *
                                                 </label>
                                                 <input type="text" id="lessonTitle" name="lessonTitle"
                                                     placeholder="Enter your lesson title..."
-                                                    class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#05B0FC] focus:ring-opacity-20 focus:border-[#05B0FC] text-sm transition-all duration-300 group-hover:border-gray-300"
+                                                    class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#05B0FC] focus:ring-opacity-30 focus:border-[#05B0FC] text-base transition-all duration-300 group-hover:border-gray-300 shadow-sm"
                                                     oninput="validateLessonTitleInput()" required />
                                                 <div id="titleValidationMessage" class="mt-1 text-xs hidden">
                                                     <span id="titleValidationText"></span>
@@ -521,25 +955,25 @@
 
                                             <!-- Lesson Prompt -->
                                             <div class="group">
-                                                <label class="block text-gray-700 text-xs font-bold mb-1 flex items-center gap-2" for="lessonPrompt">
+                                                <label class="block text-gray-700 text-sm font-bold mb-1 flex items-center gap-2" for="lessonPrompt">
                                                     <i class="fas fa-lightbulb text-[#05B0FC] text-xs"></i>
                                                     Lesson Prompt *
                                                 </label>
                                                 <textarea id="lessonPrompt" name="lessonPrompt"
                                                     placeholder="Describe what lesson you want to generate. For example: 'Generate a lesson on Force and Motion covering sections 1.1 to 1.4' or 'Create a lesson on Photosynthesis focusing on the light-dependent reactions'"
-                                                    class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#05B0FC] focus:ring-opacity-20 focus:border-[#05B0FC] h-20 resize-none text-sm transition-all duration-300 group-hover:border-gray-300"
+                                                    class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#05B0FC] focus:ring-opacity-30 focus:border-[#05B0FC] h-24 resize-none text-base transition-all duration-300 group-hover:border-gray-300 shadow-sm"
                                                     required></textarea>
                                             </div>
 
                                             <!-- Additional Notes -->
                                             <div class="group">
-                                                <label class="block text-gray-700 text-xs font-bold mb-1 flex items-center gap-2" for="additionalNotes">
+                                                <label class="block text-gray-700 text-sm font-bold mb-1 flex items-center gap-2" for="additionalNotes">
                                                     <i class="fas fa-sticky-note text-[#05B0FC] text-xs"></i>
                                                     Additional Notes (Optional)
                                                 </label>
                                                 <textarea id="additionalNotes" name="additionalNotes"
                                                     placeholder="Any specific requirements, teaching methods, or notes..."
-                                                    class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#05B0FC] focus:ring-opacity-20 focus:border-[#05B0FC] h-16 resize-none text-sm transition-all duration-300 group-hover:border-gray-300"></textarea>
+                                                    class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#05B0FC] focus:ring-opacity-30 focus:border-[#05B0FC] h-20 resize-none text-base transition-all duration-300 group-hover:border-gray-300 shadow-sm"></textarea>
                                             </div>
                                         </div>
 
@@ -547,12 +981,12 @@
                                         <div class="space-y-4">
                                             <!-- Focus Area -->
                                             <div class="group">
-                                                <label class="block text-gray-700 text-xs font-bold mb-1 flex items-center gap-2" for="focusArea">
+                                                <label class="block text-gray-700 text-sm font-bold mb-1 flex items-center gap-2" for="focusArea">
                                                     <i class="fas fa-target text-[#05B0FC] text-xs"></i>
                                                     Focus Area *
                                                 </label>
                                                 <select id="focusArea" name="focusArea"
-                                                    class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#05B0FC] focus:ring-opacity-20 focus:border-[#05B0FC] text-sm transition-all duration-300 group-hover:border-gray-300 bg-white"
+                                                    class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#05B0FC] focus:ring-opacity-30 focus:border-[#05B0FC] text-base transition-all duration-300 group-hover:border-gray-300 bg-white shadow-sm"
                                                     required>
                                                     <option value="">Select focus area...</option>
                                                     <option value="Reading Comprehension">Reading Comprehension</option>
@@ -572,12 +1006,12 @@
 
                                             <!-- Grade Level -->
                                             <div class="group">
-                                                <label class="block text-gray-700 text-xs font-bold mb-1 flex items-center gap-2" for="gradeLevel">
+                                                <label class="block text-gray-700 text-sm font-bold mb-1 flex items-center gap-2" for="gradeLevel">
                                                     <i class="fas fa-graduation-cap text-[#05B0FC] text-xs"></i>
                                                     Grade Level *
                                                 </label>
                                                 <select id="gradeLevel" name="gradeLevel"
-                                                    class="w-full px-3 py-2 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#05B0FC] focus:ring-opacity-20 focus:border-[#05B0FC] text-sm transition-all duration-300 group-hover:border-gray-300 bg-white"
+                                                    class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#05B0FC] focus:ring-opacity-30 focus:border-[#05B0FC] text-base transition-all duration-300 group-hover:border-gray-300 bg-white shadow-sm"
                                                     required>
                                                     <option value="">Select grade level...</option>
                                                     <option value="K-1">Kindergarten - 1st Grade</option>
@@ -591,14 +1025,14 @@
                                             </div>
 
                                             <!-- Enhanced Quick Actions -->
-                                            <div class="bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl p-3 border border-gray-200">
-                                                <h5 class="text-xs font-bold text-gray-700 mb-2 flex items-center gap-2">
+                                            <div class="bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl p-3 border border-gray-200 shadow-sm">
+                                                <h5 class="text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
                                                     <i class="fas fa-bolt text-[#05B0FC] text-xs"></i>
                                                     Quick Actions
                                                 </h5>
                                                 <div class="space-y-1">
                                                     <button type="button" onclick="startNewLesson()" 
-                                                        class="w-full text-left px-2 py-1 text-xs text-gray-600 hover:bg-white hover:text-[#05B0FC] rounded-lg transition-all duration-200 hover:shadow-sm flex items-center gap-2">
+                                                        class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-white hover:text-[#05B0FC] rounded-lg transition-all duration-200 hover:shadow flex items-center gap-2">
                                                         <i class="fas fa-plus text-xs"></i>
                                                         <span>Start Fresh Lesson</span>
                                                     </button>
@@ -610,18 +1044,23 @@
 
                                 <!-- Enhanced Action Buttons -->
                                 <div class="bg-gradient-to-r from-gray-50 to-blue-50 px-4 py-4 -mx-4 -mb-4 rounded-b-3xl border-t border-gray-200">
-                                    <div class="flex flex-col sm:flex-row gap-3 justify-center items-center">
+                                    <div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
                                         <button type="submit" id="generateLessonFormBtn"
-                                            class="group w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-[#05B0FC] to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-[#05B0FC] transition-all duration-300 text-sm font-bold shadow-lg hover:shadow-xl transform hover:-translate-y-1 flex items-center justify-center gap-2">
+                                            class="group w-full sm:w-auto px-9 py-3.5 bg-gradient-to-r from-[#05B0FC] to-blue-600 text-white rounded-2xl hover:from-blue-600 hover:to-[#05B0FC] transition-all duration-300 text-base font-extrabold shadow-xl hover:shadow-2xl transform hover:-translate-y-1 flex items-center justify-center gap-3">
                                             <i class="fas fa-magic text-sm group-hover:rotate-12 transition-transform"></i>
                                             <span id="generateBtnText">Generate Lesson</span>
                                             <i class="fas fa-arrow-right text-xs group-hover:translate-x-1 transition-transform"></i>
                                         </button>
                                         
                                         <!-- Progress indicator (hidden by default) -->
-                                        <div id="formProgressIndicator" class="hidden flex items-center gap-2 text-[#05B0FC]">
-                                            <div class="w-5 h-5 border-2 border-[#05B0FC] border-t-transparent rounded-full animate-spin"></div>
-                                            <span class="text-xs font-medium">Generating your lesson...</span>
+                                        <div id="formProgressIndicator" class="hidden flex items-center gap-3 text-[#05B0FC] px-4 py-2 bg-blue-50 rounded-lg border border-blue-200">
+                                            <div class="w-6 h-6 border-3 border-[#05B0FC] border-t-transparent rounded-full animate-spin"></div>
+                                            <span class="text-sm font-semibold">Generating your lesson...</span>
+                                            <div class="lesson-generation-dots">
+                                                <span></span>
+                                                <span></span>
+                                                <span></span>
+                                            </div>
                                         </div>
                                     </div>
                                     
@@ -637,6 +1076,32 @@
                         </div>
                     </div>
                 </div>
+
+        <!-- PDF Text Modal -->
+        <div id="pdfTextModal" class="hidden fixed inset-0 z-50">
+            <div class="absolute inset-0 bg-black/50" onclick="closePdfTextModal()"></div>
+            <div class="absolute inset-x-2 sm:inset-x-8 lg:inset-x-20 inset-y-8 bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col">
+                <div class="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-gray-200">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-file-pdf text-red-500"></i>
+                        <h4 class="font-bold text-gray-800 text-sm sm:text-base">PDF Text Preview</h4>
+                    </div>
+                    <button class="text-gray-500 hover:text-gray-700 p-2 hover:bg-gray-100 rounded-full" onclick="closePdfTextModal()" aria-label="Close">
+                        <i class="fas fa-times text-sm"></i>
+                    </button>
+                </div>
+                <div class="relative flex-1 overflow-auto p-3 sm:p-5">
+                    <div id="pdfTextLoader" class="flex items-center gap-3 text-[#05B0FC] px-4 py-2 bg-blue-50 rounded-lg border border-blue-200">
+                        <div class="w-5 h-5 border-2 border-[#05B0FC] border-t-transparent rounded-full animate-spin"></div>
+                        <span class="text-sm font-semibold">Extracting text from PDF...</span>
+                    </div>
+                    <pre id="pdfTextContent" class="whitespace-pre-wrap text-xs sm:text-sm text-gray-800"></pre>
+                </div>
+                <div class="px-4 sm:px-6 py-3 border-t border-gray-200 flex justify-end">
+                    <button class="px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 text-sm" onclick="closePdfTextModal()">Close</button>
+                </div>
+            </div>
+        </div>
 
             <!-- Step 3: Generated Lesson Display -->
                 <div id="lessonDisplay"
@@ -656,17 +1121,34 @@
                         </div>
                         
                         <!-- Lesson Content -->
-                        <div class="p-4 sm:p-6 lg:p-8">
+                        <div class="px-4 sm:px-6 lg:px-8 pt-1 sm:pt-1.5 pb-3 sm:pb-5 lg:pb-6 relative">
+                            <!-- Loading Overlay -->
+                            <div id="lessonContentLoader" class="lesson-generation-loader hidden">
+                                <div class="loader-spinner"></div>
+                                <div class="loader-text">Generating Your Lesson</div>
+                                <div class="loader-subtext">Our AI is crafting a personalized lesson just for you. This may take a moment...</div>
+                                <div class="lesson-generation-dots">
+                                    <span></span>
+                                    <span></span>
+                                    <span></span>
+                                </div>
+                            </div>
+                            
                             <!-- Read-only lesson content display -->
                             <div id="lessonSummary"
-                                class="text-gray-800 leading-relaxed text-sm sm:text-base lg:text-lg zoomable-content prose prose-blue max-w-none">
-                                <div class="bg-white rounded-xl p-4 sm:p-6 border border-gray-200 shadow-sm">
-                                    <div class="flex items-center gap-2 mb-3 sm:mb-4 text-gray-500">
-                                        <i class="fas fa-sparkles text-[#05B0FC] text-sm sm:text-base"></i>
-                                        <span class="text-xs sm:text-sm font-medium">Lesson Content</span>
+                                class="text-gray-800 leading-relaxed text-sm sm:text-base lg:text-lg zoomable-content prose prose-blue max-w-none lesson-content-reveal">
+                                <div class="lesson-content-wrapper">
+                                    <div class="lesson-content-header">
+                                        <div class="lesson-content-icon">
+                                            <i class="fas fa-book-open"></i>
+                                        </div>
+                                        <div>
+                                            <h4 class="text-lg sm:text-xl font-bold text-gray-800 mb-0">Lesson Content</h4>
+                                            <p class="text-xs text-gray-500 mb-0">Your AI-generated lesson material</p>
+                                        </div>
                                     </div>
-                                    <div class="prose prose-sm sm:prose-base max-w-none">
-                                        <p class="text-gray-600 italic text-sm sm:text-base">Your generated lesson content will appear here...</p>
+                                    <div class="prose prose-sm sm:prose-base lg:prose-lg max-w-none">
+                                        <p class="text-gray-600 italic text-sm sm:text-base text-center py-8">Your generated lesson content will appear here...</p>
                                     </div>
                                 </div>
                             </div>
@@ -2506,7 +2988,24 @@ async function initializeApp() {
             const lessonSummary = document.getElementById('lessonSummary');
             if (lessonSummary && currentLessonData.content) {
                 const formattedContent = formatLessonContentWithoutNumbers(currentLessonData.content);
-                lessonSummary.innerHTML = formattedContent;
+                // Wrap content in beautiful lesson content structure
+                const contentWrapper = `
+                    <div class="lesson-content-wrapper">
+                        <div class="lesson-content-header">
+                            <div class="lesson-content-icon">
+                                <i class="fas fa-book-open"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-lg sm:text-xl font-bold text-gray-800 mb-0">Lesson Content</h4>
+                                <p class="text-xs text-gray-500 mb-0">Your AI-generated lesson material</p>
+                            </div>
+                        </div>
+                        <div class="prose prose-sm sm:prose-base lg:prose-lg max-w-none lesson-content-reveal">
+                            ${formattedContent}
+                        </div>
+                    </div>
+                `;
+                lessonSummary.innerHTML = contentWrapper;
             }
 
             // Restore additional notes if they exist
@@ -2600,7 +3099,24 @@ async function initializeApp() {
                     lessonSummary.style.minHeight = '200px';
                 }
                 
-                lessonSummary.innerHTML = formattedContent;
+                // Wrap content in beautiful lesson content structure
+                const contentWrapper = `
+                    <div class="lesson-content-wrapper">
+                        <div class="lesson-content-header">
+                            <div class="lesson-content-icon">
+                                <i class="fas fa-book-open"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-lg sm:text-xl font-bold text-gray-800 mb-0">Lesson Content</h4>
+                                <p class="text-xs text-gray-500 mb-0">Your AI-generated lesson material</p>
+                            </div>
+                        </div>
+                        <div class="prose prose-sm sm:prose-base lg:prose-lg max-w-none lesson-content-reveal">
+                            ${formattedContent}
+                        </div>
+                    </div>
+                `;
+                lessonSummary.innerHTML = contentWrapper;
                 console.log('DEBUG: showGeneratedLesson - content displayed in lessonSummary');
                 console.log('DEBUG: showGeneratedLesson - lessonSummary innerHTML length:', lessonSummary.innerHTML.length);
                 console.log('DEBUG: showGeneratedLesson - lessonSummary innerHTML preview:', lessonSummary.innerHTML.substring(0, 200));
@@ -2934,6 +3450,15 @@ async function initializeApp() {
             const fileNameDisplay = document.getElementById('selectedFileName');
             fileNameDisplay.querySelector('span').textContent = file.name;
             fileNameDisplay.classList.remove('hidden');
+            // Hide dropzone when a file is selected
+            const dropZone = document.getElementById('lessonDropZone');
+            if (dropZone) dropZone.classList.add('hidden');
+            // Toggle view icon for PDFs only
+            const viewBtn = document.getElementById('viewPdfTextBtn');
+            if (viewBtn) {
+                const isPdf = /\.pdf$/i.test(file.name) || file.type === 'application/pdf';
+                viewBtn.classList.toggle('hidden', !isPdf);
+            }
             showNotification('File uploaded successfully! You can now fill in the lesson details.', 'success');
         }
     }
@@ -2942,6 +3467,11 @@ async function initializeApp() {
         document.getElementById('selectedFileName').classList.add('hidden');
         document.getElementById('lessonFileInput').value = '';
         currentLessonFile = null;
+        const viewBtn = document.getElementById('viewPdfTextBtn');
+        if (viewBtn) viewBtn.classList.add('hidden');
+        // Show dropzone again when file is removed
+        const dropZone = document.getElementById('lessonDropZone');
+        if (dropZone) dropZone.classList.remove('hidden');
         showNotification('File removed successfully', 'info');
     }
 
@@ -2989,6 +3519,84 @@ async function initializeApp() {
         }
     }
 
+    // View uploaded PDF text in a modal using PDF.js
+    async function viewUploadedPdfText() {
+        try {
+            if (!currentLessonFile) {
+                showNotification('No file selected', 'error');
+                return;
+            }
+            const isPdf = /\.pdf$/i.test(currentLessonFile.name) || currentLessonFile.type === 'application/pdf';
+            if (!isPdf) {
+                showNotification('Viewing is available for PDF files only', 'info');
+                return;
+            }
+
+            // Init modal UI
+            const modal = document.getElementById('pdfTextModal');
+            const content = document.getElementById('pdfTextContent');
+            const loader = document.getElementById('pdfTextLoader');
+            if (!modal || !content || !loader) return;
+            content.textContent = '';
+            loader.classList.remove('hidden');
+            modal.classList.remove('hidden');
+
+            // Configure PDF.js worker
+            if (!window['pdfjsLib']) {
+                loader.classList.add('hidden');
+                content.textContent = 'PDF.js failed to load. Please check your internet connection and try again.';
+                return;
+            }
+            window['pdfjsLib'].GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.worker.min.js';
+
+            const arrayBuffer = await currentLessonFile.arrayBuffer();
+            let pdf;
+            try {
+                pdf = await window['pdfjsLib'].getDocument({ data: arrayBuffer }).promise;
+            } catch (err) {
+                // Handle password-protected PDFs by asking user for password and retrying once
+                const errMsg = (err && (err.message || err.toString())) || '';
+                if (/(Password|password)/.test(errMsg)) {
+                    const pwd = prompt('This PDF is password-protected. Please enter the password:');
+                    if (!pwd) throw err;
+                    pdf = await window['pdfjsLib'].getDocument({ data: arrayBuffer, password: pwd }).promise;
+                } else {
+                    throw err;
+                }
+            }
+            let fullText = '';
+            for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                const page = await pdf.getPage(pageNum);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map(it => {
+                    const t = (it && it.str) ? it.str : '';
+                    const hasEOL = it && (it.hasEOL === true);
+                    return hasEOL ? (t + '\n') : t;
+                }).join(' ');
+                fullText += (pageNum > 1 ? '\n\n' : '') + pageText;
+            }
+            loader.classList.add('hidden');
+            content.textContent = (fullText && fullText.trim().length > 0) ? fullText : 'No extractable text found in this PDF.';
+        } catch (err) {
+            console.error('PDF extract error:', err);
+            const modal = document.getElementById('pdfTextModal');
+            const content = document.getElementById('pdfTextContent');
+            if (modal && content) {
+                modal.classList.remove('hidden');
+                content.textContent = 'Could not extract text from PDF. ' + ((err && err.message) ? err.message : '');
+            } else {
+                showNotification('Could not extract text from PDF', 'error');
+            }
+            const loader = document.getElementById('pdfTextLoader');
+            if (loader) loader.classList.add('hidden');
+        }
+    }
+
+    function closePdfTextModal() {
+        const modal = document.getElementById('pdfTextModal');
+        if (modal) modal.classList.add('hidden');
+    }
+
 
         // Function to start a completely new lesson (clears everything including file)
         function startNewLesson() {
@@ -3013,6 +3621,9 @@ async function initializeApp() {
         document.getElementById('lessonFileInput').value = '';
         document.getElementById('selectedFileName').classList.add('hidden');
         currentLessonFile = null;
+        // Show dropzone again when clearing the form
+        const dropZone = document.getElementById('lessonDropZone');
+        if (dropZone) dropZone.classList.remove('hidden');
         
         // Clear form fields
         document.getElementById('lessonTitle').value = '';
@@ -6571,6 +7182,13 @@ async function initializeApp() {
         return processedLines.join('');
     }
 
+    function escapeHtml(text) {
+        if (!text) return '';
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+
     function addMessageToChat(sender, message) {
         const chatMessages = document.getElementById('chatMessages');
         const messageDiv = document.createElement('div');
@@ -7310,152 +7928,84 @@ async function initializeApp() {
             }, 300);
             
             const studentModalContent = `
-            <div class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 animate-modal-fade">
-                <div class="bg-white rounded-2xl shadow-2xl max-w-6xl w-full mx-4 max-h-[90vh] overflow-hidden transform transition-all animate-modal-scale" id="studentLessonModalContent">
-                    <!-- Beautiful Header -->
-                    <div class="bg-gradient-to-r from-[#05B0FC] via-blue-500 to-blue-600 px-8 py-6 shadow-lg">
-                        <div class="flex items-center justify-between mb-4">
-                            <div class="flex items-center">
-                                <div class="w-14 h-14 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-4 shadow-lg">
-                                    <i class="fas fa-book-open text-2xl text-white"></i>
+            <div class="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 animate-modal-fade backdrop-blur-sm">
+                <div class="bg-white rounded-2xl shadow-[0_20px_60px_-12px_rgba(0,0,0,0.25)] max-w-7xl w-full mx-4 max-h-[94vh] overflow-hidden transform transition-all animate-modal-scale border border-gray-100" id="studentLessonModalContent">
+                    <!-- Elegant Header -->
+                    <div class="bg-gradient-to-r from-[#05B0FC] via-blue-500 to-blue-600 px-7 py-4 shadow-lg relative overflow-hidden">
+                        <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white opacity-10"></div>
+                        <div class="relative flex items-center justify-between">
+                            <div class="flex items-center gap-4">
+                                <div class="w-12 h-12 bg-white bg-opacity-25 backdrop-blur-sm rounded-xl flex items-center justify-center shadow-lg border border-white border-opacity-30">
+                                    <i class="fas fa-book-open text-xl text-white"></i>
                                 </div>
                                 <div>
-                                    <h2 class="text-2xl font-bold text-white">${lesson.title || 'Untitled Lesson'}</h2>
-                                    <p class="text-blue-100 text-sm mt-1">
-                                        <i class="fas fa-user-graduate mr-1"></i>Student View
-                                    </p>
+                                    <h2 class="text-xl font-bold text-white leading-tight mb-1 drop-shadow-sm">${lesson.title || 'Untitled Lesson'}</h2>
+                                    <div class="flex items-center gap-2.5 flex-wrap">
+                                        <span class="text-xs text-blue-50 font-medium">
+                                            <i class="fas fa-user-graduate mr-1.5"></i>Student View
+                                        </span>
+                                        ${lesson.focus_area ? `
+                                            <span class="inline-flex items-center px-2.5 py-1 bg-white bg-opacity-25 backdrop-blur-sm text-white rounded-lg text-xs font-medium border border-white border-opacity-30 shadow-sm">
+                                                <i class="fas fa-tag mr-1.5 text-[10px]"></i>${lesson.focus_area}
+                                            </span>
+                                        ` : ''}
+                                        ${lesson.grade_level ? `
+                                            <span class="inline-flex items-center px-2.5 py-1 bg-white bg-opacity-25 backdrop-blur-sm text-white rounded-lg text-xs font-medium border border-white border-opacity-30 shadow-sm">
+                                                <i class="fas fa-graduation-cap mr-1.5 text-[10px]"></i>Grade ${lesson.grade_level}
+                                            </span>
+                                        ` : ''}
+                                    </div>
                                 </div>
                             </div>
                             <div class="flex items-center gap-2">
-                                <button onclick="toggleModalFullscreen('studentLessonModal')" class="w-10 h-10 bg-white bg-opacity-10 hover:bg-opacity-20 rounded-full flex items-center justify-center transition-all duration-300">
-                                    <i class="fas fa-expand text-white text-lg" id="studentLessonModalFullscreenIcon"></i>
+                                <button onclick="toggleModalFullscreen('studentLessonModal')" class="w-9 h-9 bg-white bg-opacity-15 hover:bg-opacity-25 backdrop-blur-sm rounded-lg flex items-center justify-center transition-all duration-200 hover:scale-110 border border-white border-opacity-20">
+                                    <i class="fas fa-expand text-white text-sm" id="studentLessonModalFullscreenIcon"></i>
                                 </button>
-                                <button onclick="closeStudentLessonModal()" class="w-10 h-10 bg-white bg-opacity-10 hover:bg-opacity-20 rounded-full flex items-center justify-center transition-all duration-300 hover:rotate-90">
-                                    <i class="fas fa-times text-white text-xl"></i>
+                                <button onclick="closeStudentLessonModal()" class="w-9 h-9 bg-white bg-opacity-15 hover:bg-opacity-25 backdrop-blur-sm rounded-lg flex items-center justify-center transition-all duration-200 hover:rotate-90 border border-white border-opacity-20">
+                                    <i class="fas fa-times text-white text-sm"></i>
                                 </button>
                             </div>
-                        </div>
-                        
-                        <!-- Quick Info Badges -->
-                        <div class="flex flex-wrap items-center gap-3">
-                            ${lesson.focus_area ? `
-                                <span class="inline-flex items-center px-3 py-1 bg-white bg-opacity-20 text-white rounded-full text-xs font-semibold">
-                                    <i class="fas fa-tag mr-1"></i>${lesson.focus_area}
-                                </span>
-                            ` : ''}
-                            ${lesson.grade_level ? `
-                                <span class="inline-flex items-center px-3 py-1 bg-white bg-opacity-20 text-white rounded-full text-xs font-semibold">
-                                    <i class="fas fa-graduation-cap mr-1"></i>Grade ${lesson.grade_level}
-                                </span>
-                            ` : ''}
                         </div>
                     </div>
 
-                    <div class="p-6 bg-gray-50 max-h-[calc(90vh-140px)] overflow-y-auto">
-                        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <!-- Left Column: Lesson Content -->
-                            <div class="space-y-4">
-                                <!-- Lesson Details Card -->
-                                <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-5 border border-blue-100 shadow-sm">
-                                    <div class="flex items-center mb-4">
-                                        <div class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center mr-3">
-                                            <i class="fas fa-info-circle text-white"></i>
-                                        </div>
-                                        <h3 class="text-lg font-bold text-gray-800">Lesson Details</h3>
-                                    </div>
-                                    <div class="space-y-3 text-sm">
-                                        ${lesson.summary ? `
-                                            <div class="bg-white bg-opacity-70 rounded-lg p-3 border border-blue-200">
-                                                <div class="font-semibold text-blue-700 mb-1">Summary</div>
-                                                <div class="text-gray-700">${lesson.summary}</div>
-                                            </div>
-                                        ` : ''}
-                                        ${lesson.lesson_prompt ? `
-                                            <div class="bg-white bg-opacity-70 rounded-lg p-3 border border-blue-200">
-                                                <div class="font-semibold text-blue-700 mb-1">Learning Objectives</div>
-                                                <div class="text-gray-700">${lesson.lesson_prompt}</div>
-                                            </div>
-                                        ` : ''}
-                                    </div>
+                    <div class="flex flex-col h-[calc(94vh-90px)] bg-gradient-to-b from-gray-50 via-white to-gray-50">
+                        <!-- Lesson Content Area -->
+                        <div class="flex-1 p-7 overflow-y-auto scrollbar-thin scrollbar-thumb-blue-200 scrollbar-track-transparent">
+                            <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden hover:shadow-lg transition-shadow duration-300">
+                                <div class="bg-gradient-to-r from-blue-50 via-indigo-50 to-blue-50 px-6 py-3.5 border-b border-gray-200">
+                                    <h3 class="text-sm font-semibold text-gray-800 flex items-center uppercase tracking-wider">
+                                        <i class="fas fa-file-alt mr-3 text-blue-600"></i>Lesson Content
+                                    </h3>
                                 </div>
-
-                                <!-- Lesson Content Card -->
-                                <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-                                    <div class="bg-gradient-to-r from-gray-800 to-gray-700 px-5 py-3">
-                                        <h3 class="text-lg font-bold text-white flex items-center">
-                                            <i class="fas fa-file-alt mr-2"></i>Lesson Content
-                                        </h3>
-                                    </div>
-                                    <div class="p-5 prose max-w-none markdown-content zoomable-content" id="studentLessonContent">
-                                        ${lesson.content ? formatLessonContentWithNumbers(lesson.content) : '<div class="text-gray-500 text-center py-8">No content available</div>'}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Right Column: Ask Question Section -->
-                            <div class="space-y-4">
-                                <!-- Ask Question Card -->
-                                <div class="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl shadow-md border border-blue-200 overflow-hidden">
-                                    <div class="bg-gradient-to-r from-blue-500 to-cyan-500 px-5 py-4">
-                                        <h3 class="text-lg font-bold text-white flex items-center">
-                                            <i class="fas fa-question-circle mr-2"></i>Ask Questions
-                                        </h3>
-                                        <p class="text-blue-100 text-sm mt-1">Get help from the AI assistant</p>
-                                    </div>
-                                    <div class="p-5">
-                                        <div class="space-y-3">
-                                            <textarea 
-                                                id="studentQuestionInput" 
-                                                rows="4" 
-                                                class="w-full px-4 py-3 border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition-all" 
-                                                placeholder="What would you like to ask about this lesson?"
-                                            ></textarea>
-                                            <button 
-                                                onclick="submitStudentQuestion(${lesson.id}, '${lesson.title}')" 
-                                                class="w-full px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold"
-                                                id="submitStudentQuestionBtn"
-                                            >
-                                                <i class="fas fa-paper-plane mr-2"></i>Ask Question
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Previous Questions History -->
-                                <div class="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
-                                    <div class="bg-gradient-to-r from-purple-50 to-pink-50 px-5 py-3 border-b border-gray-200">
-                                        <div class="flex justify-between items-center">
-                                            <div class="flex items-center">
-                                                <i class="fas fa-history text-purple-600 mr-2"></i>
-                                                <h4 class="font-bold text-gray-800">Previous Questions</h4>
-                                            </div>
-                                            <button onclick="clearStudentLessonHistory(${lesson.id})" class="text-xs text-red-600 hover:text-red-800 px-2 py-1 rounded hover:bg-red-50 transition-colors">
-                                                <i class="fas fa-trash mr-1"></i>Clear
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div id="studentLessonQnAHistory" class="p-4 max-h-80 overflow-y-auto space-y-3">
-                                        <div class="text-gray-500 text-center py-8">
-                                            <i class="fas fa-comments text-gray-300 text-3xl mb-2"></i>
-                                            <p>No previous questions</p>
-                                        </div>
-                                    </div>
+                                <div class="p-8 prose prose-blue max-w-none markdown-content zoomable-content" id="studentLessonContent" style="max-height: calc(94vh - 280px); overflow-y: auto;">
+                                    ${lesson.content ? formatLessonContentWithNumbers(lesson.content) : '<div class="text-center py-16"><i class="fas fa-file-alt text-5xl mb-4 text-gray-300"></i><p class="text-gray-500 text-lg font-medium">No content available</p></div>'}
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Beautiful Action Buttons -->
-                        <div class="mt-6 pt-6 border-t border-gray-200">
-                            <div class="flex flex-wrap justify-end gap-3">
-                                <button onclick="downloadLessonFile(${lesson.id})" class="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-semibold">
-                                    <i class="fas fa-download mr-2"></i>Download DOCX
+                        <!-- Elegant Action Buttons Footer -->
+                        <div class="px-7 py-5 bg-white border-t border-gray-200 flex-shrink-0 backdrop-blur-sm bg-opacity-95">
+                            <div class="flex items-center justify-between gap-4">
+                                <!-- Chat Widget Button - Integrated into footer -->
+                                <button 
+                                    onclick="openStudentChatBot(${lesson.id}, '${lesson.title.replace(/'/g, "\\'")}')" 
+                                    class="flex items-center gap-2.5 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold text-sm border border-blue-500 border-opacity-30 group"
+                                    id="studentChatWidgetBtn"
+                                    title="Ask Question"
+                                >
+                                    <i class="fas fa-comments text-lg group-hover:scale-110 transition-transform"></i>
+                                    <span>Ask Question</span>
                                 </button>
-                                <button onclick="downloadLessonPPT(${lesson.id})" class="px-6 py-3 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 font-semibold">
-                                    <i class="fas fa-file-powerpoint mr-2"></i>Download PPT
-                                </button>
-                                <button onclick="closeStudentLessonModal()" class="px-6 py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition-all duration-200 font-semibold">
-                                    <i class="fas fa-times mr-2"></i>Close
-                                </button>
+
+                                <!-- Download Buttons -->
+                                <div class="flex flex-wrap gap-3">
+                                    <button onclick="downloadLessonFile(${lesson.id})" class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold text-sm flex items-center gap-2 border border-blue-500 border-opacity-30">
+                                        <i class="fas fa-download"></i>Download DOCX
+                                    </button>
+                                    <button onclick="downloadLessonPPT(${lesson.id})" class="px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold text-sm flex items-center gap-2 border border-blue-500 border-opacity-30">
+                                        <i class="fas fa-file-powerpoint"></i>Download PPT
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -7470,6 +8020,108 @@ async function initializeApp() {
 
             // Load previous questions for this lesson
             loadStudentLessonChatHistory(lesson.id);
+        }
+
+        // Toggle Lesson Details visibility in student lesson modal
+        function toggleStudentLessonDetails() {
+            const body = document.getElementById('studentLessonDetailsBody');
+            const chevron = document.getElementById('studentLessonDetailsChevron');
+            if (!body) return;
+            body.classList.toggle('hidden');
+            if (chevron) {
+                chevron.classList.toggle('rotate-180');
+            }
+        }
+
+        // Toggle expand/collapse for an answer in student QnA list
+        function toggleStudentQnA(id) {
+            const body = document.getElementById(`answerBody-${id}`);
+            const fade = document.getElementById(`answerFade-${id}`);
+            const btn = document.getElementById(`toggleBtn-${id}`);
+            if (!body || !btn) return;
+            const isExpanded = body.getAttribute('data-expanded') === '1';
+            if (isExpanded) {
+                body.style.maxHeight = '10rem';
+                body.style.overflow = 'hidden';
+                if (fade) fade.classList.remove('hidden');
+                btn.textContent = 'Show more';
+                body.setAttribute('data-expanded', '0');
+            } else {
+                body.style.maxHeight = 'none';
+                body.style.overflow = 'visible';
+                if (fade) fade.classList.add('hidden');
+                btn.textContent = 'Show less';
+                body.setAttribute('data-expanded', '1');
+            }
+        }
+
+        // Accordion behavior: only one qna expanded at a time
+        function toggleStudentQnAAccordion(id) {
+            const panel = document.getElementById(`qnaPanel-${id}`);
+            const chevron = document.getElementById(`qnaChevron-${id}`);
+            if (!panel) return;
+
+            // Collapse any open panel
+            const openPanels = document.querySelectorAll('[id^="qnaPanel-"]:not(.hidden)');
+            openPanels.forEach(p => {
+                if (p.id !== `qnaPanel-${id}`) {
+                    p.classList.add('hidden');
+                    const pid = p.id.replace('qnaPanel-','');
+                    const chev = document.getElementById(`qnaChevron-${pid}`);
+                    if (chev) chev.classList.remove('rotate-180');
+                }
+            });
+
+            // Toggle target panel
+            const isHidden = panel.classList.contains('hidden');
+            if (isHidden) {
+                panel.classList.remove('hidden');
+                if (chevron) chevron.classList.add('rotate-180');
+            } else {
+                panel.classList.add('hidden');
+                if (chevron) chevron.classList.remove('rotate-180');
+            }
+        }
+
+        // Modal to view full QnA
+        function openStudentQnAModal(questionEnc, answerEnc, timeEnc) {
+            const question = decodeURIComponent(questionEnc || '');
+            const answer = decodeURIComponent(answerEnc || '');
+            const time = decodeURIComponent(timeEnc || '');
+
+            const modal = document.createElement('div');
+            modal.id = 'studentQnAModal';
+            modal.className = 'fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-40';
+            modal.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl border border-gray-200 overflow-hidden">
+                    <div class="px-5 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white flex items-center justify-between">
+                        <div class="font-semibold">Q&A Detail</div>
+                        <button onclick="closeStudentQnAModal()" class="w-8 h-8 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-full flex items-center justify-center transition"><i class="fas fa-times"></i></button>
+                    </div>
+                    <div class="p-5 space-y-4 max-h-[75vh] overflow-auto">
+                        <div>
+                            <div class="text-xs text-gray-500 mb-1"><i class="far fa-clock mr-1"></i>${time}</div>
+                            <div class="flex items-start gap-3">
+                                <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0"><i class="fas fa-question text-white text-xs"></i></div>
+                                <div class="font-semibold text-gray-900">${question}</div>
+                            </div>
+                        </div>
+                        <div class="flex items-start gap-3">
+                            <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0"><i class="fas fa-robot text-white text-xs"></i></div>
+                            <div class="prose max-w-none">${formatMessageContent(answer)}</div>
+                        </div>
+                    </div>
+                    <div class="px-5 py-3 bg-gray-50 flex justify-end gap-2 border-t">
+                        <button onclick="closeStudentQnAModal()" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300">Close</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+
+        function closeStudentQnAModal() {
+            const modal = document.getElementById('studentQnAModal');
+            if (modal) modal.remove();
         }
 
         // Close student lesson modal
@@ -7523,47 +8175,291 @@ async function initializeApp() {
             }
 
             let historyHtml = '';
-            history.forEach(item => {
-                // Format the answer properly
+            history.forEach((item, index) => {
                 const formattedAnswer = formatMessageContent(item.answer);
                 historyHtml += `
-                    <div class="bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl p-4 border border-gray-200 hover:shadow-md transition-shadow">
-                        <!-- Question Section -->
-                        <div class="flex items-start mb-3">
-                            <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mr-3">
-                                <i class="fas fa-user text-white text-xs"></i>
-                            </div>
-                            <div class="flex-1">
-                                <div class="font-semibold text-blue-700 mb-1">You asked:</div> 
-                                <div class="text-gray-800">${item.question}</div>
-                            </div>
-                        </div>
-                        
-                        <!-- Answer Section -->
-                        <div class="flex items-start bg-white bg-opacity-70 rounded-lg p-3 border-l-4 border-green-400">
-                            <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mr-3">
-                                <i class="fas fa-robot text-white text-xs"></i>
-                            </div>
-                            <div class="flex-1">
-                                <div class="font-semibold text-green-700 mb-1">AI replied:</div> 
-                                <div class="text-gray-800 prose max-w-none text-sm">${formattedAnswer}</div>
-                            </div>
-                        </div>
-                        
-                        <!-- Timestamp -->
-                        <div class="flex items-center justify-end mt-2">
-                            <span class="text-xs text-gray-500">
-                                <i class="far fa-clock mr-1"></i>${new Date(item.created_at).toLocaleString()}
-                            </span>
-                        </div>
-                    </div>
-                `;
+                    <div class=\"bg-white rounded-lg p-3 border border-gray-200 hover:shadow-sm transition-shadow\" id=\"qnaCard-${index}\"> 
+                        <button type=\"button\" class=\"w-full flex items-start gap-2 text-left\" onclick=\"toggleStudentQnAAccordion('${index}')\"> 
+                            <div class=\"w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5\"> 
+                                <i class=\"fas fa-question text-white text-[10px]\"></i> 
+                            </div> 
+                            <div class=\"flex-1 min-w-0\"> 
+                                <div class=\"flex items-center justify-between gap-2\"> 
+                                    <div class=\"font-semibold text-gray-800 truncate\">${item.question}</div> 
+                                    <i id=\"qnaChevron-${index}\" class=\"fas fa-chevron-down text-gray-400 text-xs\"></i> 
+                                </div> 
+                                <div class=\"text-[11px] text-gray-500 mt-0.5\"><i class=\"far fa-clock mr-1\"></i>${new Date(item.created_at).toLocaleString()}</div> 
+                            </div> 
+                        </button> 
+                        <div id=\"qnaPanel-${index}\" class=\"mt-2 hidden\"> 
+                            <div class=\"flex items-start bg-gray-50 rounded-md p-3 border border-gray-200\"> 
+                                <div class=\"w-6 h-6 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mr-2\"> 
+                                    <i class=\"fas fa-robot text-white text-[10px]\"></i> 
+                                </div> 
+                                <div class=\"flex-1 min-w-0 relative\"> 
+                                    <div class=\"text-gray-800 prose max-w-none text-sm\" style=\"max-height:10.5rem; overflow:hidden; padding-bottom:3rem;\" id=\"answerBody-${index}\">${formattedAnswer}</div> 
+                                    <div id=\"answerFade-${index}\" class=\"pointer-events-none absolute left-8 right-3 h-12\" style=\"bottom:3rem; background: linear-gradient(to top, rgba(249,250,251,1), rgba(249,250,251,0));\"></div> 
+                                    <div class=\"mt-2 flex justify-between items-center sticky bottom-0 bg-white border border-gray-200 rounded-md px-3 py-2 z-10 shadow-sm\"> 
+                                        <div class=\"h-5 pl-3 border-l-4 border-blue-400 text-[12px] text-gray-700\">AI answer</div>
+                                        <div class=\"flex gap-2\"> 
+                                            <button id=\"toggleBtn-${index}\" onclick=\"toggleStudentQnA('${index}'); event.stopPropagation();\" class=\"inline-flex items-center gap-1 text-blue-700 hover:text-blue-800 text-sm font-semibold px-3 py-2 rounded-md bg-blue-50 hover:bg-blue-100 active:bg-blue-200 transition-colors\"><i class=\"fas fa-angles-down text-[12px]\"></i><span>Show more</span></button> 
+                                            <button onclick=\"openStudentQnAModal('${encodeURIComponent(item.question)}','${encodeURIComponent(item.answer)}','${encodeURIComponent(new Date(item.created_at).toLocaleString())}'); event.stopPropagation();\" class=\"inline-flex items-center gap-1 text-gray-800 hover:text-gray-900 text-sm font-semibold px-3 py-2 rounded-md bg-gray-100 hover:bg-gray-200 active:bg-gray-300 transition-colors\"><i class=\"fas fa-up-right-and-down-left-from-center text-[12px]\"></i><span>View full</span></button> 
+                                        </div> 
+                                    </div> 
+                                </div> 
+                            </div> 
+                        </div> 
+                    </div>`;
             });
             qnaDiv.innerHTML = historyHtml;
             qnaDiv.scrollTop = qnaDiv.scrollHeight;
         }
 
-        // Submit question from student modal
+        // Open chatbot modal for student
+        function openStudentChatBot(lessonId, lessonTitle) {
+            // Check if chatbot already exists
+            let chatbotModal = document.getElementById('studentChatBotModal');
+            if (chatbotModal) {
+                chatbotModal.remove();
+            }
+
+            const modal = document.createElement('div');
+            modal.id = 'studentChatBotModal';
+            modal.className = 'fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm';
+            modal.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col border border-gray-200 overflow-hidden">
+                    <!-- Chat Header -->
+                    <div class="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-6 py-4 flex items-center justify-between border-b border-blue-500">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+                                <i class="fas fa-robot text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-bold">Lesson Q&A Assistant</h3>
+                                <p class="text-xs text-blue-100">Ask questions about: ${lessonTitle}</p>
+                            </div>
+                        </div>
+                        <button onclick="closeStudentChatBot()" class="w-8 h-8 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-full flex items-center justify-center transition-colors">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+
+                    <!-- Chat Messages Area -->
+                    <div id="studentChatMessages" class="flex-1 overflow-y-auto p-6 bg-gradient-to-b from-gray-50 to-white space-y-4" style="scroll-behavior: smooth;">
+                        <div class="flex items-center justify-center py-8">
+                            <div class="text-center">
+                                <div class="w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                                    <i class="fas fa-comments text-white text-2xl"></i>
+                                </div>
+                                <p class="text-gray-600 font-medium">Welcome! Ask me anything about this lesson.</p>
+                                <p class="text-sm text-gray-400 mt-1">I'm here to help you understand the content better.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chat Input Area -->
+                    <div class="border-t border-gray-200 bg-white p-4">
+                        <div class="flex items-end gap-3">
+                            <div class="flex-1 relative">
+                                <textarea 
+                                    id="studentChatInput" 
+                                    rows="2" 
+                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition-all text-gray-800 placeholder-gray-400"
+                                    placeholder="Type your question here..."
+                                    onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submitStudentChatQuestion(${lessonId}, '${lessonTitle.replace(/'/g, "\\'")}'); }"
+                                ></textarea>
+                            </div>
+                            <button 
+                                onclick="submitStudentChatQuestion(${lessonId}, '${lessonTitle.replace(/'/g, "\\'")}')" 
+                                class="px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 font-semibold flex items-center gap-2"
+                                id="submitStudentChatBtn"
+                            >
+                                <i class="fas fa-paper-plane"></i>
+                                <span class="hidden sm:inline">Send</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+
+            // Load chat history
+            loadStudentChatHistory(lessonId);
+
+            // Focus on input
+            setTimeout(() => {
+                const input = document.getElementById('studentChatInput');
+                if (input) input.focus();
+            }, 100);
+        }
+
+        // Close chatbot modal
+        function closeStudentChatBot() {
+            const modal = document.getElementById('studentChatBotModal');
+            if (modal) {
+                modal.style.opacity = '0';
+                setTimeout(() => modal.remove(), 200);
+            }
+        }
+
+        // Load chat history into chatbot
+        async function loadStudentChatHistory(lessonId) {
+            try {
+                const response = await fetch(`/api/lessons/lesson_chat_history/${lessonId}`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const messagesDiv = document.getElementById('studentChatMessages');
+                    if (!messagesDiv || data.history.length === 0) return;
+
+                    // Clear welcome message
+                    messagesDiv.innerHTML = '';
+
+                    // Display history in chat format
+                    data.history.forEach((item) => {
+                        // User message
+                        addStudentChatMessage(item.question, 'user', new Date(item.created_at).toLocaleTimeString());
+                        // AI response
+                        addStudentChatMessage(item.answer, 'assistant', new Date(item.created_at).toLocaleTimeString());
+                    });
+
+                    // Scroll to bottom
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                }
+            } catch (error) {
+                console.error('Error loading chat history:', error);
+            }
+        }
+
+        // Add message to chat interface
+        function addStudentChatMessage(content, role, timestamp) {
+            const messagesDiv = document.getElementById('studentChatMessages');
+            if (!messagesDiv) return;
+
+            const messageId = `chat-msg-${Date.now()}-${Math.random()}`;
+            const isUser = role === 'user';
+            
+            const messageHtml = `
+                <div class="flex ${isUser ? 'justify-end' : 'justify-start'} animate-fade-in" id="${messageId}">
+                    <div class="flex gap-3 max-w-[80%] ${isUser ? 'flex-row-reverse' : 'flex-row'}">
+                        <!-- Avatar -->
+                        <div class="w-10 h-10 ${isUser ? 'bg-blue-500' : 'bg-gradient-to-r from-blue-500 to-cyan-500'} rounded-full flex items-center justify-center flex-shrink-0">
+                            <i class="fas ${isUser ? 'fa-user' : 'fa-robot'} text-white"></i>
+                        </div>
+                        <!-- Message Bubble -->
+                        <div class="flex flex-col ${isUser ? 'items-end' : 'items-start'}">
+                            <div class="${isUser ? 'bg-blue-500 text-white' : 'bg-white border-2 border-gray-200 text-gray-800'} rounded-2xl px-4 py-3 shadow-md">
+                                ${isUser ? `<div class="font-medium">${escapeHtml(content)}</div>` : formatMessageContent(content)}
+                            </div>
+                            <span class="text-xs text-gray-400 mt-1 px-1">${timestamp || new Date().toLocaleTimeString()}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            messagesDiv.innerHTML += messageHtml;
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        // Submit question from chatbot interface
+        async function submitStudentChatQuestion(lessonId, lessonTitle) {
+            const questionInput = document.getElementById('studentChatInput');
+            const question = questionInput.value.trim();
+            
+            if (!question) {
+                showNotification('Please enter a question', 'error');
+                return;
+            }
+
+            const submitBtn = document.getElementById('submitStudentChatBtn');
+            const originalHtml = submitBtn.innerHTML;
+            
+            try {
+                // Show loading state
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                submitBtn.disabled = true;
+
+                // Add user message to chat
+                addStudentChatMessage(question, 'user');
+
+                // Clear input
+                questionInput.value = '';
+                questionInput.style.height = 'auto';
+
+                // Check for line references in the question
+                const lineReferences = parseLineReference(question);
+                
+                // Highlight referenced lines if any
+                if (lineReferences.length > 0) {
+                    lineReferences.forEach(lineNumber => {
+                        highlightLineReference(lineNumber);
+                    });
+                }
+
+                // Add typing indicator
+                const messagesDiv = document.getElementById('studentChatMessages');
+                const typingId = `typing-${Date.now()}`;
+                messagesDiv.innerHTML += `
+                    <div class="flex justify-start animate-fade-in" id="${typingId}">
+                        <div class="flex gap-3 max-w-[80%]">
+                            <div class="w-10 h-10 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-robot text-white"></i>
+                            </div>
+                            <div class="bg-white border-2 border-gray-200 rounded-2xl px-4 py-3 shadow-md">
+                                <div class="flex gap-1">
+                                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0s"></div>
+                                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                                    <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+
+                const response = await fetch('/api/lessons/ask_question', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        lesson_id: lessonId,
+                        question: question
+                    }),
+                    credentials: 'include'
+                });
+
+                // Remove typing indicator
+                const typingEl = document.getElementById(typingId);
+                if (typingEl) typingEl.remove();
+
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Add AI response to chat
+                    addStudentChatMessage(data.answer, 'assistant');
+                    
+                    showNotification('Question answered successfully!', 'success');
+                } else {
+                    const errorData = await response.json();
+                    addStudentChatMessage(`Sorry, I encountered an error: ${errorData.error || 'Failed to get answer'}`, 'assistant');
+                    showNotification(`Error: ${errorData.error || 'Failed to get answer'}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error submitting question:', error);
+                addStudentChatMessage('Sorry, I encountered an error while processing your question. Please try again.', 'assistant');
+                showNotification('Network error. Please try again.', 'error');
+            } finally {
+                submitBtn.innerHTML = originalHtml;
+                submitBtn.disabled = false;
+                questionInput.focus();
+            }
+        }
+
+        // Submit question from student modal (legacy - kept for compatibility)
         async function submitStudentQuestion(lessonId, lessonTitle) {
             const questionInput = document.getElementById('studentQuestionInput');
             const question = questionInput.value.trim();
@@ -7610,36 +8506,39 @@ async function initializeApp() {
                     const qnaDiv = document.getElementById('studentLessonQnAHistory');
                     if (qnaDiv) {
                         const formattedAnswer = formatMessageContent(data.answer);
+                        const uid = Date.now().toString();
                         const newQnA = `
-                            <div class="bg-gradient-to-br from-gray-50 to-blue-50 rounded-xl p-4 border border-gray-200 hover:shadow-md transition-shadow">
-                                <!-- Question Section -->
-                                <div class="flex items-start mb-3">
-                                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mr-3">
-                                        <i class="fas fa-user text-white text-xs"></i>
-                                    </div>
-                                    <div class="flex-1">
-                                        <div class="font-semibold text-blue-700 mb-1">You asked:</div> 
-                                        <div class="text-gray-800">${question}</div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Answer Section -->
-                                <div class="flex items-start bg-white bg-opacity-70 rounded-lg p-3 border-l-4 border-green-400">
-                                    <div class="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0 mr-3">
-                                        <i class="fas fa-robot text-white text-xs"></i>
-                                    </div>
-                                    <div class="flex-1">
-                                        <div class="font-semibold text-green-700 mb-1">AI replied:</div> 
-                                        <div class="text-gray-800 prose max-w-none text-sm">${formattedAnswer}</div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Timestamp -->
-                                <div class="flex items-center justify-end mt-2">
-                                    <span class="text-xs text-gray-500">
-                                        <i class="far fa-clock mr-1"></i>${new Date().toLocaleString()}
-                                    </span>
-                                </div>
+                            <div class=\"bg-white rounded-xl p-4 border border-gray-200 shadow-[0_1px_4px_rgba(0,0,0,0.04)] hover:shadow-[0_4px_12px_rgba(0,0,0,0.08)] transition-shadow\" id=\"qnaCard-${uid}\"> 
+                        <button type=\"button\" class=\"w-full flex items-start gap-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-500 rounded-lg p-1 min-h-[44px]\" onclick=\"toggleStudentQnAAccordion('${uid}')\" aria-expanded=\"false\" aria-controls=\"qnaPanel-${uid}\"> 
+                                    <div class=\"w-7 h-7 bg-blue-600 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5\"> 
+                                        <i class=\"fas fa-question text-white text-[11px]\"></i> 
+                                    </div> 
+                                    <div class=\"flex-1 min-w-0\"> 
+                                        <div class=\"flex items-center justify-between gap-2\"> 
+                                            <div class=\"text-[15px] font-semibold text-gray-900 truncate\">${question}</div> 
+                                            <i id=\"qnaChevron-${uid}\" class=\"fas fa-chevron-down text-gray-400 text-xs transition-transform duration-300\"></i> 
+                                        </div> 
+                                        <div class=\"text-[12px] text-gray-600 mt-0.5\"><i class=\"far fa-clock mr-1\"></i>${new Date().toLocaleString()}</div> 
+                                    </div> 
+                                </button> 
+                                <div id=\"qnaPanel-${uid}\" class=\"mt-3 hidden transition-all duration-300 ease-in-out\" role=\"region\" aria-labelledby=\"qnaCard-${uid}\"> 
+                                    <div class=\"flex items-start bg-gray-50 rounded-lg p-3 border border-gray-200\"> 
+                                        <div class=\"w-7 h-7 bg-green-600 rounded-full flex items-center justify-center flex-shrink-0 mr-3\"> 
+                                            <i class=\"fas fa-robot text-white text-[11px]\"></i> 
+                                        </div> 
+                                <div class=\"flex-1 min-w-0 relative\"> 
+                                    <div class=\"text-gray-800 prose max-w-none text-[14px] leading-7\" style=\"max-height:10.5rem; overflow:hidden; padding-bottom:3rem;\" id=\"answerBody-${uid}\">${formattedAnswer}</div> 
+                                    <div id=\"answerFade-${uid}\" class=\"pointer-events-none absolute left-10 right-3 h-12\" style=\"bottom:3rem; background: linear-gradient(to top, rgba(249,250,251,1), rgba(249,250,251,0));\"></div> 
+                                    <div class=\"mt-2 flex justify-between items-center sticky bottom-0 bg-white border border-gray-200 rounded-md px-3 py-2 z-10 shadow-sm\"> 
+                                        <div class=\"h-5 pl-3 border-l-4 border-blue-400 text-[12px] text-gray-700\">AI answer</div>
+                                        <div class=\"flex gap-2\"> 
+                                            <button id=\"toggleBtn-${uid}\" onclick=\"toggleStudentQnA('${uid}'); event.stopPropagation();\" class=\"inline-flex items-center gap-1 text-blue-700 hover:text-blue-800 text-sm font-semibold px-3 py-2 rounded-md bg-blue-50 hover:bg-blue-100 active:bg-blue-200 transition-colors\"><i class=\"fas fa-angles-down text-[12px]\"></i><span>Show more</span></button> 
+                                            <button onclick=\"openStudentQnAModal('${encodeURIComponent(question)}','${encodeURIComponent(data.answer)}','${encodeURIComponent(new Date().toLocaleString())}'); event.stopPropagation();\" class=\"inline-flex items-center gap-1 text-gray-800 hover:text-gray-900 text-sm font-semibold px-3 py-2 rounded-md bg-gray-100 hover:bg-gray-200 active:bg-gray-300 transition-colors\"><i class=\"fas fa-up-right-and-down-left-from-center text-[12px]\"></i><span>View full</span></button> 
+                                        </div> 
+                                    </div> 
+                                </div> 
+                                    </div> 
+                                </div> 
                             </div>
                         `;
                         
@@ -7648,8 +8547,8 @@ async function initializeApp() {
                             qnaDiv.innerHTML = '';
                         }
                         
-                        qnaDiv.innerHTML += newQnA;
-                        qnaDiv.scrollTop = qnaDiv.scrollHeight;
+                        qnaDiv.innerHTML = newQnA + qnaDiv.innerHTML;
+                        qnaDiv.scrollTop = 0;
                     }
 
                     // Clear the input
@@ -8085,6 +8984,7 @@ async function initializeApp() {
                         <div class="space-y-3">
                             <label class="block text-sm font-medium text-gray-700">Improvement Request</label>
                             <textarea id="improvementPrompt" rows="5" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="Describe changes (e.g., simplify language, add examples, align to grade)"></textarea>
+                            <button onclick="applyAIPromptToDraft(${selectedVersion.id}, event)" class="mt-2 px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700" id="applyAIPromptBtn"><i class="fas fa-magic mr-2"></i>Apply Prompt</button>
 
                             <div class="bg-blue-50 p-3 rounded-lg">
                                 <h4 class="font-semibold text-blue-800 mb-2">How it works</h4>
@@ -8103,7 +9003,7 @@ async function initializeApp() {
                             <div class="bg-gray-50 p-3 rounded border max-h-56 overflow-y-auto text-sm markdown-content" id="aiCurrentVersionContentPreview">Loading...</div>
 
                             <label class="block text-sm font-medium text-gray-700">Draft Content (iteratively updated)</label>
-                            <div class="bg-white p-3 rounded border max-h-56 overflow-y-auto text-sm markdown-content" id="aiDraftContentPreview">Draft content will appear here after applying AI prompts...</div>
+                            <div class="bg-purple-50 border border-purple-200 p-3 rounded max-h-56 overflow-y-auto text-sm markdown-content" id="aiDraftContentPreview">Draft content will appear here after applying AI prompts...</div>
                             
                             <!-- Human Edit (collapsible) -->
                             <div class="pt-2">
@@ -8144,7 +9044,6 @@ async function initializeApp() {
                     <div class="flex justify-end gap-3 mt-6 pt-4 border-t">
                         <button onclick="closeAIVersioningModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">${canCreateVersion ? 'Cancel' : 'Close'}</button>
                         ${canCreateVersion ? `
-                                <button onclick="applyAIPromptToDraft(${selectedVersion.id}, event)" class="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700" id="applyAIPromptBtn"><i class="fas fa-magic mr-2"></i>Apply Prompt</button>
                                 <button onclick="finalizeAIVersion(${selectedVersion.id}, event)" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700" id="finalizeAIVersionBtn">Finalize New Version</button>
                         ` : `<span class="px-3 py-2 text-sm text-red-600">Versioning disabled for this lesson</span>`}
                     </div>
@@ -8400,6 +9299,7 @@ async function initializeApp() {
             }
 
             // Loading state
+            showGlobalSpinner('Applying prompt...');
             if (applyBtn) {
                 applyBtn.disabled = true;
                 applyBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Applying...';
@@ -8442,6 +9342,7 @@ async function initializeApp() {
             } catch (e) {
                 showNotification('Network error applying AI prompt', 'error');
             } finally {
+                hideGlobalSpinner();
                 if (applyBtn) {
                     applyBtn.disabled = false;
                     applyBtn.innerHTML = '<i class="fas fa-magic mr-2"></i>Apply Prompt';
@@ -8451,6 +9352,28 @@ async function initializeApp() {
                 enableSidebarTabs();
                 // Restore finalize and modal close buttons visibility
                 setFinalizeAndModalCloseVisibility(false);
+            }
+        }
+
+        function showGlobalSpinner(message) {
+            const overlay = document.getElementById('globalSpinnerOverlay');
+            const textEl = document.getElementById('globalSpinnerText');
+            if (textEl) {
+                textEl.textContent = message || 'Loading...';
+            }
+            if (overlay) {
+                overlay.classList.remove('hidden');
+            }
+            if (document && document.body) {
+                document.body.classList.add('overflow-hidden');
+            }
+        }
+
+        function hideGlobalSpinner() {
+            const overlay = document.getElementById('globalSpinnerOverlay');
+            if (overlay) overlay.classList.add('hidden');
+            if (document && document.body) {
+                document.body.classList.remove('overflow-hidden');
             }
         }
 
@@ -9092,6 +10015,14 @@ async function initializeApp() {
           </button>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Global Spinner Overlay -->
+  <div id="globalSpinnerOverlay" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center" style="z-index: 9999;">
+    <div class="bg-white rounded-lg shadow-lg px-6 py-5 flex items-center gap-3">
+      <i class="fas fa-spinner fa-spin text-xl text-purple-600"></i>
+      <span id="globalSpinnerText" class="text-gray-700">Loading...</span>
     </div>
   </div>
 

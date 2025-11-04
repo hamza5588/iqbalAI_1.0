@@ -332,9 +332,19 @@ class ChatService:
                 # For new conversations, don't include any chat history
                 formatted_history = []
             else:
-                # Get and format chat history only for existing conversations
-                raw_history = self.conversation_model.get_chat_history(conversation_id)
-                formatted_history = self.format_chat_history(raw_history)
+                # Verify conversation ownership before accessing
+                conversation = self.conversation_model.get_conversation_by_id(conversation_id)
+                if not conversation:
+                    logger.warning(f"User {self.user_id} attempted to use conversation {conversation_id} without ownership")
+                    # Create a new conversation if the provided one doesn't belong to this user
+                    conversation_id = self.conversation_model.create_conversation(
+                        title=message[:50]
+                    )
+                    formatted_history = []
+                else:
+                    # Get and format chat history only for existing conversations
+                    raw_history = self.conversation_model.get_chat_history(conversation_id)
+                    formatted_history = self.format_chat_history(raw_history)
             
             # Save user message
             self.conversation_model.save_message(
@@ -386,8 +396,14 @@ class ChatService:
             raise
 
     def get_conversation_messages(self, conversation_id: int) -> List[Dict[str, Any]]:
-        """Get messages for a specific conversation"""
+        """Get messages for a specific conversation - verifies user ownership"""
         try:
+            # Verify conversation ownership before retrieving messages
+            conversation = self.conversation_model.get_conversation_by_id(conversation_id)
+            if not conversation:
+                logger.warning(f"User {self.user_id} attempted to access conversation {conversation_id} without ownership")
+                return []
+            
             raw_messages = self.conversation_model.get_chat_history(conversation_id)
             return [
                 {
