@@ -591,13 +591,6 @@
           <span id="viewLessonsLabel">View Lessons</span>
         </button>
 
-
-                <button onclick="toggleVoiceRecording()"
-                    class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors">
-                    <i class="fas fa-microphone w-3.5 h-3.5"></i>
-          <span>Real Time Chat</span>
-        </button>
-
                 <button onclick="resetChat()"
                     class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors">
                     <i class="fas fa-refresh text-[#B7B7B7] w-3.5 h-3.5"></i>
@@ -6637,11 +6630,6 @@ async function initializeApp() {
                 <button onclick="openViewLessons()" class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors" id="viewLessonsBtn">
                     <img src="{{ url_for('static', filename='images/lesson.png') }}" alt="" class="w-3.5 h-3.5">
                     <span id="viewLessonsLabel">View Lessons</span>
-                </button>
-
-                <button onclick="toggleVoiceRecording()" class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors">
-                    <i class="fas fa-microphone w-3.5 h-3.5"></i>
-                    <span>Real Time Chat</span>
                 </button>
 
                 <button onclick="resetChat()" class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors">
