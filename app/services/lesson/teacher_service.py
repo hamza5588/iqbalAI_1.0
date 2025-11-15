@@ -21,8 +21,7 @@ from .models import LessonResponse, LessonPlan
 from .rag_service import RAGService
 
 from app.models.models import LessonModel
-import os
-os.environ["LANGCHAIN_MAX_CONCURRENCY"] = "1" 
+
 logger = logging.getLogger(__name__)
 
 # Set up detailed teacher service logging
@@ -377,16 +376,20 @@ class TeacherLessonService(BaseLessonService):
             }
         
         
-        run_config = RunnableConfig(
-        configurable={"session_id": session_id},
-        max_concurrency=1,
-        recursion_limit=3
+        chain = (
+            RunnableLambda(build_chain_input)
+            | prompt 
+            | self.llm
+        )
+
+        # Step 7: Wrap with message history
+        conversational_chain = RunnableWithMessageHistory(
+            chain,
+            self.get_session_history,
+            input_messages_key="user_query",
+            history_messages_key="chat_history"
         )
         
-        response = conversational_chain.invoke(
-            {"user_query": enhanced_query},
-            config=run_config
-        )
 
         # Step 8: For initial message, retrieve document overview to inform the greeting
         # Check if this is the first message (no chat history)
@@ -414,13 +417,24 @@ class TeacherLessonService(BaseLessonService):
         
         # Step 8: Invoke with configuration to prevent thread exhaustion
         # Use simple config to avoid parallel execution issues
+
         run_config = RunnableConfig(
-            configurable={"session_id": session_id}
+            configurable={"session_id": session_id},
+            max_concurrency=1,
+            recursion_limit=3
         )
+        
         response_message = conversational_chain.invoke(
             {"user_query": enhanced_query},
             config=run_config
         )
+        # run_config = RunnableConfig(
+        #     configurable={"session_id": session_id}
+        # )
+        # response_message = conversational_chain.invoke(
+        #     {"user_query": enhanced_query},
+        #     config=run_config
+        # )
         
         response_text = response_message.content if hasattr(response_message, 'content') else str(response_message)
         
