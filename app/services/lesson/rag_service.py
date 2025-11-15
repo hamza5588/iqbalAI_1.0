@@ -10,6 +10,10 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
+# Disable tqdm threading to prevent "cannot start new thread" errors
+os.environ['TQDM_DISABLE'] = '1'
+os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+
 logger = logging.getLogger(__name__)
 
 
@@ -20,8 +24,17 @@ class RAGService:
     
     def __init__(self):
         """Initialize RAG service with embeddings and text splitter"""
+        # Configure embeddings to disable threading and progress bars
+        # Environment variables TQDM_DISABLE and TOKENIZERS_PARALLELISM are set at app startup
         self.embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/all-MiniLM-L6-v2"
+            model_name="sentence-transformers/all-MiniLM-L6-v2",
+            model_kwargs={
+                'device': 'cpu',
+                'trust_remote_code': False
+            },
+            encode_kwargs={
+                'normalize_embeddings': False
+            }
         )
         self.text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
