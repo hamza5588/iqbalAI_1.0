@@ -61,6 +61,7 @@ from langchain_core.runnables import RunnablePassthrough
 from pydantic import BaseModel, Field
 import re
 from langchain_core.runnables import RunnableLambda
+from langchain_core.runnables.config import RunnableConfig
 from langchain_groq import ChatGroq
 
 class lesson_response(BaseModel):
@@ -447,19 +448,7 @@ class TeacherLessonService(BaseLessonService):
             'uploaded_content': uploaded_doc_content  # Add actual content
         }
         
-        # Step 4: Create retriever runnable
-        def get_query_for_retrieval(x):
-            """Extract user query for retrieval - handles both string and message objects"""
-            user_input = x.get("user_query", "")
-            if hasattr(user_input, 'content'):
-                return user_input.content
-            return str(user_input)
-        
-        retriever_runnable = RunnableLambda(
-            lambda x: self.format_context(
-                retriever.invoke(get_query_for_retrieval(x))
-            )
-        )
+        # Step 4: Retriever is now used directly in build_chain_input to avoid parallel execution
         
         # Step 5: Build system prompt with form context (but NOT with RAG context yet)
         # RAG context will be dynamically added per query via {context} placeholder
@@ -475,7 +464,7 @@ class TeacherLessonService(BaseLessonService):
             ("human", "{user_query}")
         ])
 
-        # Step 6: Build chain
+        # Step 6: Build chain - restructured to avoid parallel execution that causes thread exhaustion
         def extract_query_content(x):
             """Extract user query from input - handles both string and message objects"""
             user_input = x.get("user_query", "")
@@ -483,12 +472,20 @@ class TeacherLessonService(BaseLessonService):
                 return user_input.content
             return str(user_input)
         
-        chain = (
-            {
-                "context": retriever_runnable,  # Dynamically retrieves context per query
-                "user_query": extract_query_content,
-                "chat_history": lambda x: x.get("chat_history", [])
+        def build_chain_input(x):
+            """Build chain input sequentially to avoid parallel execution"""
+            query = extract_query_content(x)
+            # Retrieve context synchronously (not in parallel)
+            context = self.format_context(retriever.invoke(query))
+            chat_history = x.get("chat_history", [])
+            return {
+                "context": context,
+                "user_query": query,
+                "chat_history": chat_history
             }
+        
+        chain = (
+            RunnableLambda(build_chain_input)
             | prompt 
             | self.llm
         )
@@ -525,10 +522,14 @@ class TeacherLessonService(BaseLessonService):
         else:
             enhanced_query = user_query
         
-        # Step 8: Invoke
+        # Step 8: Invoke with configuration to prevent thread exhaustion
+        # Use simple config to avoid parallel execution issues
+        run_config = RunnableConfig(
+            configurable={"session_id": session_id}
+        )
         response_message = conversational_chain.invoke(
             {"user_query": enhanced_query},
-            config={"configurable": {"session_id": session_id}}
+            config=run_config
         )
         
         response_text = response_message.content if hasattr(response_message, 'content') else str(response_message)
