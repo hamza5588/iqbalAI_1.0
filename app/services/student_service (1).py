@@ -25,85 +25,86 @@ class StudentLessonService(BaseLessonService):
         logger.info("Student lesson service initialized")
 
     def answer_lesson_question(self, lesson_id: int, question: str, conversation_history: list = None) -> Dict[str, str]:
-        """Answer a student's question about a specific lesson, letting the AI infer affirmatives."""
+        """Answer a student's question about a specific lesson"""
         try:
+            # Get lesson content from database
             from app.models.models import LessonModel
             lesson = LessonModel.get_lesson_by_id(lesson_id)
+            
             if not lesson:
                 return {"error": "Lesson not found"}
-
+            
             lesson_content = lesson.get('content', '')
             lesson_title = lesson.get('title', 'this lesson')
+            
+            # Handle conversation history safely
+            history = (conversation_history or [])[-2:]
+            formatted_history = "\n".join([f"Student Question: {h.get('question', '')}\nAI Answer: {h.get('answer', '')}" for h in history if h])
+            
 
-            # Limit history for clarity but include enough for context
-            history = (conversation_history or [])[-3:]
-            formatted_history = "\n".join(
-                f"Student Question: {h.get('question', '')}\nAI Answer: {h.get('answer', '')}"
-                for h in history if h
-            ) or "No previous conversation."
-
-            # Debug prints
+            
+            # Print history to terminal for debugging
             print("\n" + "="*80)
-            print("CONVERSATION HISTORY SENT TO PROMPT:")
+            print("CONVERSATION HISTORY BEING SENT TO PROMPT:")
             print("="*80)
-            print(formatted_history)
+            print(formatted_history if formatted_history else "No previous conversation.")
             print("="*80)
             print(f"Current Question: {question}")
             print("="*80 + "\n")
+            logger.info(f"Conversation history: {formatted_history if formatted_history else 'No previous conversation.'}")
 
-            # ---- AI prompt (NO hard-coded logic, LLM interprets affirmatives) ----
-            prompt = ChatPromptTemplate.from_template("""
-        You are a helpful teaching assistant.
+            
+            # Create prompt for answering questions
+            prompt = ChatPromptTemplate.from_template(f"""
+        # You are a helpful teaching assistant. Answer the student's question based on the lesson content. If the Question is Not In the Content. Just Say Question Not related to The Content 
+        # If the Student Says Yes Answer From your Information, Then Answer the Above Question.
+        RULES:
+ 
+        # 1. If the Student says "Yes" or something like Yes to your Response then Answer using your general Knowledge (IMPORTANT)
+        #   - Answer the PREVIOUS question (Last Question) asked by the Student using your own knowledge. (IMPORTANT)
+        
+        2. If question is related to lesson content:
+           - Provide clear, educational answer using lesson content. Use simple language and examples.
 
-        Your job is to answer the student's question based on the *lesson content* when possible.
+        3. If question is NOT related to lesson content:
+           - Response must be EXACTLY two sentences: "{{question}} is not related to the lesson. Would you like me to answer it using my own knowledge?"
+           - Do NOT provide any additional information.
 
-        Follow these rules:
+           *if the question in the last conversation was not related to the lesson, and then student say's yes in this query. answer the last question using your own knowledge.*
 
-        1. If the student's current message indicates they want you to answer the previous question (e.g., "yes", "yes please", "sure"), then simply answer the **previous question** directly using your general knowledge.
-        - Do NOT explain your reasoning.
-        - Do NOT restate the previous conversation.
+        4. If no relevant info found:
+           - "No relevant information about this topic is found in the lesson content. Would you like me to answer it using my own knowledge?"
+           -"If Question is "Yes". Than Answer using your own KnowledgeBase
 
-        2. If the student's question is related to the lesson:
-        - Provide a clear, educational answer using the lesson content.
+        ## IMPORTANT: If Student Says "Yes Please" or "Yes" Answer the Previous Question Then (CRITICAL)
 
-        3. If the student's question is NOT related to the lesson:
-        - Respond exactly with two sentences:
-            "<question> is not related to the lesson. Would you like me to answer it using my own knowledge?"
-        - Do NOT provide any additional explanation.
-
-        4. If no relevant lesson info exists:
-        - Say: "No relevant information about this topic is found in the lesson content. Would you like me to answer it using my own knowledge?"
-        - If the student's next message implies consent, answer using your general knowledge — directly, without explaining your decision.
-
+        # *Current Question: {question}*
         Lesson Title: {lesson_title}
         Lesson Content: {lesson_content}
 
-        Current Student Question: {question}
+        # Previous History: (Top Question: First Question, Bottom Question: Last Question Asked)
+        Previous History: {formatted_history if formatted_history else "None"} 
+        #IMPORTANT: History is Only For Context and Guidence
 
-        Conversation History:
-        {formatted_history}
         """)
-
-
+            
             chain = prompt | self.llm | StrOutputParser()
-
+            
             answer = chain.invoke({
                 "lesson_title": lesson_title,
                 "lesson_content": lesson_content,
-                "question": question,
-                "formatted_history": formatted_history,
+                "question": question
             })
-
+            
             return {
-                "answer": answer.strip(),
+                "answer": answer,
                 "lesson_id": lesson_id,
                 "question": question
             }
-
+            
         except Exception as e:
-            logger.exception("Error answering lesson question")
-            return {"error": str(e)}
-
+            logger.error(f"Error answering lesson question: {str(e)}")
+            return {"error": f"Failed to answer question: {str(e)}"}
 
     def get_lesson_faqs(self, lesson_id: int, limit: int = 5) -> List[Dict[str, str]]:
         """Get frequently asked questions for a lesson"""

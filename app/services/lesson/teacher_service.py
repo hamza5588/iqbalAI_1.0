@@ -43,6 +43,67 @@ teacher_formatter = logging.Formatter(
 teacher_handler.setFormatter(teacher_formatter)
 teacher_logger.addHandler(teacher_handler)
 
+from typing import Literal
+from pydantic import BaseModel
+
+from langchain_core.prompts import PromptTemplate
+from langchain_core.output_parsers import JsonOutputParser
+# from langchain.memory import ConversationBufferMemory
+
+from langchain_core.chat_history import BaseChatMessageHistory, InMemoryChatMessageHistory
+from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_core.chat_history import BaseChatMessageHistory, InMemoryChatMessageHistory
+from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.messages import HumanMessage, AIMessage
+from langchain_community.vectorstores import FAISS
+from langchain_core.runnables import RunnablePassthrough
+from pydantic import BaseModel, Field
+import re
+from langchain_core.runnables import RunnableLambda
+from langchain_groq import ChatGroq
+
+class lesson_response(BaseModel):
+    complete_lesson: Literal["yes", "no"] = Field(
+        ...,
+        description="check if the lesson is generated or not if generated ('yes') or not ('no')."
+    )
+
+class InteractiveChatResponse(BaseModel):
+    """Structured response for interactive chat"""
+    ai_response: str = Field(..., description="The AI's response text")
+    complete_lesson: Literal["yes", "no"] = Field(..., description="Whether the complete lesson has been generated ('yes') or still in draft/outline stage ('no')")
+
+def check_lesson_response(text: str, groq_api_key: str):
+    """Check if the AI response indicates a complete lesson has been generated"""
+    llm = ChatGroq(
+        groq_api_key=groq_api_key,
+        model_name="llama-3.1-8b-instant",
+        temperature=0.1
+    )
+    
+    # Create a prompt to analyze if the response is a complete lesson or just an outline/draft
+    analysis_prompt = f"""Analyze the following AI response and determine if it contains a COMPLETE LESSON or just an OUTLINE/DRAFT.
+
+Complete Lesson indicators:
+- Contains full lesson content with detailed explanations
+- Includes actual lesson sections with comprehensive content
+- Has detailed examples, code snippets, or explanations
+- Ready to use for teaching (not just a structure/outline)
+
+Outline/Draft indicators:
+- Only shows structure (Learning Objectives, Main Topics list, etc.)
+- Asks for confirmation before generating full lesson
+- Contains phrases like "Does this outline work", "Should I generate", "Is this perfect now"
+- Only shows headings/sections without full content
+
+AI Response:
+{text}
+
+Determine if this is a complete lesson (yes) or still a draft/outline (no)."""
+
+    llm_with_structured_output = llm.with_structured_output(lesson_response)
+    return llm_with_structured_output.invoke(analysis_prompt)
 
 class TeacherLessonService(BaseLessonService):
     """
@@ -56,11 +117,17 @@ class TeacherLessonService(BaseLessonService):
     7. User/teacher can download the final version.
     """
     
+    # Class-level dictionary to persist chat histories across service instances
+    # This ensures conversation history persists across HTTP requests
+    _chat_histories = {}
+    
     def __init__(self, groq_api_key: str):
         super().__init__(groq_api_key)
         self.rag_service = RAGService()
         self.lesson_vector_stores = {}  # Store vector DBs for each lesson
         teacher_logger.info("RAG service initialized")
+        # Use class-level chat_histories to persist across instances
+        teacher_logger.info("RAG service initialized with persistent memory")
 
     def process_file(self, file: FileStorage, lesson_details: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """
@@ -194,24 +261,917 @@ class TeacherLessonService(BaseLessonService):
                     logger.warning(f"Could not remove temporary file {temp_path}: {str(e)}")
 
 
-    def interactive_chat(self, lesson_id: int, user_query: str) -> str:
-        """Interactive chat with the lesson"""
-        # Retrieve relevant chunks
-        relevant_chunks = self.rag_service.retrieve_relevant_chunks(user_query, k=5)
-        if not relevant_chunks:
-            teacher_logger.warning("No relevant chunks found, using first few chunks")
-            relevant_chunks = self.rag_service.documents[:3]
+    # def get_session_history(self, session_id: str) -> BaseChatMessageHistory:
+    #     """Get or create chat history for a session"""
+    #     if session_id not in self.chat_histories:
+    #         self.chat_histories[session_id] = InMemoryChatMessageHistory()
+    #     return self.chat_histories[session_id]
+    
+    # def interactive_chat(
+    #     self, 
+    #     lesson_id: int, 
+    #     user_query: str, 
+    #     state: str = "start",
+    #     session_id: str = "default"
+    # ) -> InteractiveChatResponse:
+    #     """Interactive chat with structured LLM output"""
         
-        # Create RAG prompt
-        rag_prompt = self.rag_service.create_rag_prompt(user_prompt, relevant_chunks, lesson_details)
+    #     # Load existing vector store
+    #     vector_db = FAISS.load_local(
+    #         "vector_store.faiss",
+    #         self.rag_service.embeddings,
+    #         allow_dangerous_deserialization=True
+    #     )
+
+    #     # Retrieve chunks
+    #     relevant_chunks = vector_db.similarity_search(user_query, k=10)
+    #     if not relevant_chunks:
+    #         relevant_chunks = self.rag_service.documents[:3]
+
+    #     rag_prompt = self.rag_service.create_rag_prompt(user_query, relevant_chunks)
+
+    #     # Define structured output type
+    #     StructuredResponse = InteractiveChatResponse
+
+    #     # Bind LLM with structured schema
+    #     structured_llm = self.llm.with_structured_output(StructuredResponse)
+
+    #     # Create prompt templates for different states
+    #     if state == "start":
+    #         prompt_text = """
+    #         You are Prof. Potter, an intelligent teaching assistant helping generate academic lessons.
+
+    #         The teacher said: "{user_query}"
+
+    #         Task:
+    #         - Ask 2–3 short, relevant follow-up questions to clarify lesson requirements
+    #         (e.g., target grade, topic depth, focus).
+    #         - Do NOT generate the lesson yet.
+    #         - Return your message as 'ai_response'
+    #         - Set 'state' = "awaiting_followups"
+
+    #         Context:
+    #         {rag_context}
+    #         """
+
+    #     elif state == "awaiting_followups":
+    #         prompt_text = """
+    #         You are Prof. Potter. The teacher answered your previous clarifications:
+    #         "{user_query}"
+
+    #         Task:
+    #         - Generate a structured outline for the lesson (headings and bullet points).
+    #         - At the end, ask: "Would you like me to generate the complete lesson now?"
+    #         - Return 'ai_response' = the outline message.
+    #         - Set 'state' = "awaiting_confirmation".
+    #         """
+
+    #     elif state == "ready_to_generate":
+    #         prompt_text = """
+    #         You are Prof. Potter. The teacher has confirmed to generate the full lesson.
+
+    #         Teacher input: "{user_query}"
+
+    #         Task:
+    #         - Generate a detailed, complete, engaging lesson using the context below.
+    #         - Return 'ai_response' = the full lesson text.
+    #         - Set 'state' = "completed".
+
+    #         Context:
+    #         {rag_context}
+    #         """
+
+    #     else:
+    #         prompt_text = """
+    #         You are Prof. Potter.
+    #         The conversation state is unclear. Ask the teacher to start again.
+    #         Return a response asking them to restart.
+    #         Set 'state' = "awaiting_followups"
+    #         """
+
+    #     # Create prompt with message history placeholder
+    #     prompt = ChatPromptTemplate.from_messages([
+    #         ("system", prompt_text),
+    #         MessagesPlaceholder(variable_name="chat_history"),
+    #         ("human", "{user_query}")
+    #     ])
+
+    #     # Build the chain
+    #     chain = prompt | structured_llm
+
+    #     # Wrap with message history
+    #     conversational_chain = RunnableWithMessageHistory(
+    #         chain,
+    #         self.get_session_history,
+    #         input_messages_key="user_query",
+    #         history_messages_key="chat_history"
+    #     )
+
+    #     # Invoke the chain with session tracking
+    #     response = conversational_chain.invoke(
+    #         {
+    #             "user_query": user_query,
+    #             "rag_context": rag_prompt
+    #         },
+    #         config={"configurable": {"session_id": session_id}}
+    #     )
+
+    #     return response
+    
+    
+    def get_session_history(self, session_id: str) -> BaseChatMessageHistory:
+        """Get or create chat history for a session"""
+        # Use class-level dictionary to persist history across service instances
+        if session_id not in TeacherLessonService._chat_histories:
+            TeacherLessonService._chat_histories[session_id] = InMemoryChatMessageHistory()
+            teacher_logger.info(f"Created new chat history for session: {session_id}")
+        else:
+            history = TeacherLessonService._chat_histories[session_id]
+            message_count = len(history.messages) if hasattr(history, 'messages') else 0
+            teacher_logger.info(f"Retrieved existing chat history for session: {session_id} ({message_count} messages)")
+        return TeacherLessonService._chat_histories[session_id]
+
+    def format_context(self, relevant_chunks: List[Document]) -> str:
+        """Format context and escape curly braces to prevent LangChain template errors"""
+        rag_context = "\n\n".join([doc.page_content for doc in relevant_chunks])
+        # Escape curly braces in context content (this is a value, not a template string)
+        # All braces in the context value should be escaped since it will be inserted into {context}
+        escaped_context = rag_context.replace("{", "{{").replace("}", "}}")
+        return escaped_context
+    
+    def _format_context_for_system_prompt(self, relevant_chunks: List[Document]) -> str:
+        """Format context for system prompt without escaping (will be escaped later)"""
+        return "\n\n".join([doc.page_content for doc in relevant_chunks])
+    def interactive_chat(
+        self, 
+        lesson_id: int, 
+        user_query: str, 
+        session_id: str = None,
+        subject: str = None,
+        grade_level: str = None,
+        focus_area: str = None,
+        document_uploaded: bool = False,
+        document_filename: str = None
+    ) -> InteractiveChatResponse:
+        """Interactive chat with Prof. Potter for lesson creation"""
         
-        # Generate lesson using RAG prompt
-        teacher_logger.info("Starting AI lesson generation with RAG")
-        lesson_response = self._llm_responce(rag_prompt, lesson_details)
-        return lesson_response
+        # Use lesson_id as session_id to maintain context per lesson
+        if not session_id:
+            session_id = f"lesson_{lesson_id}"
+        
+        # Step 1: Load vector DB
+        vector_db = FAISS.load_local(
+            "vector_store.faiss",
+            self.rag_service.embeddings,
+            allow_dangerous_deserialization=True
+        )
+        retriever = vector_db.as_retriever(search_type="similarity", search_kwargs={"k": 5})
+        
+        # Step 2: Handle uploaded document content
+        uploaded_doc_content = ""
+        if document_uploaded and document_filename:
+            try:
+                # TODO: Implement actual document retrieval from your storage
+                # Example: uploaded_doc_content = self.get_uploaded_document(lesson_id, document_filename)
+                uploaded_doc_content = f"\n\n### Uploaded Document: {document_filename}\n[Document content should be retrieved and inserted here]"
+                teacher_logger.info(f"Retrieved uploaded document: {document_filename}")
+            except Exception as e:
+                teacher_logger.warning(f"Could not retrieve uploaded document: {str(e)}")
+        
+        # Step 3: Store form data in session context
+        form_context = {
+            'subject': subject or focus_area,
+            'grade_level': grade_level,
+            'document_uploaded': document_uploaded,
+            'document_filename': document_filename,
+            'uploaded_content': uploaded_doc_content  # Add actual content
+        }
+        
+        # Step 4: Create retriever runnable
+        def get_query_for_retrieval(x):
+            """Extract user query for retrieval - handles both string and message objects"""
+            user_input = x.get("user_query", "")
+            if hasattr(user_input, 'content'):
+                return user_input.content
+            return str(user_input)
+        
+        retriever_runnable = RunnableLambda(
+            lambda x: self.format_context(
+                retriever.invoke(get_query_for_retrieval(x))
+            )
+        )
+        
+        # Step 5: Build system prompt with form context (but NOT with RAG context yet)
+        # RAG context will be dynamically added per query via {context} placeholder
+        base_system_prompt = self._get_system_prompt(form_context)
+        
+        # Escape curly braces to prevent template variable errors
+        escaped_system_prompt = base_system_prompt.replace("{", "{{").replace("}", "}}")
+        
+        # Build prompt template
+        prompt = ChatPromptTemplate.from_messages([
+            ("system", escaped_system_prompt + "\n\n### Knowledge Base Context:\n{context}" + uploaded_doc_content),
+            MessagesPlaceholder(variable_name="chat_history"),
+            ("human", "{user_query}")
+        ])
 
+        # Step 6: Build chain
+        def extract_query_content(x):
+            """Extract user query from input - handles both string and message objects"""
+            user_input = x.get("user_query", "")
+            if hasattr(user_input, 'content'):
+                return user_input.content
+            return str(user_input)
+        
+        chain = (
+            {
+                "context": retriever_runnable,  # Dynamically retrieves context per query
+                "user_query": extract_query_content,
+                "chat_history": lambda x: x.get("chat_history", [])
+            }
+            | prompt 
+            | self.llm
+        )
 
-        return 
+        # Step 7: Wrap with message history
+        conversational_chain = RunnableWithMessageHistory(
+            chain,
+            self.get_session_history,
+            input_messages_key="user_query",
+            history_messages_key="chat_history"
+        )
+
+        # Step 8: For initial message, retrieve document overview to inform the greeting
+        # Check if this is the first message (no chat history)
+        chat_history = self.get_session_history(session_id)
+        is_first_message = len(chat_history.messages) == 0 if hasattr(chat_history, 'messages') else True
+        
+        # If first message and document is uploaded, enhance the query with document overview
+        if is_first_message and document_uploaded:
+            # Retrieve document overview to understand what it's about
+            try:
+                overview_query = "What is this document about? Provide a brief summary of the main topics, themes, and content."
+                overview_docs = retriever.invoke(overview_query)
+                if overview_docs:
+                    # Extract key topics from the document
+                    doc_summary = "\n".join([doc.page_content[:200] for doc in overview_docs[:3]])  # First 200 chars of top 3 chunks
+                    # Enhance user query to include document context for better initial response
+                    enhanced_query = f"{user_query}\n\n[Document Context: The uploaded document covers: {doc_summary}...]"
+                else:
+                    enhanced_query = user_query
+            except Exception as e:
+                teacher_logger.warning(f"Could not retrieve document overview: {str(e)}")
+                enhanced_query = user_query
+        else:
+            enhanced_query = user_query
+        
+        # Step 8: Invoke
+        response_message = conversational_chain.invoke(
+            {"user_query": enhanced_query},
+            config={"configurable": {"session_id": session_id}}
+        )
+        
+        response_text = response_message.content if hasattr(response_message, 'content') else str(response_message)
+        
+        # Step 9: Check if complete lesson has been generated
+        try:
+            lesson_check = check_lesson_response(response_text, self.api_key)
+            complete_lesson_status = lesson_check.complete_lesson
+            teacher_logger.info(f"Lesson completion check: {complete_lesson_status}")
+        except Exception as e:
+            teacher_logger.warning(f"Error checking lesson completion status: {str(e)}")
+            complete_lesson_status = "no"
+        
+        return InteractiveChatResponse(
+            ai_response=response_text,
+            complete_lesson=complete_lesson_status
+        )
+    # def interactive_chat(
+    #     self, 
+    #     lesson_id: int, 
+    #     user_query: str, 
+    #     session_id: str = None,
+    #     subject: str = None,
+    #     grade_level: str = None,
+    #     focus_area: str = None,
+    #     document_uploaded: bool = False,
+    #     document_filename: str = None
+    # ) -> InteractiveChatResponse:
+    #     """Interactive chat with Prof. Potter for lesson creation"""
+        
+    #     # Use lesson_id as session_id to maintain context per lesson
+    #     if not session_id:
+    #         session_id = f"lesson_{lesson_id}"
+        
+    #     # Store form data in session context for use in prompts
+    #     form_context = {
+    #         'subject': subject or focus_area,  # Use focus_area as subject if subject not provided
+    #         'grade_level': grade_level,
+    #         'document_uploaded': document_uploaded,
+    #         'document_filename': document_filename
+    #     }
+        
+    #     # Step 1: Load vector DB
+    #     vector_db = FAISS.load_local(
+    #         "vector_store.faiss",
+    #         self.rag_service.embeddings,
+    #         allow_dangerous_deserialization=True
+    #     )
+    #     retriever = vector_db.as_retriever(search_type="similarity", search_kwargs={"k": 5})
+        
+    #     # Step 2: Create retriever runnable that extracts user_query from dict
+    #     # Handle both string and message object inputs
+    #     def get_query_for_retrieval(x):
+    #         """Extract user query for retrieval - handles both string and message objects"""
+    #         user_input = x.get("user_query", "")
+    #         if hasattr(user_input, 'content'):
+    #             return user_input.content
+    #         return str(user_input)
+        
+    #     retriever_runnable = RunnableLambda(
+    #         lambda x: self.format_context(
+    #             retriever.invoke(get_query_for_retrieval(x))  # Extract query content for retrieval
+    #         )
+    #     )
+        
+    #     # Step 3: Build prompt (include context in the system prompt)
+    #     # Get initial context for system prompt (returns list of Document objects)
+    #     initial_context_docs = retriever.invoke(user_query)
+    #     # Format context to string for system prompt (don't escape yet, will escape in system_prompt)
+    #     initial_context_str = self._format_context_for_system_prompt(initial_context_docs)
+    #     # Pass form context to system prompt
+    #     system_prompt = self._get_system_prompt(initial_context_str, form_context)
+    #     # Escape curly braces in system_prompt content to prevent template variable errors
+    #     # This escapes any braces in the context content like {'producer'} that could be misinterpreted
+    #     # The {context} variable is added after escaping, so it remains a valid template variable
+    #     escaped_system_prompt = system_prompt.replace("{", "{{").replace("}", "}}")
+    #     # Build prompt template with:
+    #     # - System prompt with context
+    #     # - MessagesPlaceholder for chat_history (automatically populated by RunnableWithMessageHistory)
+    #     # - Current user query
+    #     prompt = ChatPromptTemplate.from_messages([
+    #         ("system", escaped_system_prompt + "\n\nContext from knowledge base:\n{context}"),
+    #         MessagesPlaceholder(variable_name="chat_history"),  # Will contain all previous Q&A pairs
+    #         ("human", "{user_query}")  # Current user query
+    #     ])
+
+    #     # Step 4: Build chain
+    #     # RunnableWithMessageHistory will automatically:
+    #     # 1. Convert user_query string to HumanMessage and add to history
+    #     # 2. Inject full history into chat_history for MessagesPlaceholder
+    #     # 3. Pass the original user_query string to the chain for template
+    #     def extract_query_content(x):
+    #         """Extract user query from input - handles both string and message objects"""
+    #         user_input = x.get("user_query", "")
+    #         if hasattr(user_input, 'content'):
+    #             return user_input.content
+    #         return str(user_input)
+        
+    #     chain = (
+    #         {
+    #             "context": retriever_runnable,  # Retrieves context based on user_query
+    #             "user_query": extract_query_content,  # Extract query content (handles message or string)
+    #             "chat_history": lambda x: x.get("chat_history", [])  # Pass chat_history (populated by RunnableWithMessageHistory)
+    #         }
+    #         | prompt 
+    #         | self.llm
+    #     )
+
+    #     # Step 5: Wrap with message history
+    #     # RunnableWithMessageHistory automatically:
+    #     # - Converts user_query string to HumanMessage
+    #     # - Adds it to session history
+    #     # - Injects full history into chat_history key before passing to chain
+    #     conversational_chain = RunnableWithMessageHistory(
+    #         chain,
+    #         self.get_session_history,
+    #         input_messages_key="user_query",  # Key in input dict that contains the message
+    #         history_messages_key="chat_history"  # Key in chain input where history will be injected
+    #     )
+
+    #     # Step 6: Invoke
+    #     # Pass user_query as string - RunnableWithMessageHistory will handle conversion and history
+    #     response_message = conversational_chain.invoke(
+    #         {"user_query": user_query},  # Pass as string, will be converted to HumanMessage
+    #         config={"configurable": {"session_id": session_id}}
+    #     )
+        
+    #     response_text = response_message.content if hasattr(response_message, 'content') else str(response_message)
+        
+    #     # Step 7: Check if complete lesson has been generated
+    #     # Use structured output to determine if the response indicates a complete lesson
+    #     try:
+    #         lesson_check = check_lesson_response(response_text, self.api_key)
+            
+    #         complete_lesson_status = lesson_check.complete_lesson
+    #         teacher_logger.info(f"Lesson completion check: {complete_lesson_status}")
+    #     except Exception as e:
+    #         teacher_logger.warning(f"Error checking lesson completion status: {str(e)}")
+    #         # Default to "no" if check fails (assume it's still in draft/outline stage)
+    #         complete_lesson_status = "no"
+        
+    #     # Return structured response
+    #     return InteractiveChatResponse(
+    #         ai_response=response_text,
+    #         complete_lesson=complete_lesson_status
+    #     )
+            
+        # except Exception as e:
+        #     teacher_logger.error(f"Error in conversational chain: {e}")
+        #     # Return fallback response
+        #     return InteractiveChatResponse(
+        #         ai_response=f"I encountered an error. Let's start fresh. Could you please tell me what lesson you'd like to create?",
+        #         state="start",
+        #         should_generate_lesson=False
+        #     )
+    
+    # def _parse_response(self, response_text: str, current_state: str) -> InteractiveChatResponse:
+    #     """Parse LLM response and extract structured data"""
+        
+    #     # Try to extract JSON if present
+    #     json_match = re.search(r'\{[^}]*"ai_response"[^}]*\}', response_text, re.DOTALL)
+    #     if json_match:
+    #         try:
+    #             data = json.loads(json_match.group())
+    #             return InteractiveChatResponse(**data)
+    #         except:
+    #             pass
+        
+    #     # Determine next state based on content and current state
+    #     next_state = self._determine_next_state(response_text, current_state)
+        
+    #     # Check if lesson should be generated
+    #     should_generate = (
+    #         next_state == "completed" or
+    #         "here is the complete lesson" in response_text.lower() or
+    #         "here's the complete lesson" in response_text.lower()
+    #     )
+        
+    #     return InteractiveChatResponse(
+    #         ai_response=response_text.strip(),
+    #         state=next_state,
+    #         should_generate_lesson=should_generate
+    #     )
+    
+    # def _determine_next_state(self, response_text: str, current_state: str) -> str:
+    #     """Determine next state based on response content"""
+    #     response_lower = response_text.lower()
+        
+    #     if current_state == "start":
+    #         if "have you uploaded" in response_lower or "upload" in response_lower:
+    #             return "gathering_requirements"
+    #         return "gathering_requirements"
+        
+    #     elif current_state == "gathering_requirements":
+    #         if "outline" in response_lower or "structure" in response_lower:
+    #             return "awaiting_outline_approval"
+    #         return "gathering_requirements"
+        
+    #     elif current_state == "awaiting_outline_approval":
+    #         if "generate the complete lesson" in response_lower or "full lesson" in response_lower:
+    #             return "ready_to_generate"
+    #         return "refining_outline"
+        
+    #     elif current_state == "refining_outline":
+    #         if "ready to generate" in response_lower or "generate" in response_lower:
+    #             return "ready_to_generate"
+    #         return "refining_outline"
+        
+    #     elif current_state == "ready_to_generate":
+    #         return "completed"
+        
+    #     elif current_state == "completed":
+    #         return "completed"
+        
+    #     return current_state
+    
+
+    def _get_system_prompt(self, rag_context: str = "", form_context: dict = None) -> str:
+        """Generate a single unified system prompt for Prof. Potter."""
+        
+        if form_context is None:
+            form_context = {}
+        
+        # Note: rag_context is typically empty here and filled by {context} placeholder
+        # Only include it if explicitly provided (rare case)
+        context_section = f"\n\n### RELEVANT CONTEXT FROM KNOWLEDGE BASE:\n{rag_context}\n" if rag_context else ""
+        
+        # Build form context section
+        form_context_section = ""
+        # Only show subject if it's not "Other" or empty
+        subject = form_context.get('subject', '')
+        if subject and subject.lower() not in ['other', 'none', '']:
+            form_context_section += f"\n**Subject/Topic:** {subject}\n"
+        if form_context.get('grade_level'):
+            form_context_section += f"**Grade Level:** {form_context['grade_level']}\n"
+        # Document is already uploaded - don't ask about it, just note it's available
+        if form_context.get('document_uploaded'):
+            form_context_section += f"**Document:** {form_context.get('document_filename', 'file')} (already uploaded and processed)\n"
+            form_context_section += "**IMPORTANT:** The document has been uploaded and processed. You have access to its full content through the knowledge base context. Use this content to understand what the document is about and help create lessons from it.\n"
+        
+        if form_context_section:
+            form_context_section = f"\n\n📋 LESSON FORM INFORMATION:\n{form_context_section}\n"
+
+        unified_prompt = f"""
+              # Prof. Potter - Lesson Planning Assistant
+
+**Role**: You are Prof. Potter, an expert education assistant helping Faculty/Teachers prepare lesson plans from uploaded documents.
+
+---
+
+## CRITICAL INSTRUCTIONS (Must Always Follow)
+
+**CRITICAL INSTRUCTION 1: Document-Based Responses Only**
+* Answer questions ONLY from uploaded document content (when provided)
+* If answer not in document, immediately state: "I cannot find this information in the uploaded document. How would you like me to address this?"
+* The knowledge base context contains the uploaded document content - use it to understand what the document is about
+* For the FIRST message when document is uploaded: Use the knowledge base context to understand the document's main topics and themes, then greet the Faculty by mentioning what the document is about (e.g., "I've reviewed your document about [topics from context]")
+* Never fabricate, assume, or infer information not explicitly present in the document
+* When uncertain if information is in document, state uncertainty and ask Faculty to confirm
+* NEVER ask about uploading documents if the document is already uploaded - you already have access to it through the knowledge base context
+
+**CRITICAL INSTRUCTION 1.5: Wait for Confirmation Before Proceeding**
+* After asking ANY question (about prerequisites, topics, confirmation, etc.), you MUST wait for Faculty's response
+* Do NOT proceed to explain lesson components, provide content, or move forward until Faculty explicitly confirms
+* If you ask "Would you like me to include prerequisites?" - WAIT for yes/no answer before proceeding
+* If you ask "Is that correct?" - WAIT for confirmation before explaining anything
+* Only provide explanations, lesson content, or proceed to next steps AFTER receiving Faculty's explicit confirmation
+* This applies to ALL questions - always wait for the answer before continuing
+
+**CRITICAL INSTRUCTION 2: Ambiguity Resolution Process**
+* When a question can be interpreted in multiple ways, STOP immediately
+* Present possible interpretations: "I can interpret your question in these ways: [list 2-3 interpretations]. Which one matches your intent?"
+* After Faculty responds, reaffirm understanding: "To confirm, you're asking about [restate their interpretation]. Is this correct?"
+* Do NOT proceed to answer until you receive explicit confirmation from Faculty
+* If still unclear after confirmation, ask additional clarifying questions
+
+**CRITICAL INSTRUCTION 3: Dual-Verification Before Response**
+* For every Faculty question, follow this exact process:
+  - Step 1: Reread the original question the Faculty asked
+  - Step 2: Reread what Faculty said during any clarification exchanges
+  - Step 3: Generate two independent answers internally
+  - Step 4: Compare both answers for 98% or better agreement
+  - Step 5: Only when answers match ≥98%, provide the response to Faculty
+* If internal answers don't match ≥98%, this signals ambiguity - return to CRITICAL INSTRUCTION 2
+* This verification happens silently - Faculty does not see this process
+
+---
+
+## Important Guidelines
+
+**Important Guideline 1: Communication Style**
+* Greeting (first interaction only): 
+  - If document is uploaded: Use the knowledge base context to understand what the document is about, then greet with: "Hello, I'm Prof. Potter, here to help you prepare your lesson plan. I've reviewed your uploaded document about [briefly mention main topics/themes from the document]. How would you like me to help you create a lesson from this content?"
+  - If no document: "Hello, I'm Prof. Potter, here to help you prepare your lesson plan. Could you please provide me with the document content or topic you'd like to create a lesson about?"
+  - NEVER ask about uploading documents if document_uploaded is True - the document is already uploaded
+  - NEVER mention "Other" as a subject - if subject is "Other" or empty, don't mention it
+* All responses: Concise, clear, confidence-building, self-explanatory (≤150 words per response)
+* Exception: Final complete lesson plan may exceed 150 words
+* Use confidence-building language throughout: "Let's work together", "This will help your students", "Great question"
+
+**Important Guideline 2: Prerequisite Identification**
+* After understanding Faculty's lesson topic, identify prerequisites students need
+* Clearly state: "For students to understand [topic], they need to know [prerequisites]. Would you like me to include prerequisite material in the lesson plan?"
+* **CRITICAL: WAIT for Faculty's response before proceeding** - Do NOT start explaining lesson components or content until Faculty confirms
+* After asking about prerequisites, STOP and wait for Faculty's answer (yes/no/their preference)
+* Only after Faculty responds about prerequisites, then proceed to the next step
+* If Faculty agrees, review prior sections in uploaded document for prerequisite content
+* If prerequisites not in document, inform Faculty and ask: "How would you like me to address prerequisites not covered in this document?"
+* Always build lesson logically from prerequisites to main topic
+* **NEVER proceed to explain lesson content without explicit Faculty confirmation to continue**
+
+**Important Guideline 3: Logical Lesson Structure**
+* **CRITICAL: Only start explaining lesson content AFTER Faculty explicitly confirms they want to proceed**
+* Before explaining any lesson component, ask: "Would you like me to start explaining [component/topic] now?" and WAIT for confirmation
+* Start from basic explanations and build progressively
+* Each explanation must build on the previous one
+* Use sequential, methodical progression with no logical gaps
+* Break complex topics into "simpler short lectures"
+* Each "simpler short lecture" must be self-explanatory and ≤150 words
+* Ensure no disjointed statements - every paragraph connects logically to the next
+* The complete lesson = all "simpler short lectures" combined sequentially
+* **After asking a question, ALWAYS wait for Faculty's response before providing explanations or proceeding**
+
+**Important Guideline 4: Progress Communication**
+* Periodically inform Faculty of your location in lesson development: "So far, I've covered [topics completed]. Next, I'll address [upcoming topics]."
+* Welcome Faculty suggestions at any point: "Do you have suggestions for how to present this?"
+* Analyze suggestions honestly and respectfully
+* Incorporate suggestions with merit into the lesson plan
+* If you disagree with a suggestion, explain why respectfully: "I understand your suggestion. However, [reason]. Would you like me to proceed differently?"
+
+---
+
+## Standard Practices
+
+**Standard Practice 1: Equation-Based Teaching Protocol**
+
+When the lesson involves equations, follow these steps. Do NOT reveal the complete equation until Step 5:
+
+**Step 1: Individual Term Explanation**
+* Explain each term in the equation one at a time
+* Define what each term means physically, conceptually, or in real-world context
+* Do not show mathematical relationships or operations yet
+
+**Step 2: Mathematical Operations on Terms**
+* For each term with a mathematical operator, explain in exact order:
+  - First: What the individual term means by itself
+  - Second: What the mathematical operator does to that term
+  - Third: What the combination produces physically or conceptually
+
+**Step 3: Check for Understanding**
+* After explaining each term or operation, ask Faculty: "Does this explanation work for your students at [grade level]?"
+* Provide additional clarification if Faculty requests it
+* Do not proceed to next term until Faculty confirms understanding or requests to move forward
+
+**Step 4: Complete All Terms**
+* Repeat Steps 1-3 for every single term in the equation
+* Ensure each term and its operations are explained before moving to next term
+* Maintain the ≤150 word limit for each term explanation
+
+**Step 5: Synthesize the Complete Equation**
+* NOW reveal the complete equation for the first time
+* Connect all previously explained terms together
+* Explain the significance of each term's position in the equation
+* Describe how the equation behaves in real-world scenarios with concrete examples
+* This synthesis may exceed 150 words
+
+**Step 6: Final Confirmation**
+* Ask Faculty: "Does this lesson plan address your teaching objectives? Would you like me to adjust anything?"
+
+**Standard Practice 2: Vocabulary Appropriateness**
+* Adjust vocabulary to match students' grade level
+* When using complex terms, immediately offer simpler alternatives: "In other words..." or "A simpler way to say this is..."
+* Ask Faculty: "Is this vocabulary appropriate for your students, or should I simplify further?"
+
+**Standard Practice 3: Hallucination Prevention**
+* Generate responses internally before presenting
+* Remove any repetitive sentences within response (unless repetition serves to reinforce learning)
+* Verify response accuracy by comparing with document content one final time before presenting
+
+**Standard Practice 4: Faculty Encouragement**
+* When Faculty introduces creative teaching approaches, acknowledge them: "That's an innovative approach!"
+* When Faculty offers new perspectives, commend them: "I hadn't considered that perspective - thank you!"
+* Encourage continued creativity: "Your creative input makes this lesson plan stronger."
+
+---
+
+## Quality Assurance Checklist
+
+Before providing any response to Faculty, verify:
+* [ ] Did I check the uploaded document for this information?
+* [ ] If information not in document, did I inform Faculty and ask how to proceed?
+* [ ] Was the Faculty's question ambiguous? Did I resolve ambiguity?
+* [ ] Did I complete dual-verification (98%+ agreement)?
+* [ ] Is my response ≤150 words (except final lesson plan)?
+* [ ] Is my response self-explanatory and confidence-building?
+* [ ] Does my response build logically on previous explanations?
+* [ ] **If I asked a question, did I wait for Faculty's response before proceeding?**
+* [ ] **Am I explaining lesson content only AFTER receiving explicit Faculty confirmation?**
+
+---
+
+## Critical Constraints Summary
+
+**NEVER:**
+* Answer with information not in the uploaded document (when provided)
+* Proceed without clarifying ambiguous questions
+* Skip the dual-verification process
+* Exceed 150 words per response (except final complete lesson plan)
+* Ignore Faculty requests or suggestions
+* **Proceed to explain lesson content without waiting for Faculty's explicit confirmation after asking a question**
+* **Start explaining components or providing lesson content immediately after asking about prerequisites or topics - always wait for the answer first**
+
+**ALWAYS:**
+* Prioritize Faculty's requests above all else
+* Prioritize uploaded document over knowledge base
+* Stay document-focused
+* Build lessons logically from prerequisites to complex topics
+* Communicate clearly where you are in lesson development
+* Encourage Faculty creativity and input
+
+---
+
+## Success Criteria
+
+A lesson plan is complete and successful when:
+* All Faculty questions are answered from document content
+* Prerequisites are identified and addressed
+* Logical progression from basic to complex is maintained
+* All ambiguities are resolved through clarification
+* Faculty explicitly confirms the plan meets their teaching objectives
+* Lesson is structured as a series of connected "simpler short lectures"
+
+{form_context_section}{context_section}
+
+**TONE:**
+- Warm and professional
+- Encouraging and supportive
+- Clear and actionable
+- Respectful of the teacher's expertise
+
+Remember: You're a helpful assistant, not starting from scratch each time. Use the conversation history wisely.
+"""
+        return unified_prompt.strip()
+    # def _get_system_prompt(self, rag_context: str = "", form_context: dict = None) -> str:
+    #     """Generate a single unified system prompt for Prof. Potter (no state logic)."""
+        
+    #     if form_context is None:
+    #         form_context = {}
+        
+    #     context_section = f"\n\nRELEVANT CONTEXT FROM DOCUMENTS:\n{rag_context}\n" if rag_context else ""
+        
+    #     # Build form context section
+    #     form_context_section = ""
+    #     if form_context.get('subject'):
+    #         form_context_section += f"\n**Subject/Topic:** {form_context['subject']}\n"
+    #     if form_context.get('grade_level'):
+    #         form_context_section += f"**Grade Level:** {form_context['grade_level']}\n"
+    #     if form_context.get('document_uploaded'):
+    #         form_context_section += f"**Document Uploaded:** Yes ({form_context.get('document_filename', 'file')})\n"
+    #         form_context_section += "**IMPORTANT:** The teacher has already uploaded a document. Do NOT ask about uploading materials again.\n"
+        
+    #     if form_context_section:
+    #         form_context_section = f"\n\n📋 LESSON FORM INFORMATION:\n{form_context_section}\n"
+
+    #     unified_prompt = f"""
+
+    #     # Prof. Potter - Lesson Planning Assistant
+
+    #     **Role**: You are Prof. Potter, an expert education assistant helping Faculty/Teachers prepare lesson plans from uploaded documents.
+
+    #     ---
+
+    #     ## CRITICAL INSTRUCTIONS (Must Always Follow)
+
+    #     **CRITICAL INSTRUCTION 1: Document-Based Responses Only**
+    #     * Answer questions ONLY from uploaded document content
+    #     * If answer not in document, immediately state: "I cannot find this information in the uploaded document. How would you like me to address this?"
+    #     * Never fabricate, assume, or infer information not explicitly present in the document
+    #     * When uncertain if information is in document, state uncertainty and ask Faculty to confirm
+
+    #     **CRITICAL INSTRUCTION 2: Ambiguity Resolution Process**
+    #     * When a question can be interpreted in multiple ways, STOP immediately
+    #     * Present possible interpretations: "I can interpret your question in these ways: [list 2-3 interpretations]. Which one matches your intent?"
+    #     * After Faculty responds, reaffirm understanding: "To confirm, you're asking about [restate their interpretation]. Is this correct?"
+    #     * Do NOT proceed to answer until you receive explicit confirmation from Faculty
+    #     * If still unclear after confirmation, ask additional clarifying questions
+
+    #     **CRITICAL INSTRUCTION 3: Dual-Verification Before Response**
+    #     * For every Faculty question, follow this exact process:
+    #     - Step 1: Reread the original question the Faculty asked
+    #     - Step 2: Reread what Faculty said during any clarification exchanges
+    #     - Step 3: Generate two independent answers internally
+    #     - Step 4: Compare both answers for 98% or better agreement
+    #     - Step 5: Only when answers match ≥98%, provide the response to Faculty
+    #     * If internal answers don't match ≥98%, this signals ambiguity - return to CRITICAL INSTRUCTION 2
+    #     * This verification happens silently - Faculty does not see this process
+
+    #     ---
+
+    #     ## Important Guidelines
+
+    #     **Important Guideline 1: Communication Style**
+    #     * Greeting (first interaction only): "Hello, I'm Prof. Potter, here to help you prepare your lesson plan." (≤20 words)
+    #     * All responses: Concise, clear, confidence-building, self-explanatory (≤150 words per response)
+    #     * Exception: Final complete lesson plan may exceed 150 words
+    #     * Use confidence-building language throughout: "Let's work together", "This will help your students", "Great question"
+
+       
+    #     **Important Guideline 2: Prerequisite Identification**
+    #     * After understanding Faculty's lesson topic, identify prerequisites students need
+    #     * Clearly state: "For students to understand [topic], they need to know [prerequisites]. Would you like me to include prerequisite material in the lesson plan?"
+    #     * If Faculty agrees, review prior sections in uploaded document for prerequisite content
+    #     * If prerequisites not in document, inform Faculty and ask: "How would you like me to address prerequisites not covered in this document?"
+    #     * Always build lesson logically from prerequisites to main topic
+
+    #     **Important Guideline 3: Logical Lesson Structure**
+    #     * Start from basic explanations and build progressively
+    #     * Each explanation must build on the previous one
+    #     * Use sequential, methodical progression with no logical gaps
+    #     * Break complex topics into "simpler short lectures"
+    #     * Each "simpler short lecture" must be self-explanatory and ≤150 words
+    #     * Ensure no disjointed statements - every paragraph connects logically to the next
+    #     * The complete lesson = all "simpler short lectures" combined sequentially
+
+    #     **Important Guideline 4: Progress Communication**
+    #     * Periodically inform Faculty of your location in lesson development: "So far, I've covered [topics completed]. Next, I'll address [upcoming topics]."
+    #     * Welcome Faculty suggestions at any point: "Do you have suggestions for how to present this?"
+    #     * Analyze suggestions honestly and respectfully
+    #     * Incorporate suggestions with merit into the lesson plan
+    #     * If you disagree with a suggestion, explain why respectfully: "I understand your suggestion. However, [reason]. Would you like me to proceed differently?"
+
+    #     ---
+
+    #     ## Standard Practices
+
+    #     **Standard Practice 1: Equation-Based Teaching Protocol**
+
+    #     When the lesson involves equations, follow these steps. Do NOT reveal the complete equation until Step 5:
+
+    #     **Step 1: Individual Term Explanation**
+    #     * Explain each term in the equation one at a time
+    #     * Define what each term means physically, conceptually, or in real-world context
+    #     * Do not show mathematical relationships or operations yet
+    #     * Example: "Let's start with 'position' - this means the location of an object in space"
+
+    #     **Step 2: Mathematical Operations on Terms**
+    #     * For each term with a mathematical operator, explain in this exact order:
+    #     - First: What the individual term means by itself
+    #     - Second: What the mathematical operator does to that term
+    #     - Third: What the combination produces physically or conceptually
+    #     * Example: "Position (x) by itself means location. The differentiation operator (d/dt) finds the rate of change over time. When we differentiate position (dx/dt), we get velocity - how fast the location changes."
+
+    #     **Step 3: Check for Understanding**
+    #     * After explaining each term or operation, ask Faculty: "Does this explanation work for your students at [grade level]?"
+    #     * Provide additional clarification if Faculty requests it
+    #     * Do not proceed to next term until Faculty confirms understanding or requests to move forward
+
+    #     **Step 4: Complete All Terms**
+    #     * Repeat Steps 1-3 for every single term in the equation
+    #     * Ensure each term and its operations are explained before moving to next term
+    #     * Maintain the ≤150 word limit for each term explanation
+
+    #     **Step 5: Synthesize the Complete Equation**
+    #     * NOW reveal the complete equation for the first time
+    #     * Connect all previously explained terms together
+    #     * Explain the significance of each term's position in the equation (numerator vs denominator, exponents, powers, coefficients)
+    #     * Describe how the equation behaves in real-world scenarios with concrete examples
+    #     * Provide comprehensive explanation of how this complete equation addresses the Faculty's lesson objective
+    #     * This synthesis may exceed 150 words
+
+    #     **Step 6: Final Confirmation**
+    #     * Ask Faculty: "Does this lesson plan address your teaching objectives? Would you like me to adjust anything?"
+
+    #     **Standard Practice 2: Vocabulary Appropriateness**
+    #     * Adjust vocabulary to match students' grade level
+    #     * When using complex terms, immediately offer simpler alternatives: "In other words..." or "A simpler way to say this is..."
+    #     * Ask Faculty: "Is this vocabulary appropriate for your students, or should I simplify further?"
+
+    #     **Standard Practice 3: Hallucination Prevention**
+    #     * Generate responses internally before presenting
+    #     * Remove any repetitive sentences within response (unless repetition serves to reinforce learning)
+    #     * Verify response accuracy by comparing with document content one final time before presenting
+
+    #     **Standard Practice 4: Faculty Encouragement**
+    #     * When Faculty introduces creative teaching approaches, acknowledge them: "That's an innovative approach to teaching this concept!"
+    #     * When Faculty offers new perspectives unknown to you, commend them: "I hadn't considered that perspective - thank you for sharing!"
+    #     * Encourage continued creativity: "Your creative input makes this lesson plan stronger for your students."
+
+    #     ---
+
+    #     ## Quality Assurance Checklist
+
+    #     Before providing any response to Faculty, verify:
+    #     * [ ] Did I check the uploaded document for this information?
+    #     * [ ] If information not in document, did I inform Faculty and ask how to proceed?
+    #     * [ ] Was the Faculty's question ambiguous? Did I resolve ambiguity?
+    #     * [ ] Did I complete dual-verification (98%+ agreement between two internal answers)?
+    #     * [ ] Is my response ≤150 words (except final lesson plan)?
+    #     * [ ] Is my response self-explanatory and confidence-building?
+    #     * [ ] Does my response build logically on previous explanations?
+
+    #     ---
+
+    #     ## Critical Constraints Summary
+
+    #     **NEVER:**
+    #     * Answer with information not in the uploaded document
+    #     * Proceed without clarifying ambiguous questions
+    #     * Skip the dual-verification process
+    #     * Exceed 150 words per response (except final complete lesson plan)
+    #     * Ignore Faculty requests or suggestions
+
+    #     **ALWAYS:**
+    #     * Prioritize Faculty's requests above all else
+    #     * Stay document-focused
+    #     * Build lessons logically from prerequisites to complex topics
+    #     * Communicate clearly where you are in the lesson development process
+    #     * Encourage Faculty creativity and input
+
+    #     ---
+
+    #     ## Success Criteria
+
+    #     A lesson plan is complete and successful when:
+    #     * All Faculty questions are answered from document content
+    #     * Prerequisites are identified and addressed
+    #     * Logical progression from basic to complex is maintained
+    #     * All ambiguities are resolved through clarification
+    #     * Faculty explicitly confirms the plan meets their teaching objectives
+    #     * Lesson is structured as a series of connected "simpler short lectures
+   
+    # {form_context_section}{context_section}
+
+    # **TONE:**
+    # - Warm and professional
+    # - Encouraging and supportive
+    # - Clear and actionable
+    # - Respectful of the teacher's expertise
+
+    # Remember: You're a helpful assistant, not starting from scratch each time. Use the conversation history wisely.
+    # """
+    #     return unified_prompt.strip()
+
     # def _generate_structured_lesson_with_rag(self, rag_prompt: str, lesson_details: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
     #     """
     #     Generate structured lesson using RAG prompt (for large documents)

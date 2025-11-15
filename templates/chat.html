@@ -591,13 +591,6 @@
           <span id="viewLessonsLabel">View Lessons</span>
         </button>
 
-
-                <button onclick="toggleVoiceRecording()"
-                    class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors">
-                    <i class="fas fa-microphone w-3.5 h-3.5"></i>
-          <span>Real Time Chat</span>
-        </button>
-
                 <button onclick="resetChat()"
                     class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors">
                     <i class="fas fa-refresh text-[#B7B7B7] w-3.5 h-3.5"></i>
@@ -716,6 +709,15 @@
 
         <!-- Input Area -->
         <div id="chatInputArea" class="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-t border-gray-100">
+            <!-- Finalize Button for Lesson Chat (hidden by default) -->
+            <div id="lessonChatFinalizeBtn" class="hidden mb-3 flex justify-center">
+                <button onclick="finalizeLessonFromChat()"
+                    class="px-6 sm:px-8 py-2 sm:py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:from-green-600 hover:to-green-700 transition-all duration-300 font-semibold flex items-center justify-center gap-2 sm:gap-3 text-sm sm:text-base shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                    <i class="fas fa-check-circle text-base sm:text-lg"></i>
+                    <span>Finalize Lesson</span>
+                </button>
+            </div>
+            
             <div class="flex items-center gap-2 sm:gap-3">
                 <button onclick="toggleVoiceRecording()" id="micButton"
                     class="w-10 h-10 sm:w-12 sm:h-12 border border-gray-200 rounded-xl flex items-center justify-center hover:bg-gray-50 transition-colors">
@@ -953,18 +955,6 @@
                                                 </div>
                                             </div>
 
-                                            <!-- Lesson Prompt -->
-                                            <div class="group">
-                                                <label class="block text-gray-700 text-sm font-bold mb-1 flex items-center gap-2" for="lessonPrompt">
-                                                    <i class="fas fa-lightbulb text-[#05B0FC] text-xs"></i>
-                                                    Lesson Prompt *
-                                                </label>
-                                                <textarea id="lessonPrompt" name="lessonPrompt"
-                                                    placeholder="Describe what lesson you want to generate. For example: 'Generate a lesson on Force and Motion covering sections 1.1 to 1.4' or 'Create a lesson on Photosynthesis focusing on the light-dependent reactions'"
-                                                    class="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#05B0FC] focus:ring-opacity-30 focus:border-[#05B0FC] h-24 resize-none text-base transition-all duration-300 group-hover:border-gray-300 shadow-sm"
-                                                    required></textarea>
-                                            </div>
-
                                             <!-- Additional Notes -->
                                             <div class="group">
                                                 <label class="block text-gray-700 text-sm font-bold mb-1 flex items-center gap-2" for="additionalNotes">
@@ -1186,11 +1176,6 @@
                                     class="group w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-[#05B0FC] to-blue-600 text-white rounded-xl hover:from-blue-600 hover:to-[#05B0FC] transition-all duration-300 font-semibold flex items-center justify-center gap-2 sm:gap-3 text-sm sm:text-base shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
                                     <i class="fas fa-user-check text-base sm:text-lg group-hover:scale-110 transition-transform"></i>
                                     <span class="truncate">Review with Human</span>
-                                </button>
-                                <button onclick="reviewWithAI()"
-                                    class="group w-full sm:w-auto px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl hover:from-purple-600 hover:to-purple-700 transition-all duration-300 font-semibold flex items-center justify-center gap-2 sm:gap-3 text-sm sm:text-base shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
-                                    <i class="fas fa-robot text-base sm:text-lg group-hover:scale-110 transition-transform"></i>
-                                    <span class="truncate">Review with AI</span>
                                 </button>
                             </div>
                         </div>
@@ -1528,6 +1513,9 @@
     let mediaRecorder = null;
 
     let currentView = 'chat';
+    let isLessonChatMode = false; // Track if we're in lesson interactive chat mode
+    let currentLessonChatId = null; // Store the lesson ID for interactive chat
+    let lastAIMessage = ''; // Store the last AI message for finalization
     let currentLessonFile = null;
     let currentLessonData = null;
     let isCollapsed = false;
@@ -3313,6 +3301,10 @@ async function initializeApp() {
 
     // Open view lessons from sidebar
     function openViewLessons() {
+        // Reset lesson chat mode when viewing lessons
+        if (isLessonChatMode) {
+            resetLessonChatMode();
+        }
         // Stop any ongoing speech when switching to View Lessons
         if (typeof stopSpeech === 'function') {
             stopSpeech();
@@ -3627,7 +3619,7 @@ async function initializeApp() {
         
         // Clear form fields
         document.getElementById('lessonTitle').value = '';
-        document.getElementById('lessonPrompt').value = '';
+        // lessonPrompt field removed - using interactive chat instead
         document.getElementById('focusArea').value = '';
         document.getElementById('gradeLevel').value = '';
         document.getElementById('additionalNotes').value = '';
@@ -3799,7 +3791,7 @@ async function initializeApp() {
         
         // Add form fields with correct backend keys
             formData.append('lessonTitle', lessonTitle);
-        formData.append('lessonPrompt', form.lessonPrompt.value);
+        formData.append('lessonPrompt', ''); // No longer needed - using interactive chat
         formData.append('focusArea', form.focusArea.value);
         formData.append('gradeLevel', form.gradeLevel.value);
         formData.append('additionalNotes', form.additionalNotes.value);
@@ -3844,7 +3836,7 @@ async function initializeApp() {
                     // Convert FormData to JSON for POST request
                 const jsonData = {
                     title: form.lessonTitle.value,
-                    lesson_prompt: form.lessonPrompt.value,
+                    lesson_prompt: '', // No longer needed - using interactive chat
                     focus_area: form.focusArea.value,
                     grade_level: form.gradeLevel.value,
                     summary: form.additionalNotes.value,
@@ -3919,9 +3911,9 @@ async function initializeApp() {
                         // Save lesson data to localStorage for persistence
                         saveLessonData();
                         
-                        displayGeneratedLesson();
-                        showLessonStep('display');
-                            showNotification('Lesson generated successfully! You can continue editing or finalize it.', 'success');
+                        // Show chatbot interface instead of displayGeneratedLesson
+                        showLessonChatInterface(data.lesson_id, data.ai_response);
+                        showNotification('Chatbot interface ready! Start chatting with Prof. Potter to refine your lesson.', 'success');
                     } else {
                         showNotification('Failed to fetch full lesson content', 'error');
                     }
@@ -3974,6 +3966,74 @@ async function initializeApp() {
                 additionalNotesDisplay.classList.remove('hidden');
                     }
             }
+        }
+    }
+
+    // Show chatbot interface for interactive lesson creation
+    function showLessonChatInterface(lessonId, initialMessage) {
+        // Set lesson chat mode
+        isLessonChatMode = true;
+        currentLessonChatId = lessonId;
+        
+        // Hide all content areas
+        hideAllContentAreas();
+        
+        // Hide lesson generator content
+        document.getElementById('lessonGeneratorContent').classList.add('hidden');
+        
+        // Show chat interface
+        document.getElementById('chatMessages').classList.remove('hidden');
+        const chatInputArea = document.getElementById('chatInputArea');
+        if (chatInputArea) {
+            chatInputArea.classList.remove('hidden');
+        }
+        
+        // Clear chat messages
+        const chatMessages = document.getElementById('chatMessages');
+        chatMessages.innerHTML = '';
+        
+        // Update chat header
+        document.getElementById('chatTitle').textContent = 'Lesson Interactive Chat';
+        document.getElementById('chatStatus').textContent = 'Chat with Prof. Potter to refine your lesson';
+        
+        // Show finalize button
+        const finalizeBtn = document.getElementById('lessonChatFinalizeBtn');
+        if (finalizeBtn) {
+            finalizeBtn.classList.remove('hidden');
+        }
+        
+        // Add initial AI message if provided
+        if (initialMessage) {
+            addMessageToChat('ai', initialMessage);
+            lastAIMessage = initialMessage;
+        } else {
+            // If no initial message, add a welcome message
+            const welcomeMessage = "Hello, I'm Prof. Potter, here to help you prepare your lesson plan. How can I assist you today?";
+            addMessageToChat('ai', welcomeMessage);
+            lastAIMessage = welcomeMessage;
+        }
+        
+        // Focus on input
+        setTimeout(() => {
+            const input = document.getElementById('messageInput');
+            if (input) {
+                input.focus();
+            }
+        }, 100);
+        
+        currentView = 'chat';
+    }
+
+    // Reset lesson chat mode (call when switching away from lesson chat)
+    function resetLessonChatMode() {
+        isLessonChatMode = false;
+        currentLessonChatId = null;
+        lastAIMessage = '';
+        
+        // Hide finalize button
+        const finalizeBtn = document.getElementById('lessonChatFinalizeBtn');
+        if (finalizeBtn) {
+            finalizeBtn.classList.add('hidden');
         }
     }
 
@@ -4983,7 +5043,84 @@ async function initializeApp() {
         }
     }
 
+    // Finalize lesson from chat interface using last AI message
+    async function finalizeLessonFromChat() {
+        if (!isLessonChatMode || !currentLessonChatId) {
+            showNotification('Error: Not in lesson chat mode', 'error');
+            return;
+        }
+        
+        if (!lastAIMessage || lastAIMessage.trim().length === 0) {
+            showNotification('Error: No lesson content to finalize. Please chat with Prof. Potter first.', 'error');
+            return;
+        }
+        
+        showFullPageLoading('Finalizing lesson...');
+        
+        try {
+            // Update lesson content with the last AI message
+            const updateData = {
+                title: currentLessonData.title,
+                summary: currentLessonData.summary || '',
+                learning_objectives: currentLessonData.learning_objectives || '',
+                focus_area: currentLessonData.focus_area || '',
+                grade_level: currentLessonData.grade_level || '',
+                content: lastAIMessage
+            };
+            
+            const response = await fetch(`/api/lessons/lesson/${currentLessonChatId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify(updateData)
+            });
+            
+            if (response.ok) {
+                // Update local data
+                currentLessonData.content = lastAIMessage;
+                generatedLessonContent = lastAIMessage;
+                currentLessonData.isFinalized = true;
+                saveLessonData();
+                
+                // Reset lesson chat mode
+                isLessonChatMode = false;
+                currentLessonChatId = null;
+                lastAIMessage = '';
+                
+                // Hide finalize button
+                const finalizeBtn = document.getElementById('lessonChatFinalizeBtn');
+                if (finalizeBtn) {
+                    finalizeBtn.classList.add('hidden');
+                }
+                
+                hideFullPageLoading();
+                showNotification('Lesson finalized successfully!', 'success');
+                
+                // Navigate to My Lessons after a short delay
+                setTimeout(() => {
+                    openViewLessons();
+                }, 1500);
+            } else {
+                const errorData = await response.json();
+                hideFullPageLoading();
+                showNotification(`Failed to finalize lesson: ${errorData.error || 'Unknown error'}`, 'error');
+            }
+        } catch (error) {
+            console.error('Error finalizing lesson:', error);
+            hideFullPageLoading();
+            showNotification('Error finalizing lesson. Please try again.', 'error');
+        }
+    }
+
     async function proceedToCompletion() {
+        // Check if we're in lesson chat mode
+        if (isLessonChatMode && currentLessonChatId) {
+            await finalizeLessonFromChat();
+            return;
+        }
+        
         if (currentLessonData) {
             // Show loading spinner
             showFullPageLoading('Finalizing lesson and downloading...');
@@ -5301,6 +5438,10 @@ async function initializeApp() {
 
         // Content management (no tabs needed)
     function changeTab(button, tabType) {
+        // Reset lesson chat mode when switching tabs (unless switching to chat)
+        if (tabType !== 'chat' && isLessonChatMode) {
+            resetLessonChatMode();
+        }
         // Hide all content areas
         hideAllContentAreas();
 
@@ -5982,6 +6123,10 @@ async function initializeApp() {
         }
         
     async function startNewChat() {
+        // Reset lesson chat mode when starting a new chat
+        if (isLessonChatMode) {
+            resetLessonChatMode();
+        }
         try {
             const response = await fetch('/create_conversation', {
                 method: 'POST',
@@ -6060,16 +6205,33 @@ async function initializeApp() {
             showTypingIndicator();
             
             try {
-                const response = await authenticatedFetch('/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        input: message,
-                        conversation_id: currentChatId
-                    })
-                });
+                let response;
+                
+                // Check if we're in lesson chat mode
+                if (isLessonChatMode && currentLessonChatId) {
+                    // Use interactive chat API for lesson
+                    response = await authenticatedFetch(`/api/lessons/lesson/${currentLessonChatId}/interactive_chat`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            query: message
+                        })
+                    });
+                } else {
+                    // Use regular chat API
+                    response = await authenticatedFetch('/chat', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            input: message,
+                            conversation_id: currentChatId
+                        })
+                    });
+                }
                 
                 if (!response) return; // Authentication error handled by authenticatedFetch
 
@@ -6081,18 +6243,34 @@ async function initializeApp() {
                         addMessageToChat('ai', `Error: ${data.error}`);
                     } else {
                         // Parse and format the response properly
-                        let formattedResponse = data.response;
+                        let formattedResponse;
                         
-                        // Check if the response is a JSON string that needs parsing
-                        try {
-                            const parsedResponse = JSON.parse(data.response);
-                            if (parsedResponse.response_type && parsedResponse.answer) {
-                                // Extract and format the answer from JSON structure
-                                formattedResponse = parsedResponse.answer;
+                        if (isLessonChatMode && data.ai_response) {
+                            // Use ai_response from interactive chat
+                            formattedResponse = data.ai_response;
+                            // Store the last AI message for finalization
+                            lastAIMessage = formattedResponse;
+                            
+                            // Update lesson content if complete lesson is generated
+                            if (data.complete_lesson === 'yes' && currentLessonData) {
+                                currentLessonData.content = formattedResponse;
+                                generatedLessonContent = formattedResponse;
+                                saveLessonData();
                             }
-                        } catch (e) {
-                            // Not a JSON string, use as is
+                        } else {
                             formattedResponse = data.response;
+                            
+                            // Check if the response is a JSON string that needs parsing
+                            try {
+                                const parsedResponse = JSON.parse(data.response);
+                                if (parsedResponse.response_type && parsedResponse.answer) {
+                                    // Extract and format the answer from JSON structure
+                                    formattedResponse = parsedResponse.answer;
+                                }
+                            } catch (e) {
+                                // Not a JSON string, use as is
+                                formattedResponse = data.response;
+                            }
                         }
                         
                         addMessageToChat('ai', formattedResponse);
@@ -6102,8 +6280,8 @@ async function initializeApp() {
                             focusMessageInput();
                         }, 500);
                         
-                        // Generate and update chat title after first message
-                        if (currentChatId && document.getElementById('chatTitle').textContent === 'New Chat') {
+                        // Generate and update chat title after first message (only for regular chat)
+                        if (!isLessonChatMode && currentChatId && document.getElementById('chatTitle').textContent === 'New Chat') {
                             const generatedTitle = generateChatTitle(message);
                             updateChatTitle(currentChatId, generatedTitle);
                         }
@@ -6114,14 +6292,18 @@ async function initializeApp() {
                         }
                     }
                         
-                        // Save chat data to localStorage for persistence
-                        saveChatToLocalStorage();
+                        // Save chat data to localStorage for persistence (only for regular chat)
+                        if (!isLessonChatMode) {
+                            saveChatToLocalStorage();
+                        }
                 } else {
                     const errorData = await response.json();
                     addMessageToChat('ai', `Error: ${errorData.error || 'Failed to get response'}`);
                 }
                 
-                updateTokenMeter();
+                if (!isLessonChatMode) {
+                    updateTokenMeter();
+                }
                 
             } catch (error) {
                 hideTypingIndicator();
@@ -6129,7 +6311,9 @@ async function initializeApp() {
                 addMessageToChat('ai', 'Sorry, there was an error processing your message. Please try again.');
             }
             
-            saveChatToHistory();
+            if (!isLessonChatMode) {
+                saveChatToHistory();
+            }
         }
     }
 
@@ -6637,11 +6821,6 @@ async function initializeApp() {
                 <button onclick="openViewLessons()" class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors" id="viewLessonsBtn">
                     <img src="{{ url_for('static', filename='images/lesson.png') }}" alt="" class="w-3.5 h-3.5">
                     <span id="viewLessonsLabel">View Lessons</span>
-                </button>
-
-                <button onclick="toggleVoiceRecording()" class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors">
-                    <i class="fas fa-microphone w-3.5 h-3.5"></i>
-                    <span>Real Time Chat</span>
                 </button>
 
                 <button onclick="resetChat()" class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors">
@@ -8629,7 +8808,7 @@ async function initializeApp() {
                 
                 // Populate form fields with current lesson data
                 document.getElementById('lessonTitle').value = lesson.title;
-                document.getElementById('lessonPrompt').value = lesson.lesson_prompt;
+                // lessonPrompt field removed - using interactive chat instead
                 document.getElementById('focusArea').value = lesson.focus_area;
                 document.getElementById('gradeLevel').value = lesson.grade_level;
                 document.getElementById('additionalNotes').value = lesson.summary || '';
@@ -9162,7 +9341,17 @@ async function initializeApp() {
                         
                         if (currentVersionEl) {
                             // Show the current version's content (not the original)
-                            currentVersionEl.innerHTML = currentContent ? marked.parse(currentContent) : 'No content available';
+                            if (currentContent && currentContent.trim()) {
+                                currentVersionEl.innerHTML = marked.parse(currentContent);
+                            } else {
+                                // Fallback to selectedVersion.content if currentContent is empty
+                                const fallbackContent = selectedVersion?.content || '';
+                                if (fallbackContent && fallbackContent.trim()) {
+                                    currentVersionEl.innerHTML = marked.parse(fallbackContent);
+                                } else {
+                                    currentVersionEl.innerHTML = 'No content available';
+                                }
+                            }
                         }
                         
                         if (draftEl) {
@@ -9202,7 +9391,17 @@ async function initializeApp() {
                         
                         if (currentVersionEl) {
                             // Show the current version's content (not the original)
-                            currentVersionEl.innerHTML = currentContent ? marked.parse(currentContent) : 'No content available';
+                            if (currentContent && currentContent.trim()) {
+                                currentVersionEl.innerHTML = marked.parse(currentContent);
+                            } else {
+                                // Try to get content from selectedVersion
+                                const fallbackContent = selectedVersion?.content || '';
+                                if (fallbackContent && fallbackContent.trim()) {
+                                    currentVersionEl.innerHTML = marked.parse(fallbackContent);
+                                } else {
+                                    currentVersionEl.innerHTML = 'No content available';
+                                }
+                            }
                         }
                         
                 if (draftEl) {

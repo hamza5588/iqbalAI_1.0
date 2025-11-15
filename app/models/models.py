@@ -321,17 +321,30 @@ class LessonModel:
         """Get only the latest public version per logical lesson (grouped by lesson_id)"""
         try:
             db = get_db()
+            # Handle both old lessons (without lesson_id/version_number) and new lessons (with versioning)
+            # For lessons with lesson_id: get latest version per lesson_id
+            # For lessons without lesson_id: include them as-is (they're standalone)
             query = '''
                 SELECT l.*, u.username as teacher_name
                 FROM lessons l
                 JOIN users u ON l.teacher_id = u.id
-                JOIN (
-                    SELECT lesson_id, MAX(version_number) AS max_ver
-                    FROM lessons
-                    WHERE is_public = TRUE
-                    GROUP BY lesson_id
-                ) lv ON l.lesson_id = lv.lesson_id AND l.version_number = lv.max_ver
                 WHERE l.is_public = TRUE
+                AND (
+                    -- Lessons with lesson_id: only include if it's the latest version
+                    -- Treat NULL version_number as version 1 for comparison
+                    (l.lesson_id IS NOT NULL AND l.lesson_id != '' 
+                     AND COALESCE(l.version_number, 1) = (
+                         SELECT MAX(COALESCE(version_number, 1))
+                         FROM lessons l2
+                         WHERE l2.lesson_id = l.lesson_id 
+                         AND l2.is_public = TRUE
+                         AND l2.lesson_id IS NOT NULL 
+                         AND l2.lesson_id != ''
+                     ))
+                    OR
+                    -- Lessons without lesson_id or with empty lesson_id: include all (they're standalone, not versioned)
+                    (l.lesson_id IS NULL OR l.lesson_id = '')
+                )
             '''
             params = []
 

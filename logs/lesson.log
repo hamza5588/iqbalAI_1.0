@@ -739,3 +739,829 @@
 2025-11-03 00:07:16 - TEACHER_SERVICE - INFO - start_conversational_lesson_generation:264 - File saved to temporary path: C:\Users\DCS\AppData\Local\Temp\tmp4xmh_0sl_LangChain_and_RAG_Components_1.pdf
 2025-11-03 00:07:21 - TEACHER_SERVICE - INFO - start_conversational_lesson_generation:348 - Generating initial follow-up questions
 2025-11-03 00:07:22 - TEACHER_SERVICE - INFO - start_conversational_lesson_generation:357 - Follow-up questions generated successfully
+2025-11-03 01:07:05 - TEACHER_SERVICE - INFO - __init__:63 - RAG service initialized
+2025-11-03 01:07:07 - TEACHER_SERVICE - WARNING - interactive_chat:202 - No relevant chunks found, using first few chunks
+2025-11-03 01:09:42 - TEACHER_SERVICE - INFO - __init__:63 - RAG service initialized
+2025-11-03 01:09:43 - TEACHER_SERVICE - WARNING - interactive_chat:202 - No relevant chunks found, using first few chunks
+2025-11-03 01:11:08 - TEACHER_SERVICE - INFO - __init__:63 - RAG service initialized
+2025-11-03 01:11:09 - TEACHER_SERVICE - WARNING - interactive_chat:202 - No relevant chunks found, using first few chunks
+2025-11-03 01:11:09 - TEACHER_SERVICE - INFO - interactive_chat:209 - Starting AI lesson generation with RAG
+2025-11-03 01:13:38 - TEACHER_SERVICE - INFO - __init__:63 - RAG service initialized
+2025-11-03 01:13:39 - TEACHER_SERVICE - WARNING - interactive_chat:202 - No relevant chunks found, using first few chunks
+2025-11-03 01:13:39 - TEACHER_SERVICE - INFO - interactive_chat:209 - Starting AI lesson generation with RAG
+2025-11-03 01:13:39 - TEACHER_SERVICE - INFO - _llm_responce:301 - === AI LESSON GENERATION WITH RAG STARTED ===
+2025-11-03 01:13:39 - TEACHER_SERVICE - INFO - _llm_responce:302 - RAG prompt length: 1276 characters
+2025-11-03 01:13:40 - TEACHER_SERVICE - INFO - _llm_responce:307 - LLM response received
+2025-11-03 01:13:40 - TEACHER_SERVICE - INFO - _llm_responce:315 - Response content length: 1095 characters
+2025-11-03 01:13:40 - TEACHER_SERVICE - INFO - _llm_responce:316 - === AI LESSON GENERATION WITH RAG COMPLETED ===
+2025-11-03 01:14:21 - TEACHER_SERVICE - INFO - __init__:63 - RAG service initialized
+2025-11-03 01:14:22 - TEACHER_SERVICE - WARNING - interactive_chat:202 - No relevant chunks found, using first few chunks
+2025-11-03 01:14:22 - TEACHER_SERVICE - INFO - interactive_chat:209 - Starting AI lesson generation with RAG
+2025-11-03 01:14:22 - TEACHER_SERVICE - INFO - _llm_responce:301 - === AI LESSON GENERATION WITH RAG STARTED ===
+2025-11-03 01:14:22 - TEACHER_SERVICE - INFO - _llm_responce:302 - RAG prompt length: 1287 characters
+2025-11-03 01:14:23 - TEACHER_SERVICE - INFO - _llm_responce:307 - LLM response received
+2025-11-03 01:14:23 - TEACHER_SERVICE - INFO - _llm_responce:315 - Response content length: 102 characters
+2025-11-03 01:14:23 - TEACHER_SERVICE - INFO - _llm_responce:316 - === AI LESSON GENERATION WITH RAG COMPLETED ===
+2025-11-03 01:15:33 - TEACHER_SERVICE - INFO - __init__:63 - RAG service initialized
+2025-11-03 01:15:34 - TEACHER_SERVICE - WARNING - interactive_chat:202 - No relevant chunks found, using first few chunks
+2025-11-03 01:15:34 - TEACHER_SERVICE - INFO - interactive_chat:209 - Starting AI lesson generation with RAG
+2025-11-03 01:15:34 - TEACHER_SERVICE - INFO - _llm_responce:301 - === AI LESSON GENERATION WITH RAG STARTED ===
+2025-11-03 01:15:34 - TEACHER_SERVICE - INFO - _llm_responce:302 - RAG prompt length: 1289 characters
+2025-11-03 01:15:35 - TEACHER_SERVICE - INFO - _llm_responce:307 - LLM response received
+2025-11-03 01:15:35 - TEACHER_SERVICE - INFO - _llm_responce:315 - Response content length: 340 characters
+2025-11-03 01:15:35 - TEACHER_SERVICE - INFO - _llm_responce:316 - === AI LESSON GENERATION WITH RAG COMPLETED ===
+2025-11-03 01:15:55 - TEACHER_SERVICE - INFO - __init__:63 - RAG service initialized
+2025-11-03 01:15:56 - TEACHER_SERVICE - WARNING - interactive_chat:202 - No relevant chunks found, using first few chunks
+2025-11-03 01:15:56 - TEACHER_SERVICE - INFO - interactive_chat:209 - Starting AI lesson generation with RAG
+2025-11-03 01:15:56 - TEACHER_SERVICE - INFO - _llm_responce:301 - === AI LESSON GENERATION WITH RAG STARTED ===
+2025-11-03 01:15:56 - TEACHER_SERVICE - INFO - _llm_responce:302 - RAG prompt length: 1296 characters
+2025-11-03 01:15:57 - TEACHER_SERVICE - INFO - _llm_responce:307 - LLM response received
+2025-11-03 01:15:57 - TEACHER_SERVICE - INFO - _llm_responce:315 - Response content length: 372 characters
+2025-11-03 01:15:57 - TEACHER_SERVICE - INFO - _llm_responce:316 - === AI LESSON GENERATION WITH RAG COMPLETED ===
+2025-11-03 01:24:21 - TEACHER_SERVICE - INFO - __init__:63 - RAG service initialized
+2025-11-03 01:57:35 - TEACHER_SERVICE - INFO - __init__:63 - RAG service initialized
+2025-11-03 01:57:39 - TEACHER_SERVICE - INFO - interactive_chat:215 - Starting AI lesson generation with RAG
+2025-11-03 01:57:39 - TEACHER_SERVICE - INFO - _llm_responce:307 - === AI LESSON GENERATION WITH RAG STARTED ===
+2025-11-03 01:57:39 - TEACHER_SERVICE - INFO - _llm_responce:308 - RAG prompt length: 2758 characters
+2025-11-03 01:57:40 - TEACHER_SERVICE - INFO - _llm_responce:313 - LLM response received
+2025-11-03 01:57:40 - TEACHER_SERVICE - INFO - _llm_responce:321 - Response content length: 275 characters
+2025-11-03 01:57:40 - TEACHER_SERVICE - INFO - _llm_responce:322 - === AI LESSON GENERATION WITH RAG COMPLETED ===
+2025-11-03 01:58:01 - TEACHER_SERVICE - INFO - __init__:63 - RAG service initialized
+2025-11-03 01:58:04 - TEACHER_SERVICE - INFO - interactive_chat:215 - Starting AI lesson generation with RAG
+2025-11-03 01:58:04 - TEACHER_SERVICE - INFO - _llm_responce:307 - === AI LESSON GENERATION WITH RAG STARTED ===
+2025-11-03 01:58:04 - TEACHER_SERVICE - INFO - _llm_responce:308 - RAG prompt length: 2773 characters
+2025-11-03 01:58:05 - TEACHER_SERVICE - INFO - _llm_responce:313 - LLM response received
+2025-11-03 01:58:05 - TEACHER_SERVICE - INFO - _llm_responce:321 - Response content length: 567 characters
+2025-11-03 01:58:05 - TEACHER_SERVICE - INFO - _llm_responce:322 - === AI LESSON GENERATION WITH RAG COMPLETED ===
+2025-11-03 02:13:31 - TEACHER_SERVICE - INFO - __init__:63 - RAG service initialized
+2025-11-03 02:13:32 - TEACHER_SERVICE - INFO - interactive_chat:215 - Starting AI lesson generation with RAG
+2025-11-03 02:13:32 - TEACHER_SERVICE - INFO - _llm_responce:307 - === AI LESSON GENERATION WITH RAG STARTED ===
+2025-11-03 02:13:32 - TEACHER_SERVICE - INFO - _llm_responce:308 - RAG prompt length: 2728 characters
+2025-11-03 02:13:33 - TEACHER_SERVICE - INFO - _llm_responce:313 - LLM response received
+2025-11-03 02:13:33 - TEACHER_SERVICE - INFO - _llm_responce:321 - Response content length: 3080 characters
+2025-11-03 02:13:33 - TEACHER_SERVICE - INFO - _llm_responce:322 - === AI LESSON GENERATION WITH RAG COMPLETED ===
+2025-11-04 02:57:44 - TEACHER_SERVICE - INFO - __init__:78 - RAG service initialized
+2025-11-04 03:00:14 - TEACHER_SERVICE - INFO - __init__:78 - RAG service initialized
+2025-11-04 03:01:05 - TEACHER_SERVICE - INFO - __init__:78 - RAG service initialized
+2025-11-04 03:02:17 - TEACHER_SERVICE - INFO - __init__:78 - RAG service initialized
+2025-11-04 03:02:53 - TEACHER_SERVICE - INFO - __init__:78 - RAG service initialized
+2025-11-04 03:03:36 - TEACHER_SERVICE - INFO - __init__:78 - RAG service initialized
+2025-11-04 03:04:11 - TEACHER_SERVICE - INFO - __init__:78 - RAG service initialized
+2025-11-04 23:26:56 - TEACHER_SERVICE - INFO - __init__:87 - RAG service initialized
+2025-11-04 23:26:56 - TEACHER_SERVICE - INFO - __init__:90 - RAG service initialized with modern memory
+2025-11-04 23:29:15 - TEACHER_SERVICE - INFO - __init__:87 - RAG service initialized
+2025-11-04 23:29:15 - TEACHER_SERVICE - INFO - __init__:90 - RAG service initialized with modern memory
+2025-11-04 23:29:57 - TEACHER_SERVICE - INFO - __init__:87 - RAG service initialized
+2025-11-04 23:29:57 - TEACHER_SERVICE - INFO - __init__:90 - RAG service initialized with modern memory
+2025-11-04 23:30:53 - TEACHER_SERVICE - INFO - __init__:87 - RAG service initialized
+2025-11-04 23:30:53 - TEACHER_SERVICE - INFO - __init__:90 - RAG service initialized with modern memory
+2025-11-04 23:54:04 - TEACHER_SERVICE - INFO - __init__:88 - RAG service initialized
+2025-11-04 23:54:04 - TEACHER_SERVICE - INFO - __init__:91 - RAG service initialized with modern memory
+2025-11-04 23:54:39 - TEACHER_SERVICE - INFO - __init__:88 - RAG service initialized
+2025-11-04 23:54:39 - TEACHER_SERVICE - INFO - __init__:91 - RAG service initialized with modern memory
+2025-11-05 00:02:48 - TEACHER_SERVICE - INFO - __init__:88 - RAG service initialized
+2025-11-05 00:02:48 - TEACHER_SERVICE - INFO - __init__:91 - RAG service initialized with modern memory
+2025-11-05 00:02:50 - TEACHER_SERVICE - ERROR - interactive_chat:418 - Error in conversational chain: name 're' is not defined
+2025-11-05 00:04:32 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-05 00:04:32 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-05 00:05:08 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-05 00:05:08 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-05 00:07:19 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-05 00:07:19 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-05 00:09:22 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-05 00:09:22 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-05 00:39:36 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-05 00:39:36 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-05 00:40:40 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-05 00:40:40 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-05 00:41:43 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-05 00:41:43 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-05 00:42:30 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-05 00:42:30 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-05 00:42:56 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-05 00:42:56 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-05 00:43:22 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-05 00:43:22 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-05 00:43:50 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-05 00:43:50 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-05 00:50:11 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-05 00:50:11 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-05 00:50:31 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-05 00:50:31 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-05 00:51:14 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-05 00:51:14 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-05 00:51:50 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-05 00:51:50 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-05 00:52:24 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-05 00:52:24 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-05 00:52:59 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-05 00:52:59 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-05 23:59:21 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-05 23:59:21 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 00:02:43 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 00:02:43 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 00:04:26 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 00:04:26 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 00:04:58 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 00:04:58 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 00:06:41 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 00:06:41 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 00:07:58 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 00:07:58 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 00:09:00 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 00:09:00 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 00:30:40 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 00:30:40 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 00:37:35 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 00:37:35 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 00:54:04 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 00:54:04 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 01:00:03 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 01:00:03 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 01:03:24 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 01:03:24 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 01:18:04 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 01:18:04 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 01:24:39 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 01:24:39 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 01:28:58 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 01:28:58 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 01:29:46 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 01:29:46 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 01:30:53 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 01:30:53 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 01:36:01 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 01:36:01 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 01:47:37 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 01:47:37 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 01:49:48 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 01:49:48 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 01:56:38 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 01:56:38 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 01:57:13 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 01:57:13 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 01:58:10 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 01:58:10 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 01:59:56 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 01:59:56 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 02:11:32 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 02:11:32 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 02:13:41 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 02:13:41 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 02:14:03 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 02:14:03 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 02:15:07 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 02:15:07 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 02:15:55 - TEACHER_SERVICE - INFO - __init__:89 - RAG service initialized
+2025-11-06 02:15:55 - TEACHER_SERVICE - INFO - __init__:92 - RAG service initialized with modern memory
+2025-11-06 02:21:51 - TEACHER_SERVICE - INFO - __init__:93 - RAG service initialized
+2025-11-06 02:21:51 - TEACHER_SERVICE - INFO - __init__:95 - RAG service initialized with persistent memory
+2025-11-06 02:21:52 - TEACHER_SERVICE - INFO - get_session_history:352 - Created new chat history for session: lesson_348
+2025-11-06 02:22:13 - TEACHER_SERVICE - INFO - __init__:93 - RAG service initialized
+2025-11-06 02:22:13 - TEACHER_SERVICE - INFO - __init__:95 - RAG service initialized with persistent memory
+2025-11-06 02:22:14 - TEACHER_SERVICE - INFO - get_session_history:356 - Retrieved existing chat history for session: lesson_348 (2 messages)
+2025-11-06 02:23:00 - TEACHER_SERVICE - INFO - __init__:93 - RAG service initialized
+2025-11-06 02:23:00 - TEACHER_SERVICE - INFO - __init__:95 - RAG service initialized with persistent memory
+2025-11-06 02:23:01 - TEACHER_SERVICE - INFO - get_session_history:356 - Retrieved existing chat history for session: lesson_348 (4 messages)
+2025-11-06 02:23:50 - TEACHER_SERVICE - INFO - __init__:93 - RAG service initialized
+2025-11-06 02:23:50 - TEACHER_SERVICE - INFO - __init__:95 - RAG service initialized with persistent memory
+2025-11-06 02:23:51 - TEACHER_SERVICE - INFO - get_session_history:356 - Retrieved existing chat history for session: lesson_348 (6 messages)
+2025-11-06 02:24:43 - TEACHER_SERVICE - INFO - __init__:93 - RAG service initialized
+2025-11-06 02:24:43 - TEACHER_SERVICE - INFO - __init__:95 - RAG service initialized with persistent memory
+2025-11-06 02:24:44 - TEACHER_SERVICE - INFO - get_session_history:356 - Retrieved existing chat history for session: lesson_348 (8 messages)
+2025-11-06 02:25:42 - TEACHER_SERVICE - INFO - __init__:93 - RAG service initialized
+2025-11-06 02:25:42 - TEACHER_SERVICE - INFO - __init__:95 - RAG service initialized with persistent memory
+2025-11-06 02:25:42 - TEACHER_SERVICE - INFO - get_session_history:356 - Retrieved existing chat history for session: lesson_348 (10 messages)
+2025-11-06 02:32:43 - TEACHER_SERVICE - INFO - __init__:93 - RAG service initialized
+2025-11-06 02:32:43 - TEACHER_SERVICE - INFO - __init__:95 - RAG service initialized with persistent memory
+2025-11-06 02:32:44 - TEACHER_SERVICE - INFO - get_session_history:352 - Created new chat history for session: lesson_348
+2025-11-06 02:33:09 - TEACHER_SERVICE - INFO - __init__:93 - RAG service initialized
+2025-11-06 02:33:09 - TEACHER_SERVICE - INFO - __init__:95 - RAG service initialized with persistent memory
+2025-11-06 02:33:10 - TEACHER_SERVICE - INFO - get_session_history:356 - Retrieved existing chat history for session: lesson_348 (2 messages)
+2025-11-06 02:34:19 - TEACHER_SERVICE - INFO - __init__:93 - RAG service initialized
+2025-11-06 02:34:19 - TEACHER_SERVICE - INFO - __init__:95 - RAG service initialized with persistent memory
+2025-11-06 02:34:20 - TEACHER_SERVICE - INFO - get_session_history:356 - Retrieved existing chat history for session: lesson_348 (4 messages)
+2025-11-06 02:35:25 - TEACHER_SERVICE - INFO - __init__:93 - RAG service initialized
+2025-11-06 02:35:25 - TEACHER_SERVICE - INFO - __init__:95 - RAG service initialized with persistent memory
+2025-11-06 02:35:26 - TEACHER_SERVICE - INFO - get_session_history:356 - Retrieved existing chat history for session: lesson_348 (6 messages)
+2025-11-06 02:36:01 - TEACHER_SERVICE - INFO - __init__:93 - RAG service initialized
+2025-11-06 02:36:01 - TEACHER_SERVICE - INFO - __init__:95 - RAG service initialized with persistent memory
+2025-11-06 02:36:01 - TEACHER_SERVICE - INFO - get_session_history:356 - Retrieved existing chat history for session: lesson_348 (8 messages)
+2025-11-06 02:37:04 - TEACHER_SERVICE - INFO - __init__:93 - RAG service initialized
+2025-11-06 02:37:04 - TEACHER_SERVICE - INFO - __init__:95 - RAG service initialized with persistent memory
+2025-11-06 02:37:05 - TEACHER_SERVICE - INFO - get_session_history:356 - Retrieved existing chat history for session: lesson_348 (10 messages)
+2025-11-06 02:38:34 - TEACHER_SERVICE - INFO - __init__:93 - RAG service initialized
+2025-11-06 02:38:34 - TEACHER_SERVICE - INFO - __init__:95 - RAG service initialized with persistent memory
+2025-11-06 02:38:35 - TEACHER_SERVICE - INFO - get_session_history:356 - Retrieved existing chat history for session: lesson_348 (12 messages)
+2025-11-06 02:39:20 - TEACHER_SERVICE - INFO - __init__:93 - RAG service initialized
+2025-11-06 02:39:20 - TEACHER_SERVICE - INFO - __init__:95 - RAG service initialized with persistent memory
+2025-11-06 02:39:21 - TEACHER_SERVICE - INFO - get_session_history:356 - Retrieved existing chat history for session: lesson_348 (14 messages)
+2025-11-06 02:39:48 - TEACHER_SERVICE - INFO - __init__:93 - RAG service initialized
+2025-11-06 02:39:48 - TEACHER_SERVICE - INFO - __init__:95 - RAG service initialized with persistent memory
+2025-11-06 02:39:49 - TEACHER_SERVICE - INFO - get_session_history:356 - Retrieved existing chat history for session: lesson_348 (16 messages)
+2025-11-06 03:00:29 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-06 03:00:29 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-06 03:01:17 - TEACHER_SERVICE - INFO - get_session_history:387 - Created new chat history for session: lesson_348
+2025-11-06 03:01:46 - TEACHER_SERVICE - INFO - interactive_chat:510 - Lesson completion check: no
+2025-11-06 03:02:59 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-06 03:02:59 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-06 03:03:02 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_348 (2 messages)
+2025-11-06 03:03:42 - TEACHER_SERVICE - INFO - interactive_chat:510 - Lesson completion check: no
+2025-11-06 03:04:38 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-06 03:04:38 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-06 03:04:42 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_348 (4 messages)
+2025-11-06 03:04:58 - TEACHER_SERVICE - INFO - interactive_chat:510 - Lesson completion check: no
+2025-11-06 03:05:47 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-06 03:05:47 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-06 03:05:51 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_348 (6 messages)
+2025-11-06 03:06:04 - TEACHER_SERVICE - INFO - interactive_chat:510 - Lesson completion check: no
+2025-11-06 03:07:18 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-06 03:07:18 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-06 03:07:21 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_348 (8 messages)
+2025-11-06 03:07:36 - TEACHER_SERVICE - INFO - interactive_chat:510 - Lesson completion check: no
+2025-11-06 03:08:06 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-06 03:08:06 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-06 03:08:09 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_348 (10 messages)
+2025-11-06 03:08:15 - TEACHER_SERVICE - INFO - interactive_chat:510 - Lesson completion check: no
+2025-11-06 03:08:48 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-06 03:08:48 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-06 03:08:51 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_348 (12 messages)
+2025-11-06 03:09:03 - TEACHER_SERVICE - INFO - interactive_chat:510 - Lesson completion check: yes
+2025-11-07 01:49:10 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-07 01:49:10 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-07 01:49:11 - TEACHER_SERVICE - INFO - process_file:137 - === TEACHER FILE PROCESSING STARTED ===
+2025-11-07 01:49:11 - TEACHER_SERVICE - INFO - process_file:138 - File: LLM Reasoning, how it works.pdf
+2025-11-07 01:49:11 - TEACHER_SERVICE - INFO - process_file:139 - Lesson details: {
+  "lesson_title": "llmresoningggg",
+  "lesson_prompt": "\ud83d\udcd8 Prompt for Iqbal AI: Lesson Generation\r\n\r\nPrompt:\r\nCreate a comprehensive, engaging, and well-structured lesson plan for students based on the document titled \u201cLLM Reasoning: How It Works\u201d by Bhavishya Pandit.\r\n\r\nThe lesson should be designed for intermediate-to-advanced AI learners who want to understand how Large Language Models (LLMs) develop reasoning abilities.\r\n\r\nPlease include the following sections in detail:\r\n\r\n1. Lesson Overview\r\n\r\nA short introduction summarizing what the lesson is about.\r\n\r\nDefine what reasoning in LLMs means and why it is important.\r\n\r\nHighlight what students will learn by the end of this lesson.\r\n\r\n2. Learning Objectives\r\n\r\nClearly list 3\u20135 measurable objectives such as:\r\n\r\nExplain how LLMs are pretrained and fine-tuned.\r\n\r\nDescribe the role of reinforcement learning in reasoning development.\r\n\r\nUnderstand the \u201creasoning toggle\u201d mechanism in models like NVIDIA Llama-Nemotron.\r\n\r\nCompare reasoning capabilities among different LLMs (e.g., DeepSeek-R1, Llama-Nemotron, o4-mini).\r\n\r\n3. Key Concepts and Explanations\r\n\r\nBreak down the major concepts from the document:\r\n\r\nPretraining Phase \u2013 Knowledge acquisition from massive text corpora.\r\n\r\nFine-tuning Phase \u2013 Learning from teacher models or human feedback.\r\n\r\nReinforcement Learning (RL) \u2013 Step-by-step improvement through reward-based optimization.\r\n\r\nDynamic Reasoning Toggle \u2013 How models can switch between reasoning and non-reasoning modes.\r\n\r\nModel Comparison \u2013 Insights into O1, DeepSeek-R1, Nemotron, and o4-mini models.\r\n\r\nEach section should include examples, analogies, or visual explanations to make complex ideas easier to understand.\r\n\r\n4. Real-World Applications\r\n\r\nExplain how reasoning models impact fields like education, coding, scientific discovery, and data analysis.\r\n\r\nMention how developers can use the \u201creasoning toggle\u201d in applied AI systems.\r\n\r\n5. Interactive Component\r\n\r\nInclude one or more of the following:\r\n\r\nQuiz or Knowledge Check: 5\u201310 multiple-choice or short-answer questions.\r\n\r\nActivity or Case Study: Example where students analyze how reasoning improves AI responses.\r\n\r\nDiscussion Prompt: \u201cShould AI models always use reasoning mode, or should users control it?\u201d\r\n\r\n6. Summary and Reflection\r\n\r\nRecap key points in simple, memorable language.\r\n\r\nEncourage students to think critically about how LLM reasoning evolves.\r\n\r\nProvide a short \u201cDid You Know?\u201d fact about recent LLM advancements (e.g., o4-mini\u2019s performance in 2025).\r\n\r\n7. Additional Resources (Optional)\r\n\r\nSuggest sources or readings, e.g.:\r\n\r\nArticles on fine-tuning and reinforcement learning.\r\n\r\nNVIDIA\u2019s Nemotron research papers.\r\n\r\nOpenAI\u2019s work on reasoning LLMs.\r\n\r\nTone and Style\r\n\r\nUse clear, student-friendly language but maintain technical accuracy.\r\n\r\nMake it interactive, visual, and logically sequenced for classroom or self-paced learning.\r\n\r\nInclude examples and analogies wherever possible.",
+  "focus_area": "Other",
+  "grade_level": "College",
+  "additional_notes": ""
+}
+2025-11-07 01:49:11 - TEACHER_SERVICE - INFO - process_file:150 - File validation passed: LLM Reasoning, how it works.pdf
+2025-11-07 01:49:11 - TEACHER_SERVICE - INFO - process_file:156 - File saved to temporary path: C:\Users\DCS\AppData\Local\Temp\tmpknzt3kwk_LLM_Reasoning_how_it_works.pdf
+2025-11-07 01:49:15 - TEACHER_SERVICE - INFO - process_file:163 - Document loaded successfully: 7 pages/sections
+2025-11-07 01:49:15 - TEACHER_SERVICE - INFO - process_file:170 - Text extracted successfully: 3334 characters
+2025-11-07 01:49:16 - TEACHER_SERVICE - ERROR - _store_original_document_rag:1189 - Error storing original document RAG: 
+2025-11-07 01:49:16 - TEACHER_SERVICE - INFO - process_file:181 - Original document RAG service stored for AI review
+2025-11-07 01:49:16 - TEACHER_SERVICE - INFO - process_file:185 - Using RAG for large document processing
+2025-11-07 01:49:16 - TEACHER_SERVICE - INFO - process_file:200 - Starting AI lesson generation with RAG
+2025-11-07 01:49:16 - TEACHER_SERVICE - INFO - _llm_responce:835 - === AI LESSON GENERATION WITH RAG STARTED ===
+2025-11-07 01:49:16 - TEACHER_SERVICE - INFO - _llm_responce:836 - RAG prompt length: 7284 characters
+2025-11-07 01:49:18 - TEACHER_SERVICE - INFO - _llm_responce:841 - LLM response received
+2025-11-07 01:49:18 - TEACHER_SERVICE - INFO - _llm_responce:849 - Response content length: 3901 characters
+2025-11-07 01:49:18 - TEACHER_SERVICE - INFO - _llm_responce:850 - === AI LESSON GENERATION WITH RAG COMPLETED ===
+2025-11-07 01:49:18 - TEACHER_SERVICE - INFO - process_file:225 - Lesson generation completed successfully
+2025-11-07 01:49:18 - TEACHER_SERVICE - INFO - process_file:226 - Generated lesson response length: 3901 characters
+2025-11-07 01:49:18 - TEACHER_SERVICE - INFO - process_file:230 - Generating DOCX document
+2025-11-07 01:49:19 - TEACHER_SERVICE - INFO - process_file:234 - DOCX generated: lesson_LLM Reasoning, how it works.docx, size: 38426 bytes
+2025-11-07 01:49:19 - TEACHER_SERVICE - INFO - process_file:240 - === TEACHER FILE PROCESSING COMPLETED ===
+2025-11-07 01:49:19 - TEACHER_SERVICE - INFO - process_file:258 - Temporary file cleaned up: C:\Users\DCS\AppData\Local\Temp\tmpknzt3kwk_LLM_Reasoning_how_it_works.pdf
+2025-11-07 01:50:12 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-07 01:50:12 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-07 01:50:27 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-07 01:50:27 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-07 23:12:37 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-07 23:12:37 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-07 23:18:45 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-07 23:18:47 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-07 23:40:09 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-07 23:40:09 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-08 02:25:05 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-08 02:25:05 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-08 02:37:43 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-08 02:37:43 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-08 02:41:36 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-08 02:41:36 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-08 02:42:34 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-08 02:42:34 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-08 02:47:47 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-08 02:47:47 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-08 02:48:34 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-08 02:48:34 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-08 02:48:52 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-08 02:48:52 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-08 02:57:02 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-08 02:57:02 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-08 02:57:43 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-08 02:57:43 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-08 02:58:06 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-08 02:58:06 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-10 00:34:40 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-10 00:34:40 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-10 00:34:42 - TEACHER_SERVICE - INFO - process_file:137 - === TEACHER FILE PROCESSING STARTED ===
+2025-11-10 00:34:42 - TEACHER_SERVICE - INFO - process_file:138 - File: LangChain and RAG Components.pdf
+2025-11-10 00:34:42 - TEACHER_SERVICE - INFO - process_file:139 - Lesson details: {
+  "lesson_title": "raggupdateeeeeeeeeeeeeeeeeeeee",
+  "lesson_prompt": "what is rag?",
+  "focus_area": "Other",
+  "grade_level": "College",
+  "additional_notes": ""
+}
+2025-11-10 00:34:42 - TEACHER_SERVICE - INFO - process_file:150 - File validation passed: LangChain and RAG Components.pdf
+2025-11-10 00:34:42 - TEACHER_SERVICE - INFO - process_file:156 - File saved to temporary path: C:\Users\DCS\AppData\Local\Temp\tmpwstgjayx_LangChain_and_RAG_Components.pdf
+2025-11-10 00:34:46 - TEACHER_SERVICE - INFO - process_file:163 - Document loaded successfully: 1 pages/sections
+2025-11-10 00:34:46 - TEACHER_SERVICE - INFO - process_file:170 - Text extracted successfully: 1312 characters
+2025-11-10 00:34:49 - TEACHER_SERVICE - INFO - _store_original_document_rag:1213 - Original document RAG service stored with key: document_LangChain and RAG Components.pdf_6530
+2025-11-10 00:34:49 - TEACHER_SERVICE - INFO - _store_original_document_rag:1214 - Vector store contains 2 chunks
+2025-11-10 00:34:49 - TEACHER_SERVICE - INFO - process_file:181 - Original document RAG service stored for AI review
+2025-11-10 00:34:49 - TEACHER_SERVICE - INFO - process_file:185 - Using RAG for large document processing
+2025-11-10 00:34:49 - TEACHER_SERVICE - INFO - process_file:200 - Starting AI lesson generation with RAG
+2025-11-10 00:34:49 - TEACHER_SERVICE - INFO - _llm_responce:865 - === AI LESSON GENERATION WITH RAG STARTED ===
+2025-11-10 00:34:49 - TEACHER_SERVICE - INFO - _llm_responce:866 - RAG prompt length: 2721 characters
+2025-11-10 00:34:51 - TEACHER_SERVICE - INFO - _llm_responce:871 - LLM response received
+2025-11-10 00:34:51 - TEACHER_SERVICE - INFO - _llm_responce:879 - Response content length: 3794 characters
+2025-11-10 00:34:51 - TEACHER_SERVICE - INFO - _llm_responce:880 - === AI LESSON GENERATION WITH RAG COMPLETED ===
+2025-11-10 00:34:51 - TEACHER_SERVICE - INFO - process_file:225 - Lesson generation completed successfully
+2025-11-10 00:34:51 - TEACHER_SERVICE - INFO - process_file:226 - Generated lesson response length: 3794 characters
+2025-11-10 00:34:51 - TEACHER_SERVICE - INFO - process_file:230 - Generating DOCX document
+2025-11-10 00:34:51 - TEACHER_SERVICE - INFO - process_file:234 - DOCX generated: lesson_LangChain and RAG Components.docx, size: 38010 bytes
+2025-11-10 00:34:51 - TEACHER_SERVICE - INFO - process_file:240 - === TEACHER FILE PROCESSING COMPLETED ===
+2025-11-10 00:34:51 - TEACHER_SERVICE - INFO - process_file:258 - Temporary file cleaned up: C:\Users\DCS\AppData\Local\Temp\tmpwstgjayx_LangChain_and_RAG_Components.pdf
+2025-11-10 00:38:27 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-10 00:38:27 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-10 00:38:29 - TEACHER_SERVICE - INFO - process_file:137 - === TEACHER FILE PROCESSING STARTED ===
+2025-11-10 00:38:29 - TEACHER_SERVICE - INFO - process_file:138 - File: LangChain and RAG Components.pdf
+2025-11-10 00:38:29 - TEACHER_SERVICE - INFO - process_file:139 - Lesson details: {
+  "lesson_title": "ragupdateeeeeeeee",
+  "lesson_prompt": "what is rag?",
+  "focus_area": "Other",
+  "grade_level": "College",
+  "additional_notes": ""
+}
+2025-11-10 00:38:29 - TEACHER_SERVICE - INFO - process_file:150 - File validation passed: LangChain and RAG Components.pdf
+2025-11-10 00:38:29 - TEACHER_SERVICE - INFO - process_file:156 - File saved to temporary path: C:\Users\DCS\AppData\Local\Temp\tmp1dq7mzdw_LangChain_and_RAG_Components.pdf
+2025-11-10 00:38:30 - TEACHER_SERVICE - INFO - process_file:163 - Document loaded successfully: 1 pages/sections
+2025-11-10 00:38:30 - TEACHER_SERVICE - INFO - process_file:170 - Text extracted successfully: 1312 characters
+2025-11-10 00:38:33 - TEACHER_SERVICE - INFO - _store_original_document_rag:1213 - Original document RAG service stored with key: document_LangChain and RAG Components.pdf_3105
+2025-11-10 00:38:33 - TEACHER_SERVICE - INFO - _store_original_document_rag:1214 - Vector store contains 2 chunks
+2025-11-10 00:38:33 - TEACHER_SERVICE - INFO - process_file:181 - Original document RAG service stored for AI review
+2025-11-10 00:38:33 - TEACHER_SERVICE - INFO - process_file:185 - Using RAG for large document processing
+2025-11-10 00:38:33 - TEACHER_SERVICE - INFO - process_file:200 - Starting AI lesson generation with RAG
+2025-11-10 00:38:33 - TEACHER_SERVICE - INFO - _llm_responce:865 - === AI LESSON GENERATION WITH RAG STARTED ===
+2025-11-10 00:38:33 - TEACHER_SERVICE - INFO - _llm_responce:866 - RAG prompt length: 2721 characters
+2025-11-10 00:38:36 - TEACHER_SERVICE - INFO - _llm_responce:871 - LLM response received
+2025-11-10 00:38:36 - TEACHER_SERVICE - INFO - _llm_responce:879 - Response content length: 4013 characters
+2025-11-10 00:38:36 - TEACHER_SERVICE - INFO - _llm_responce:880 - === AI LESSON GENERATION WITH RAG COMPLETED ===
+2025-11-10 00:38:36 - TEACHER_SERVICE - INFO - process_file:225 - Lesson generation completed successfully
+2025-11-10 00:38:36 - TEACHER_SERVICE - INFO - process_file:226 - Generated lesson response length: 4013 characters
+2025-11-10 00:38:36 - TEACHER_SERVICE - INFO - process_file:230 - Generating DOCX document
+2025-11-10 00:38:36 - TEACHER_SERVICE - INFO - process_file:234 - DOCX generated: lesson_LangChain and RAG Components.docx, size: 38100 bytes
+2025-11-10 00:38:36 - TEACHER_SERVICE - INFO - process_file:240 - === TEACHER FILE PROCESSING COMPLETED ===
+2025-11-10 00:38:36 - TEACHER_SERVICE - INFO - process_file:258 - Temporary file cleaned up: C:\Users\DCS\AppData\Local\Temp\tmp1dq7mzdw_LangChain_and_RAG_Components.pdf
+2025-11-10 00:38:36 - TEACHER_SERVICE - INFO - get_session_history:387 - Created new chat history for session: lesson_351
+2025-11-10 00:38:40 - TEACHER_SERVICE - INFO - interactive_chat:524 - Lesson completion check: no
+2025-11-12 00:26:08 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-12 00:26:08 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-12 00:26:10 - TEACHER_SERVICE - INFO - get_session_history:387 - Created new chat history for session: lesson_351
+2025-11-12 00:26:13 - TEACHER_SERVICE - INFO - interactive_chat:524 - Lesson completion check: no
+2025-11-12 00:26:48 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-12 00:26:48 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-12 00:26:49 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_351 (2 messages)
+2025-11-12 00:26:51 - TEACHER_SERVICE - INFO - interactive_chat:524 - Lesson completion check: no
+2025-11-12 00:29:37 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-12 00:29:37 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 00:26:36 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 00:26:36 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 00:26:38 - TEACHER_SERVICE - INFO - get_session_history:387 - Created new chat history for session: lesson_351
+2025-11-13 00:26:42 - TEACHER_SERVICE - INFO - interactive_chat:524 - Lesson completion check: no
+2025-11-13 00:28:11 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 00:28:11 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 00:37:31 - TEACHER_SERVICE - INFO - get_session_history:387 - Created new chat history for session: lesson_351
+2025-11-13 00:55:39 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 00:55:39 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 00:57:15 - TEACHER_SERVICE - INFO - get_session_history:387 - Created new chat history for session: lesson_351
+2025-11-13 00:57:46 - TEACHER_SERVICE - INFO - interactive_chat:516 - Lesson completion check: no
+2025-11-13 00:58:14 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 00:58:14 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 00:58:20 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_351 (2 messages)
+2025-11-13 00:58:23 - TEACHER_SERVICE - INFO - interactive_chat:516 - Lesson completion check: no
+2025-11-13 01:00:01 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 01:00:01 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 01:00:04 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_351 (4 messages)
+2025-11-13 01:00:08 - TEACHER_SERVICE - INFO - interactive_chat:516 - Lesson completion check: no
+2025-11-13 01:01:22 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 01:01:22 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 01:01:29 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_351 (6 messages)
+2025-11-13 01:01:32 - TEACHER_SERVICE - INFO - interactive_chat:516 - Lesson completion check: no
+2025-11-13 01:02:02 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 01:02:02 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 01:02:05 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_351 (8 messages)
+2025-11-13 01:02:10 - TEACHER_SERVICE - INFO - interactive_chat:516 - Lesson completion check: yes
+2025-11-13 01:21:43 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 01:21:43 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 01:21:44 - TEACHER_SERVICE - INFO - process_file:137 - === TEACHER FILE PROCESSING STARTED ===
+2025-11-13 01:21:44 - TEACHER_SERVICE - INFO - process_file:138 - File: Hamza (1).pdf
+2025-11-13 01:21:44 - TEACHER_SERVICE - INFO - process_file:139 - Lesson details: {
+  "lesson_title": "raggupdateeeeeeeeeeeeeee",
+  "lesson_prompt": "who is hamza?",
+  "focus_area": "Other",
+  "grade_level": "College",
+  "additional_notes": ""
+}
+2025-11-13 01:21:44 - TEACHER_SERVICE - INFO - process_file:150 - File validation passed: Hamza (1).pdf
+2025-11-13 01:21:44 - TEACHER_SERVICE - INFO - process_file:156 - File saved to temporary path: C:\Users\DCS\AppData\Local\Temp\tmpdk5sc9v3_Hamza_1.pdf
+2025-11-13 01:21:46 - TEACHER_SERVICE - INFO - process_file:163 - Document loaded successfully: 3 pages/sections
+2025-11-13 01:21:46 - TEACHER_SERVICE - INFO - process_file:170 - Text extracted successfully: 10539 characters
+2025-11-13 01:21:48 - TEACHER_SERVICE - INFO - _store_original_document_rag:1558 - Original document RAG service stored with key: document_Hamza (1).pdf_9700
+2025-11-13 01:21:48 - TEACHER_SERVICE - INFO - _store_original_document_rag:1559 - Vector store contains 13 chunks
+2025-11-13 01:21:48 - TEACHER_SERVICE - INFO - process_file:181 - Original document RAG service stored for AI review
+2025-11-13 01:21:48 - TEACHER_SERVICE - INFO - process_file:185 - Using RAG for large document processing
+2025-11-13 01:21:48 - TEACHER_SERVICE - INFO - process_file:200 - Starting AI lesson generation with RAG
+2025-11-13 01:21:48 - TEACHER_SERVICE - INFO - _llm_responce:1210 - === AI LESSON GENERATION WITH RAG STARTED ===
+2025-11-13 01:21:48 - TEACHER_SERVICE - INFO - _llm_responce:1211 - RAG prompt length: 6002 characters
+2025-11-13 01:21:50 - TEACHER_SERVICE - INFO - _llm_responce:1216 - LLM response received
+2025-11-13 01:21:50 - TEACHER_SERVICE - INFO - _llm_responce:1224 - Response content length: 1903 characters
+2025-11-13 01:21:50 - TEACHER_SERVICE - INFO - _llm_responce:1225 - === AI LESSON GENERATION WITH RAG COMPLETED ===
+2025-11-13 01:21:50 - TEACHER_SERVICE - INFO - process_file:225 - Lesson generation completed successfully
+2025-11-13 01:21:50 - TEACHER_SERVICE - INFO - process_file:226 - Generated lesson response length: 1903 characters
+2025-11-13 01:21:50 - TEACHER_SERVICE - INFO - process_file:230 - Generating DOCX document
+2025-11-13 01:21:51 - TEACHER_SERVICE - INFO - process_file:234 - DOCX generated: lesson_Hamza (1).docx, size: 37436 bytes
+2025-11-13 01:21:51 - TEACHER_SERVICE - INFO - process_file:240 - === TEACHER FILE PROCESSING COMPLETED ===
+2025-11-13 01:21:51 - TEACHER_SERVICE - INFO - process_file:258 - Temporary file cleaned up: C:\Users\DCS\AppData\Local\Temp\tmpdk5sc9v3_Hamza_1.pdf
+2025-11-13 01:21:51 - TEACHER_SERVICE - INFO - interactive_chat:437 - Retrieved uploaded document: Hamza (1).pdf
+2025-11-13 01:21:51 - TEACHER_SERVICE - INFO - get_session_history:387 - Created new chat history for session: lesson_352
+2025-11-13 01:21:54 - TEACHER_SERVICE - INFO - interactive_chat:516 - Lesson completion check: no
+2025-11-13 01:23:17 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 01:23:17 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 01:23:18 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_352 (2 messages)
+2025-11-13 01:23:22 - TEACHER_SERVICE - INFO - interactive_chat:516 - Lesson completion check: no
+2025-11-13 01:23:50 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 01:23:50 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 01:23:51 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_352 (4 messages)
+2025-11-13 01:23:55 - TEACHER_SERVICE - INFO - interactive_chat:516 - Lesson completion check: no
+2025-11-13 01:24:22 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 01:24:22 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 01:24:22 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_352 (6 messages)
+2025-11-13 01:24:31 - TEACHER_SERVICE - INFO - interactive_chat:516 - Lesson completion check: yes
+2025-11-13 01:25:09 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 01:25:09 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 01:25:10 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_352 (8 messages)
+2025-11-13 01:25:29 - TEACHER_SERVICE - INFO - interactive_chat:516 - Lesson completion check: no
+2025-11-13 01:26:41 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 01:26:41 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 01:26:49 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 01:26:49 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 01:32:36 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 01:32:36 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 01:32:37 - TEACHER_SERVICE - INFO - process_file:137 - === TEACHER FILE PROCESSING STARTED ===
+2025-11-13 01:32:37 - TEACHER_SERVICE - INFO - process_file:138 - File: LangChain and RAG Components (1).pdf
+2025-11-13 01:32:37 - TEACHER_SERVICE - INFO - process_file:139 - Lesson details: {
+  "lesson_title": "raggupdateeeeeeeeeeeeeeedd",
+  "lesson_prompt": "what is  rag?",
+  "focus_area": "Other",
+  "grade_level": "College",
+  "additional_notes": ""
+}
+2025-11-13 01:32:37 - TEACHER_SERVICE - INFO - process_file:150 - File validation passed: LangChain and RAG Components (1).pdf
+2025-11-13 01:32:37 - TEACHER_SERVICE - INFO - process_file:156 - File saved to temporary path: C:\Users\DCS\AppData\Local\Temp\tmpe_8wm1fg_LangChain_and_RAG_Components_1.pdf
+2025-11-13 01:32:37 - TEACHER_SERVICE - INFO - process_file:163 - Document loaded successfully: 1 pages/sections
+2025-11-13 01:32:37 - TEACHER_SERVICE - INFO - process_file:170 - Text extracted successfully: 1312 characters
+2025-11-13 01:32:39 - TEACHER_SERVICE - INFO - _store_original_document_rag:1558 - Original document RAG service stored with key: document_LangChain and RAG Components (1).pdf_555
+2025-11-13 01:32:39 - TEACHER_SERVICE - INFO - _store_original_document_rag:1559 - Vector store contains 2 chunks
+2025-11-13 01:32:39 - TEACHER_SERVICE - INFO - process_file:181 - Original document RAG service stored for AI review
+2025-11-13 01:32:39 - TEACHER_SERVICE - INFO - process_file:185 - Using RAG for large document processing
+2025-11-13 01:32:39 - TEACHER_SERVICE - INFO - process_file:200 - Starting AI lesson generation with RAG
+2025-11-13 01:32:39 - TEACHER_SERVICE - INFO - _llm_responce:1210 - === AI LESSON GENERATION WITH RAG STARTED ===
+2025-11-13 01:32:39 - TEACHER_SERVICE - INFO - _llm_responce:1211 - RAG prompt length: 2722 characters
+2025-11-13 01:32:41 - TEACHER_SERVICE - INFO - _llm_responce:1216 - LLM response received
+2025-11-13 01:32:41 - TEACHER_SERVICE - INFO - _llm_responce:1224 - Response content length: 4107 characters
+2025-11-13 01:32:41 - TEACHER_SERVICE - INFO - _llm_responce:1225 - === AI LESSON GENERATION WITH RAG COMPLETED ===
+2025-11-13 01:32:41 - TEACHER_SERVICE - INFO - process_file:225 - Lesson generation completed successfully
+2025-11-13 01:32:41 - TEACHER_SERVICE - INFO - process_file:226 - Generated lesson response length: 4107 characters
+2025-11-13 01:32:41 - TEACHER_SERVICE - INFO - process_file:230 - Generating DOCX document
+2025-11-13 01:32:42 - TEACHER_SERVICE - INFO - process_file:234 - DOCX generated: lesson_LangChain and RAG Components (1).docx, size: 38123 bytes
+2025-11-13 01:32:42 - TEACHER_SERVICE - INFO - process_file:240 - === TEACHER FILE PROCESSING COMPLETED ===
+2025-11-13 01:32:42 - TEACHER_SERVICE - INFO - process_file:258 - Temporary file cleaned up: C:\Users\DCS\AppData\Local\Temp\tmpe_8wm1fg_LangChain_and_RAG_Components_1.pdf
+2025-11-13 01:32:42 - TEACHER_SERVICE - INFO - interactive_chat:437 - Retrieved uploaded document: LangChain and RAG Components (1).pdf
+2025-11-13 01:32:42 - TEACHER_SERVICE - INFO - get_session_history:387 - Created new chat history for session: lesson_353
+2025-11-13 01:32:47 - TEACHER_SERVICE - INFO - interactive_chat:516 - Lesson completion check: yes
+2025-11-13 01:33:43 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 01:33:43 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 01:33:44 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_353 (2 messages)
+2025-11-13 01:33:47 - TEACHER_SERVICE - INFO - interactive_chat:516 - Lesson completion check: no
+2025-11-13 01:34:13 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 01:34:13 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 01:34:14 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_353 (4 messages)
+2025-11-13 01:34:18 - TEACHER_SERVICE - INFO - interactive_chat:516 - Lesson completion check: yes
+2025-11-13 01:57:43 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 01:57:43 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 01:57:44 - TEACHER_SERVICE - INFO - process_file:137 - === TEACHER FILE PROCESSING STARTED ===
+2025-11-13 01:57:44 - TEACHER_SERVICE - INFO - process_file:138 - File: LangChain and RAG Components (1).pdf
+2025-11-13 01:57:44 - TEACHER_SERVICE - INFO - process_file:139 - Lesson details: {
+  "lesson_title": "raggupdateeeeeeeeeeeeeeedddd",
+  "lesson_prompt": "what is rag?",
+  "focus_area": "Other",
+  "grade_level": "College",
+  "additional_notes": ""
+}
+2025-11-13 01:57:44 - TEACHER_SERVICE - INFO - process_file:150 - File validation passed: LangChain and RAG Components (1).pdf
+2025-11-13 01:57:44 - TEACHER_SERVICE - INFO - process_file:156 - File saved to temporary path: C:\Users\DCS\AppData\Local\Temp\tmp43psh4wl_LangChain_and_RAG_Components_1.pdf
+2025-11-13 01:57:45 - TEACHER_SERVICE - INFO - process_file:163 - Document loaded successfully: 1 pages/sections
+2025-11-13 01:57:45 - TEACHER_SERVICE - INFO - process_file:170 - Text extracted successfully: 1312 characters
+2025-11-13 01:57:46 - TEACHER_SERVICE - INFO - _store_original_document_rag:1558 - Original document RAG service stored with key: document_LangChain and RAG Components (1).pdf_555
+2025-11-13 01:57:46 - TEACHER_SERVICE - INFO - _store_original_document_rag:1559 - Vector store contains 2 chunks
+2025-11-13 01:57:46 - TEACHER_SERVICE - INFO - process_file:181 - Original document RAG service stored for AI review
+2025-11-13 01:57:46 - TEACHER_SERVICE - INFO - process_file:185 - Using RAG for large document processing
+2025-11-13 01:57:46 - TEACHER_SERVICE - INFO - process_file:200 - Starting AI lesson generation with RAG
+2025-11-13 01:57:46 - TEACHER_SERVICE - INFO - _llm_responce:1210 - === AI LESSON GENERATION WITH RAG STARTED ===
+2025-11-13 01:57:46 - TEACHER_SERVICE - INFO - _llm_responce:1211 - RAG prompt length: 2721 characters
+2025-11-13 01:57:48 - TEACHER_SERVICE - INFO - _llm_responce:1216 - LLM response received
+2025-11-13 01:57:48 - TEACHER_SERVICE - INFO - _llm_responce:1224 - Response content length: 4196 characters
+2025-11-13 01:57:48 - TEACHER_SERVICE - INFO - _llm_responce:1225 - === AI LESSON GENERATION WITH RAG COMPLETED ===
+2025-11-13 01:57:48 - TEACHER_SERVICE - INFO - process_file:225 - Lesson generation completed successfully
+2025-11-13 01:57:48 - TEACHER_SERVICE - INFO - process_file:226 - Generated lesson response length: 4196 characters
+2025-11-13 01:57:48 - TEACHER_SERVICE - INFO - process_file:230 - Generating DOCX document
+2025-11-13 01:57:48 - TEACHER_SERVICE - INFO - process_file:234 - DOCX generated: lesson_LangChain and RAG Components (1).docx, size: 38301 bytes
+2025-11-13 01:57:48 - TEACHER_SERVICE - INFO - process_file:240 - === TEACHER FILE PROCESSING COMPLETED ===
+2025-11-13 01:57:48 - TEACHER_SERVICE - INFO - process_file:258 - Temporary file cleaned up: C:\Users\DCS\AppData\Local\Temp\tmp43psh4wl_LangChain_and_RAG_Components_1.pdf
+2025-11-13 01:57:49 - TEACHER_SERVICE - INFO - interactive_chat:437 - Retrieved uploaded document: LangChain and RAG Components (1).pdf
+2025-11-13 01:57:49 - TEACHER_SERVICE - INFO - get_session_history:387 - Created new chat history for session: lesson_354
+2025-11-13 01:57:52 - TEACHER_SERVICE - INFO - interactive_chat:516 - Lesson completion check: yes
+2025-11-13 01:58:18 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 01:58:18 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 01:58:19 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_354 (2 messages)
+2025-11-13 01:58:23 - TEACHER_SERVICE - INFO - interactive_chat:516 - Lesson completion check: yes
+2025-11-13 02:10:28 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 02:10:28 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 02:12:52 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 02:12:52 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 02:19:11 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 02:19:11 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 02:24:27 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 02:24:27 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 02:24:56 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 02:24:56 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 02:34:14 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 02:34:14 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 02:34:15 - TEACHER_SERVICE - INFO - process_file:137 - === TEACHER FILE PROCESSING STARTED ===
+2025-11-13 02:34:15 - TEACHER_SERVICE - INFO - process_file:138 - File: LangChain and RAG Components (1).pdf
+2025-11-13 02:34:15 - TEACHER_SERVICE - INFO - process_file:139 - Lesson details: {
+  "lesson_title": "raggnewwwwwwwwwwwwwww",
+  "lesson_prompt": "",
+  "focus_area": "Other",
+  "grade_level": "College",
+  "additional_notes": ""
+}
+2025-11-13 02:34:15 - TEACHER_SERVICE - INFO - process_file:150 - File validation passed: LangChain and RAG Components (1).pdf
+2025-11-13 02:34:15 - TEACHER_SERVICE - INFO - process_file:156 - File saved to temporary path: C:\Users\DCS\AppData\Local\Temp\tmptgak1fpa_LangChain_and_RAG_Components_1.pdf
+2025-11-13 02:34:15 - TEACHER_SERVICE - INFO - process_file:163 - Document loaded successfully: 1 pages/sections
+2025-11-13 02:34:15 - TEACHER_SERVICE - INFO - process_file:170 - Text extracted successfully: 1312 characters
+2025-11-13 02:34:17 - TEACHER_SERVICE - INFO - _store_original_document_rag:1558 - Original document RAG service stored with key: document_LangChain and RAG Components (1).pdf_9548
+2025-11-13 02:34:17 - TEACHER_SERVICE - INFO - _store_original_document_rag:1559 - Vector store contains 2 chunks
+2025-11-13 02:34:17 - TEACHER_SERVICE - INFO - process_file:181 - Original document RAG service stored for AI review
+2025-11-13 02:34:17 - TEACHER_SERVICE - INFO - process_file:185 - Using RAG for large document processing
+2025-11-13 02:34:17 - TEACHER_SERVICE - INFO - process_file:200 - Starting AI lesson generation with RAG
+2025-11-13 02:34:17 - TEACHER_SERVICE - INFO - _llm_responce:1210 - === AI LESSON GENERATION WITH RAG STARTED ===
+2025-11-13 02:34:17 - TEACHER_SERVICE - INFO - _llm_responce:1211 - RAG prompt length: 2709 characters
+2025-11-13 02:34:19 - TEACHER_SERVICE - INFO - _llm_responce:1216 - LLM response received
+2025-11-13 02:34:19 - TEACHER_SERVICE - INFO - _llm_responce:1224 - Response content length: 3411 characters
+2025-11-13 02:34:19 - TEACHER_SERVICE - INFO - _llm_responce:1225 - === AI LESSON GENERATION WITH RAG COMPLETED ===
+2025-11-13 02:34:19 - TEACHER_SERVICE - INFO - process_file:225 - Lesson generation completed successfully
+2025-11-13 02:34:19 - TEACHER_SERVICE - INFO - process_file:226 - Generated lesson response length: 3411 characters
+2025-11-13 02:34:19 - TEACHER_SERVICE - INFO - process_file:230 - Generating DOCX document
+2025-11-13 02:34:19 - TEACHER_SERVICE - INFO - process_file:234 - DOCX generated: lesson_LangChain and RAG Components (1).docx, size: 38013 bytes
+2025-11-13 02:34:19 - TEACHER_SERVICE - INFO - process_file:240 - === TEACHER FILE PROCESSING COMPLETED ===
+2025-11-13 02:34:19 - TEACHER_SERVICE - INFO - process_file:258 - Temporary file cleaned up: C:\Users\DCS\AppData\Local\Temp\tmptgak1fpa_LangChain_and_RAG_Components_1.pdf
+2025-11-13 02:34:20 - TEACHER_SERVICE - INFO - interactive_chat:437 - Retrieved uploaded document: LangChain and RAG Components (1).pdf
+2025-11-13 02:34:20 - TEACHER_SERVICE - INFO - get_session_history:387 - Created new chat history for session: lesson_355
+2025-11-13 02:34:22 - TEACHER_SERVICE - INFO - interactive_chat:516 - Lesson completion check: no
+2025-11-13 02:40:50 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 02:40:50 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 02:40:51 - TEACHER_SERVICE - INFO - process_file:137 - === TEACHER FILE PROCESSING STARTED ===
+2025-11-13 02:40:51 - TEACHER_SERVICE - INFO - process_file:138 - File: Hamza (1).pdf
+2025-11-13 02:40:51 - TEACHER_SERVICE - INFO - process_file:139 - Lesson details: {
+  "lesson_title": "ragupdateeeeee",
+  "lesson_prompt": "",
+  "focus_area": "Other",
+  "grade_level": "College",
+  "additional_notes": ""
+}
+2025-11-13 02:40:51 - TEACHER_SERVICE - INFO - process_file:150 - File validation passed: Hamza (1).pdf
+2025-11-13 02:40:51 - TEACHER_SERVICE - INFO - process_file:156 - File saved to temporary path: C:\Users\DCS\AppData\Local\Temp\tmpq6j2c952_Hamza_1.pdf
+2025-11-13 02:40:52 - TEACHER_SERVICE - INFO - process_file:163 - Document loaded successfully: 3 pages/sections
+2025-11-13 02:40:52 - TEACHER_SERVICE - INFO - process_file:170 - Text extracted successfully: 10539 characters
+2025-11-13 02:40:55 - TEACHER_SERVICE - INFO - _store_original_document_rag:1558 - Original document RAG service stored with key: document_Hamza (1).pdf_673
+2025-11-13 02:40:55 - TEACHER_SERVICE - INFO - _store_original_document_rag:1559 - Vector store contains 13 chunks
+2025-11-13 02:40:55 - TEACHER_SERVICE - INFO - process_file:181 - Original document RAG service stored for AI review
+2025-11-13 02:40:55 - TEACHER_SERVICE - INFO - process_file:185 - Using RAG for large document processing
+2025-11-13 02:40:55 - TEACHER_SERVICE - INFO - process_file:200 - Starting AI lesson generation with RAG
+2025-11-13 02:40:55 - TEACHER_SERVICE - INFO - _llm_responce:1210 - === AI LESSON GENERATION WITH RAG STARTED ===
+2025-11-13 02:40:55 - TEACHER_SERVICE - INFO - _llm_responce:1211 - RAG prompt length: 6123 characters
+2025-11-13 02:40:57 - TEACHER_SERVICE - INFO - _llm_responce:1216 - LLM response received
+2025-11-13 02:40:57 - TEACHER_SERVICE - INFO - _llm_responce:1224 - Response content length: 2939 characters
+2025-11-13 02:40:57 - TEACHER_SERVICE - INFO - _llm_responce:1225 - === AI LESSON GENERATION WITH RAG COMPLETED ===
+2025-11-13 02:40:57 - TEACHER_SERVICE - INFO - process_file:225 - Lesson generation completed successfully
+2025-11-13 02:40:57 - TEACHER_SERVICE - INFO - process_file:226 - Generated lesson response length: 2939 characters
+2025-11-13 02:40:57 - TEACHER_SERVICE - INFO - process_file:230 - Generating DOCX document
+2025-11-13 02:40:57 - TEACHER_SERVICE - INFO - process_file:234 - DOCX generated: lesson_Hamza (1).docx, size: 37989 bytes
+2025-11-13 02:40:57 - TEACHER_SERVICE - INFO - process_file:240 - === TEACHER FILE PROCESSING COMPLETED ===
+2025-11-13 02:40:57 - TEACHER_SERVICE - INFO - process_file:258 - Temporary file cleaned up: C:\Users\DCS\AppData\Local\Temp\tmpq6j2c952_Hamza_1.pdf
+2025-11-13 02:40:58 - TEACHER_SERVICE - INFO - interactive_chat:437 - Retrieved uploaded document: Hamza (1).pdf
+2025-11-13 02:40:58 - TEACHER_SERVICE - INFO - get_session_history:387 - Created new chat history for session: lesson_356
+2025-11-13 02:41:00 - TEACHER_SERVICE - INFO - interactive_chat:516 - Lesson completion check: no
+2025-11-13 02:41:55 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 02:41:55 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 02:41:56 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_356 (2 messages)
+2025-11-13 02:41:59 - TEACHER_SERVICE - INFO - interactive_chat:516 - Lesson completion check: no
+2025-11-13 02:43:03 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 02:43:03 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 02:43:03 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_356 (4 messages)
+2025-11-13 02:43:07 - TEACHER_SERVICE - INFO - interactive_chat:516 - Lesson completion check: no
+2025-11-13 02:57:49 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-13 02:57:49 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-13 02:57:50 - TEACHER_SERVICE - INFO - process_file:137 - === TEACHER FILE PROCESSING STARTED ===
+2025-11-13 02:57:50 - TEACHER_SERVICE - INFO - process_file:138 - File: Hamza (1).pdf
+2025-11-13 02:57:50 - TEACHER_SERVICE - INFO - process_file:139 - Lesson details: {
+  "lesson_title": "raggupdateeeeeeeeeeeeeeedddddd",
+  "lesson_prompt": "",
+  "focus_area": "Other",
+  "grade_level": "College",
+  "additional_notes": ""
+}
+2025-11-13 02:57:50 - TEACHER_SERVICE - INFO - process_file:150 - File validation passed: Hamza (1).pdf
+2025-11-13 02:57:50 - TEACHER_SERVICE - INFO - process_file:156 - File saved to temporary path: C:\Users\DCS\AppData\Local\Temp\tmp5c4k1q8m_Hamza_1.pdf
+2025-11-13 02:57:51 - TEACHER_SERVICE - INFO - process_file:163 - Document loaded successfully: 3 pages/sections
+2025-11-13 02:57:51 - TEACHER_SERVICE - INFO - process_file:170 - Text extracted successfully: 10539 characters
+2025-11-13 02:57:53 - TEACHER_SERVICE - INFO - _store_original_document_rag:1623 - Original document RAG service stored with key: document_Hamza (1).pdf_9625
+2025-11-13 02:57:53 - TEACHER_SERVICE - INFO - _store_original_document_rag:1624 - Vector store contains 13 chunks
+2025-11-13 02:57:53 - TEACHER_SERVICE - INFO - process_file:181 - Original document RAG service stored for AI review
+2025-11-13 02:57:53 - TEACHER_SERVICE - INFO - process_file:185 - Using RAG for large document processing
+2025-11-13 02:57:53 - TEACHER_SERVICE - INFO - process_file:200 - Starting AI lesson generation with RAG
+2025-11-13 02:57:53 - TEACHER_SERVICE - INFO - _llm_responce:1275 - === AI LESSON GENERATION WITH RAG STARTED ===
+2025-11-13 02:57:53 - TEACHER_SERVICE - INFO - _llm_responce:1276 - RAG prompt length: 6123 characters
+2025-11-13 02:57:56 - TEACHER_SERVICE - INFO - _llm_responce:1281 - LLM response received
+2025-11-13 02:57:56 - TEACHER_SERVICE - INFO - _llm_responce:1289 - Response content length: 2990 characters
+2025-11-13 02:57:56 - TEACHER_SERVICE - INFO - _llm_responce:1290 - === AI LESSON GENERATION WITH RAG COMPLETED ===
+2025-11-13 02:57:56 - TEACHER_SERVICE - INFO - process_file:225 - Lesson generation completed successfully
+2025-11-13 02:57:56 - TEACHER_SERVICE - INFO - process_file:226 - Generated lesson response length: 2990 characters
+2025-11-13 02:57:56 - TEACHER_SERVICE - INFO - process_file:230 - Generating DOCX document
+2025-11-13 02:57:56 - TEACHER_SERVICE - INFO - process_file:234 - DOCX generated: lesson_Hamza (1).docx, size: 37999 bytes
+2025-11-13 02:57:56 - TEACHER_SERVICE - INFO - process_file:240 - === TEACHER FILE PROCESSING COMPLETED ===
+2025-11-13 02:57:56 - TEACHER_SERVICE - INFO - process_file:258 - Temporary file cleaned up: C:\Users\DCS\AppData\Local\Temp\tmp5c4k1q8m_Hamza_1.pdf
+2025-11-13 02:57:56 - TEACHER_SERVICE - INFO - interactive_chat:464 - Retrieved uploaded document content: Hamza (1).pdf, 10085 characters from 13 chunks
+2025-11-13 02:57:56 - TEACHER_SERVICE - INFO - get_session_history:387 - Created new chat history for session: lesson_357
+2025-11-14 00:50:09 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 00:50:09 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 00:51:05 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 00:51:05 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 00:51:26 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 00:51:26 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 00:53:21 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 00:53:21 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 01:11:58 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 01:11:58 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 01:25:06 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 01:25:06 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 01:34:31 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 01:34:31 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 01:35:39 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 01:35:39 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 01:36:07 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 01:36:07 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 01:37:28 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 01:37:28 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 01:50:34 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 01:50:34 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 01:50:35 - TEACHER_SERVICE - INFO - process_file:137 - === TEACHER FILE PROCESSING STARTED ===
+2025-11-14 01:50:35 - TEACHER_SERVICE - INFO - process_file:138 - File: The current landscape of ALK in NSCLC, emerging treatment paradigms and future directions.pdf
+2025-11-14 01:50:35 - TEACHER_SERVICE - INFO - process_file:139 - Lesson details: {
+  "lesson_title": "raggupdateeeeeeeeeeeeeeeee",
+  "lesson_prompt": "",
+  "focus_area": "Other",
+  "grade_level": "College",
+  "additional_notes": ""
+}
+2025-11-14 01:50:35 - TEACHER_SERVICE - INFO - process_file:150 - File validation passed: The current landscape of ALK in NSCLC, emerging treatment paradigms and future directions.pdf
+2025-11-14 01:50:35 - TEACHER_SERVICE - INFO - process_file:156 - File saved to temporary path: C:\Users\DCS\AppData\Local\Temp\tmpz9v26rk7_The_current_landscape_of_ALK_in_NSCLC_emerging_treatment_paradigms_and_future_directions.pdf
+2025-11-14 01:50:38 - TEACHER_SERVICE - INFO - process_file:163 - Document loaded successfully: 10 pages/sections
+2025-11-14 01:50:38 - TEACHER_SERVICE - INFO - process_file:170 - Text extracted successfully: 54268 characters
+2025-11-14 01:50:46 - TEACHER_SERVICE - INFO - _store_original_document_rag:1558 - Original document RAG service stored with key: document_The current landscape of ALK in NSCLC, emerging treatment paradigms and future directions.pdf_677
+2025-11-14 01:50:46 - TEACHER_SERVICE - INFO - _store_original_document_rag:1559 - Vector store contains 70 chunks
+2025-11-14 01:50:46 - TEACHER_SERVICE - INFO - process_file:181 - Original document RAG service stored for AI review
+2025-11-14 01:50:46 - TEACHER_SERVICE - INFO - process_file:185 - Using RAG for large document processing
+2025-11-14 01:50:46 - TEACHER_SERVICE - INFO - process_file:200 - Starting AI lesson generation with RAG
+2025-11-14 01:50:46 - TEACHER_SERVICE - INFO - _llm_responce:1210 - === AI LESSON GENERATION WITH RAG STARTED ===
+2025-11-14 01:50:46 - TEACHER_SERVICE - INFO - _llm_responce:1211 - RAG prompt length: 5416 characters
+2025-11-14 01:50:48 - TEACHER_SERVICE - INFO - _llm_responce:1216 - LLM response received
+2025-11-14 01:50:48 - TEACHER_SERVICE - INFO - _llm_responce:1224 - Response content length: 2430 characters
+2025-11-14 01:50:48 - TEACHER_SERVICE - INFO - _llm_responce:1225 - === AI LESSON GENERATION WITH RAG COMPLETED ===
+2025-11-14 01:50:48 - TEACHER_SERVICE - INFO - process_file:225 - Lesson generation completed successfully
+2025-11-14 01:50:48 - TEACHER_SERVICE - INFO - process_file:226 - Generated lesson response length: 2430 characters
+2025-11-14 01:50:48 - TEACHER_SERVICE - INFO - process_file:230 - Generating DOCX document
+2025-11-14 01:50:48 - TEACHER_SERVICE - INFO - process_file:234 - DOCX generated: lesson_The current landscape of ALK in NSCLC, emerging treatment paradigms and future directions.docx, size: 37721 bytes
+2025-11-14 01:50:48 - TEACHER_SERVICE - INFO - process_file:240 - === TEACHER FILE PROCESSING COMPLETED ===
+2025-11-14 01:50:48 - TEACHER_SERVICE - INFO - process_file:258 - Temporary file cleaned up: C:\Users\DCS\AppData\Local\Temp\tmpz9v26rk7_The_current_landscape_of_ALK_in_NSCLC_emerging_treatment_paradigms_and_future_directions.pdf
+2025-11-14 01:50:48 - TEACHER_SERVICE - INFO - interactive_chat:437 - Retrieved uploaded document: The current landscape of ALK in NSCLC, emerging treatment paradigms and future directions.pdf
+2025-11-14 01:50:48 - TEACHER_SERVICE - INFO - get_session_history:387 - Created new chat history for session: lesson_358
+2025-11-14 01:50:52 - TEACHER_SERVICE - INFO - interactive_chat:516 - Lesson completion check: no
+2025-11-14 01:59:09 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 01:59:09 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 01:59:09 - TEACHER_SERVICE - INFO - process_file:137 - === TEACHER FILE PROCESSING STARTED ===
+2025-11-14 01:59:09 - TEACHER_SERVICE - INFO - process_file:138 - File: LangChain and RAG Components (1).pdf
+2025-11-14 01:59:09 - TEACHER_SERVICE - INFO - process_file:139 - Lesson details: {
+  "lesson_title": "ragggupdatedddddddddddddddd",
+  "lesson_prompt": "",
+  "focus_area": "Other",
+  "grade_level": "College",
+  "additional_notes": ""
+}
+2025-11-14 01:59:09 - TEACHER_SERVICE - INFO - process_file:150 - File validation passed: LangChain and RAG Components (1).pdf
+2025-11-14 01:59:09 - TEACHER_SERVICE - INFO - process_file:156 - File saved to temporary path: C:\Users\DCS\AppData\Local\Temp\tmpjvd3z8gt_LangChain_and_RAG_Components_1.pdf
+2025-11-14 01:59:11 - TEACHER_SERVICE - INFO - process_file:163 - Document loaded successfully: 1 pages/sections
+2025-11-14 01:59:11 - TEACHER_SERVICE - INFO - process_file:170 - Text extracted successfully: 1312 characters
+2025-11-14 01:59:13 - TEACHER_SERVICE - INFO - _store_original_document_rag:1590 - Original document RAG service stored with key: document_LangChain and RAG Components (1).pdf_6766
+2025-11-14 01:59:13 - TEACHER_SERVICE - INFO - _store_original_document_rag:1591 - Vector store contains 2 chunks
+2025-11-14 01:59:13 - TEACHER_SERVICE - INFO - process_file:181 - Original document RAG service stored for AI review
+2025-11-14 01:59:13 - TEACHER_SERVICE - INFO - process_file:185 - Using RAG for large document processing
+2025-11-14 01:59:13 - TEACHER_SERVICE - INFO - process_file:200 - Starting AI lesson generation with RAG
+2025-11-14 01:59:13 - TEACHER_SERVICE - INFO - _llm_responce:1242 - === AI LESSON GENERATION WITH RAG STARTED ===
+2025-11-14 01:59:13 - TEACHER_SERVICE - INFO - _llm_responce:1243 - RAG prompt length: 2709 characters
+2025-11-14 01:59:14 - TEACHER_SERVICE - INFO - _llm_responce:1248 - LLM response received
+2025-11-14 01:59:14 - TEACHER_SERVICE - INFO - _llm_responce:1256 - Response content length: 3618 characters
+2025-11-14 01:59:14 - TEACHER_SERVICE - INFO - _llm_responce:1257 - === AI LESSON GENERATION WITH RAG COMPLETED ===
+2025-11-14 01:59:14 - TEACHER_SERVICE - INFO - process_file:225 - Lesson generation completed successfully
+2025-11-14 01:59:14 - TEACHER_SERVICE - INFO - process_file:226 - Generated lesson response length: 3618 characters
+2025-11-14 01:59:14 - TEACHER_SERVICE - INFO - process_file:230 - Generating DOCX document
+2025-11-14 01:59:14 - TEACHER_SERVICE - INFO - process_file:234 - DOCX generated: lesson_LangChain and RAG Components (1).docx, size: 38076 bytes
+2025-11-14 01:59:14 - TEACHER_SERVICE - INFO - process_file:240 - === TEACHER FILE PROCESSING COMPLETED ===
+2025-11-14 01:59:14 - TEACHER_SERVICE - INFO - process_file:258 - Temporary file cleaned up: C:\Users\DCS\AppData\Local\Temp\tmpjvd3z8gt_LangChain_and_RAG_Components_1.pdf
+2025-11-14 01:59:15 - TEACHER_SERVICE - INFO - interactive_chat:437 - Retrieved uploaded document: LangChain and RAG Components (1).pdf
+2025-11-14 01:59:15 - TEACHER_SERVICE - INFO - get_session_history:387 - Created new chat history for session: lesson_359
+2025-11-14 01:59:15 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_359 (0 messages)
+2025-11-14 01:59:18 - TEACHER_SERVICE - INFO - interactive_chat:540 - Lesson completion check: no
+2025-11-14 01:59:51 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 01:59:51 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 01:59:52 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_359 (2 messages)
+2025-11-14 01:59:52 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_359 (2 messages)
+2025-11-14 01:59:55 - TEACHER_SERVICE - INFO - interactive_chat:540 - Lesson completion check: no
+2025-11-14 02:04:47 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 02:04:47 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 02:04:48 - TEACHER_SERVICE - INFO - process_file:137 - === TEACHER FILE PROCESSING STARTED ===
+2025-11-14 02:04:48 - TEACHER_SERVICE - INFO - process_file:138 - File: LangChain and RAG Components (1).pdf
+2025-11-14 02:04:48 - TEACHER_SERVICE - INFO - process_file:139 - Lesson details: {
+  "lesson_title": "raggupdateeeeeeeeeeeeeeee",
+  "lesson_prompt": "",
+  "focus_area": "Other",
+  "grade_level": "College",
+  "additional_notes": ""
+}
+2025-11-14 02:04:48 - TEACHER_SERVICE - INFO - process_file:150 - File validation passed: LangChain and RAG Components (1).pdf
+2025-11-14 02:04:48 - TEACHER_SERVICE - INFO - process_file:156 - File saved to temporary path: C:\Users\DCS\AppData\Local\Temp\tmpbp1c9f6k_LangChain_and_RAG_Components_1.pdf
+2025-11-14 02:04:49 - TEACHER_SERVICE - INFO - process_file:163 - Document loaded successfully: 1 pages/sections
+2025-11-14 02:04:49 - TEACHER_SERVICE - INFO - process_file:170 - Text extracted successfully: 1312 characters
+2025-11-14 02:04:50 - TEACHER_SERVICE - INFO - _store_original_document_rag:1609 - Original document RAG service stored with key: document_LangChain and RAG Components (1).pdf_7751
+2025-11-14 02:04:50 - TEACHER_SERVICE - INFO - _store_original_document_rag:1610 - Vector store contains 2 chunks
+2025-11-14 02:04:50 - TEACHER_SERVICE - INFO - process_file:181 - Original document RAG service stored for AI review
+2025-11-14 02:04:50 - TEACHER_SERVICE - INFO - process_file:185 - Using RAG for large document processing
+2025-11-14 02:04:50 - TEACHER_SERVICE - INFO - process_file:200 - Starting AI lesson generation with RAG
+2025-11-14 02:04:50 - TEACHER_SERVICE - INFO - _llm_responce:1261 - === AI LESSON GENERATION WITH RAG STARTED ===
+2025-11-14 02:04:50 - TEACHER_SERVICE - INFO - _llm_responce:1262 - RAG prompt length: 2709 characters
+2025-11-14 02:04:52 - TEACHER_SERVICE - INFO - _llm_responce:1267 - LLM response received
+2025-11-14 02:04:52 - TEACHER_SERVICE - INFO - _llm_responce:1275 - Response content length: 4008 characters
+2025-11-14 02:04:52 - TEACHER_SERVICE - INFO - _llm_responce:1276 - === AI LESSON GENERATION WITH RAG COMPLETED ===
+2025-11-14 02:04:52 - TEACHER_SERVICE - INFO - process_file:225 - Lesson generation completed successfully
+2025-11-14 02:04:52 - TEACHER_SERVICE - INFO - process_file:226 - Generated lesson response length: 4008 characters
+2025-11-14 02:04:52 - TEACHER_SERVICE - INFO - process_file:230 - Generating DOCX document
+2025-11-14 02:04:53 - TEACHER_SERVICE - INFO - process_file:234 - DOCX generated: lesson_LangChain and RAG Components (1).docx, size: 38139 bytes
+2025-11-14 02:04:53 - TEACHER_SERVICE - INFO - process_file:240 - === TEACHER FILE PROCESSING COMPLETED ===
+2025-11-14 02:04:53 - TEACHER_SERVICE - INFO - process_file:258 - Temporary file cleaned up: C:\Users\DCS\AppData\Local\Temp\tmpbp1c9f6k_LangChain_and_RAG_Components_1.pdf
+2025-11-14 02:04:53 - TEACHER_SERVICE - INFO - interactive_chat:437 - Retrieved uploaded document: LangChain and RAG Components (1).pdf
+2025-11-14 02:04:53 - TEACHER_SERVICE - INFO - get_session_history:387 - Created new chat history for session: lesson_360
+2025-11-14 02:04:53 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_360 (0 messages)
+2025-11-14 02:04:56 - TEACHER_SERVICE - INFO - interactive_chat:540 - Lesson completion check: no
+2025-11-14 02:05:56 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 02:05:56 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 02:05:56 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_360 (2 messages)
+2025-11-14 02:05:56 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_360 (2 messages)
+2025-11-14 02:05:59 - TEACHER_SERVICE - INFO - interactive_chat:540 - Lesson completion check: no
+2025-11-14 02:06:51 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 02:06:51 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 02:06:52 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_360 (4 messages)
+2025-11-14 02:06:52 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_360 (4 messages)
+2025-11-14 02:06:55 - TEACHER_SERVICE - INFO - interactive_chat:540 - Lesson completion check: no
+2025-11-14 02:07:33 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 02:07:33 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 02:07:33 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_360 (6 messages)
+2025-11-14 02:07:33 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_360 (6 messages)
+2025-11-14 02:07:37 - TEACHER_SERVICE - INFO - interactive_chat:540 - Lesson completion check: yes
+2025-11-14 02:08:07 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 02:08:07 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 02:08:08 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_360 (8 messages)
+2025-11-14 02:08:08 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_360 (8 messages)
+2025-11-14 02:08:26 - TEACHER_SERVICE - INFO - interactive_chat:540 - Lesson completion check: yes
+2025-11-14 02:10:20 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 02:10:20 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 02:10:21 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_360 (10 messages)
+2025-11-14 02:10:21 - TEACHER_SERVICE - INFO - get_session_history:391 - Retrieved existing chat history for session: lesson_360 (10 messages)
+2025-11-14 02:10:41 - TEACHER_SERVICE - INFO - interactive_chat:540 - Lesson completion check: yes
+2025-11-14 02:15:01 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 02:15:01 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 02:15:10 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 02:15:10 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 02:16:19 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 02:16:19 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 02:16:50 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 02:16:50 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
+2025-11-14 02:17:29 - TEACHER_SERVICE - INFO - __init__:128 - RAG service initialized
+2025-11-14 02:17:29 - TEACHER_SERVICE - INFO - __init__:130 - RAG service initialized with persistent memory
