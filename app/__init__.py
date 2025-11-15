@@ -166,6 +166,12 @@ from flask import Flask
 from flask_cors import CORS  
 from datetime import timedelta
 import os
+
+# Disable tqdm threading and tokenizer parallelism to prevent "cannot start new thread" errors
+# This must be set BEFORE any imports that use these libraries
+os.environ['TQDM_DISABLE'] = '1'
+os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+
 from app.utils.db import init_db
 from flask_mail import Mail
 from app.config import Config
