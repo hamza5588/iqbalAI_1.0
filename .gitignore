@@ -4,3 +4,5 @@ lib
 pyvenv.cfg
 include
 venv
+vector_store.faiss
+logs
