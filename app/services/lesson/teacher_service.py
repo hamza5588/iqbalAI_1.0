@@ -5,6 +5,10 @@ import os
 import logging
 import tempfile
 from typing import Any, Dict, List, Optional
+
+# Disable tqdm threading to prevent "cannot start new thread" errors
+os.environ['TQDM_DISABLE'] = '1'
+os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 from werkzeug.datastructures import FileStorage
 from werkzeug.utils import secure_filename
 from langchain_core.documents import Document
@@ -287,7 +291,8 @@ class TeacherLessonService(BaseLessonService):
         """Format context for system prompt without escaping (will be escaped later)"""
         return "\n\n".join([doc.page_content for doc in relevant_chunks])
 
-    def interactive_chat( self, 
+    def interactive_chat(
+    self, 
     lesson_id: int, 
     user_query: str, 
     session_id: str = None, 
@@ -297,100 +302,109 @@ class TeacherLessonService(BaseLessonService):
     document_uploaded: bool = False, 
     document_filename: str = None
 ) -> InteractiveChatResponse:
-        """Interactive chat with Prof. Potter for lesson creation"""
-    
+        """Interactive chat with Prof. Potter for lesson creation - NO CHAINS VERSION"""
+        
+        teacher_logger.info("=== INTERACTIVE CHAT STARTED (NO CHAINS) ===")
+        
         # Use lesson_id as session_id
         if not session_id:
             session_id = f"lesson_{lesson_id}"
         
-        # Load vector DB
-        vector_db = FAISS.load_local(
-            "vector_store.faiss", 
-            self.rag_service.embeddings, 
-            allow_dangerous_deserialization=True
-        )
-        retriever = vector_db.as_retriever(search_type="similarity", search_kwargs={"k": 5})
-        
-        # Handle uploaded document content
-        uploaded_doc_content = ""
-        if document_uploaded and document_filename:
-            try:
-                uploaded_doc_content = f"\n\n### Uploaded Document: {document_filename}\n[Document content]"
-                teacher_logger.info(f"Retrieved uploaded document: {document_filename}")
-            except Exception as e:
-                teacher_logger.warning(f"Could not retrieve uploaded document: {str(e)}")
-        
-        # Store form data
-        form_context = {
-            'subject': subject or focus_area,
-            'grade_level': grade_level,
-            'document_uploaded': document_uploaded,
-            'document_filename': document_filename,
-            'uploaded_content': uploaded_doc_content
-        }
-        
-        # Build system prompt
-        base_system_prompt = self._get_system_prompt(form_context)
-        
-        # Get chat history
-        chat_history = self.get_session_history(session_id)
-        is_first_message = len(chat_history.messages) == 0 if hasattr(chat_history, 'messages') else True
-        
-        # Enhance query if first message with document
-        if is_first_message and document_uploaded:
-            try:
-                overview_query = "What is this document about? Provide a brief summary."
-                overview_docs = retriever.invoke(overview_query)
-                if overview_docs:
-                    doc_summary = "\n".join([doc.page_content[:200] for doc in overview_docs[:3]])
-                    enhanced_query = f"{user_query}\n\n[Document Context: {doc_summary}...]"
-                else:
-                    enhanced_query = user_query
-            except Exception as e:
-                teacher_logger.warning(f"Could not retrieve document overview: {str(e)}")
-                enhanced_query = user_query
-        else:
-            enhanced_query = user_query
-        
-        # === MANUAL CHAIN EXECUTION (NO LANGCHAIN CHAINS) ===
         try:
-            # Step 1: Retrieve context
+            # Step 1: Load vector DB
+            vector_db = FAISS.load_local(
+                "vector_store.faiss", 
+                self.rag_service.embeddings, 
+                allow_dangerous_deserialization=True
+            )
+            retriever = vector_db.as_retriever(search_type="similarity", search_kwargs={"k": 5})
+            teacher_logger.info("Vector DB loaded successfully")
+            
+            # Step 2: Handle uploaded document content
+            uploaded_doc_content = ""
+            if document_uploaded and document_filename:
+                try:
+                    uploaded_doc_content = f"\n\n### Uploaded Document: {document_filename}\n[Document content]"
+                    teacher_logger.info(f"Retrieved uploaded document: {document_filename}")
+                except Exception as e:
+                    teacher_logger.warning(f"Could not retrieve uploaded document: {str(e)}")
+            
+            # Step 3: Store form data
+            form_context = {
+                'subject': subject or focus_area,
+                'grade_level': grade_level,
+                'document_uploaded': document_uploaded,
+                'document_filename': document_filename,
+                'uploaded_content': uploaded_doc_content
+            }
+            
+            # Step 4: Build system prompt
+            base_system_prompt = self._get_system_prompt(form_context)
+            teacher_logger.info("System prompt built")
+            
+            # Step 5: Get chat history
+            chat_history = self.get_session_history(session_id)
+            is_first_message = len(chat_history.messages) == 0 if hasattr(chat_history, 'messages') else True
+            teacher_logger.info(f"Chat history retrieved: {len(chat_history.messages) if hasattr(chat_history, 'messages') else 0} messages")
+            
+            # Step 6: Enhance query if first message with document
+            enhanced_query = user_query
+            if is_first_message and document_uploaded:
+                try:
+                    overview_query = "What is this document about? Provide a brief summary."
+                    overview_docs = retriever.invoke(overview_query)
+                    if overview_docs:
+                        doc_summary = "\n".join([doc.page_content[:200] for doc in overview_docs[:3]])
+                        enhanced_query = f"{user_query}\n\n[Document Context: {doc_summary}...]"
+                        teacher_logger.info("Query enhanced with document context")
+                except Exception as e:
+                    teacher_logger.warning(f"Could not retrieve document overview: {str(e)}")
+            
+            # === MANUAL EXECUTION - NO LANGCHAIN CHAINS ===
+            teacher_logger.info("Starting manual chain execution (no threading)")
+            
+            # Step 7: Retrieve context from vector store
             docs = retriever.invoke(enhanced_query)
             context = self.format_context(docs)
+            teacher_logger.info(f"Retrieved {len(docs)} documents from vector store")
             
-            # Step 2: Build messages manually
+            # Step 8: Build messages array manually
             messages = []
             
-            # Add system message
+            # Add system message with context
             system_content = f"{base_system_prompt}\n\n### Knowledge Base Context:\n{context}{uploaded_doc_content}"
             messages.append({"role": "system", "content": system_content})
             
-            # Add chat history
+            # Add chat history messages
             if hasattr(chat_history, 'messages'):
                 for msg in chat_history.messages:
                     if hasattr(msg, 'type'):
                         role = "user" if msg.type == "human" else "assistant"
-                        messages.append({"role": role, "content": msg.content})
+                        content = msg.content if hasattr(msg, 'content') else str(msg)
+                        messages.append({"role": role, "content": content})
             
             # Add current user query
             messages.append({"role": "user", "content": enhanced_query})
             
-            # Step 3: Call LLM directly (no chain)
+            teacher_logger.info(f"Built message array with {len(messages)} messages")
+            
+            # Step 9: Call LLM directly (no chain, no threading)
+            teacher_logger.info("Calling LLM directly...")
             response = self.llm.invoke(messages)
             response_text = response.content if hasattr(response, 'content') else str(response)
+            teacher_logger.info(f"LLM response received: {len(response_text)} characters")
             
-            # Step 4: Update chat history manually
+            # Step 10: Update chat history manually
             from langchain_core.messages import HumanMessage, AIMessage
             chat_history.add_message(HumanMessage(content=enhanced_query))
             chat_history.add_message(AIMessage(content=response_text))
-            
-            teacher_logger.info(f"Chat completed for session: {session_id}")
+            teacher_logger.info(f"Chat history updated for session: {session_id}")
             
         except Exception as e:
-            teacher_logger.error(f"Chat execution error: {str(e)}")
+            teacher_logger.error(f"Interactive chat error: {str(e)}", exc_info=True)
             raise
         
-        # Check if complete lesson generated
+        # Step 11: Check if complete lesson generated
         try:
             lesson_check = check_lesson_response(response_text, self.api_key)
             complete_lesson_status = lesson_check.complete_lesson
@@ -399,9 +413,11 @@ class TeacherLessonService(BaseLessonService):
             teacher_logger.warning(f"Error checking lesson completion: {str(e)}")
             complete_lesson_status = "no"
         
-        # Force cleanup
+        # Step 12: Force cleanup
         import gc
         gc.collect()
+        
+        teacher_logger.info("=== INTERACTIVE CHAT COMPLETED ===")
         
         return InteractiveChatResponse(
             ai_response=response_text,
@@ -1596,7 +1612,17 @@ Answer:"""
             from langchain_community.vectorstores import FAISS
             from langchain_community.embeddings import HuggingFaceEmbeddings
 
-            embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+            # Environment variables TQDM_DISABLE and TOKENIZERS_PARALLELISM are set at app startup
+            embeddings = HuggingFaceEmbeddings(
+                model_name="sentence-transformers/all-MiniLM-L6-v2",
+                model_kwargs={
+                    'device': 'cpu',
+                    'trust_remote_code': False
+                },
+                encode_kwargs={
+                    'normalize_embeddings': False
+                }
+            )
             vector_db = FAISS.load_local("vector_store.faiss", embeddings, allow_dangerous_deserialization=True)
 
             # Retrieve relevant docs (these are already Document objects)
@@ -1673,7 +1699,17 @@ Answer:"""
                 return lesson_text
 
             # 2. Embed and store in FAISS
-            embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+            # Environment variables TQDM_DISABLE and TOKENIZERS_PARALLELISM are set at app startup
+            embeddings = HuggingFaceEmbeddings(
+                model_name="sentence-transformers/all-MiniLM-L6-v2",
+                model_kwargs={
+                    'device': 'cpu',
+                    'trust_remote_code': False
+                },
+                encode_kwargs={
+                    'normalize_embeddings': False
+                }
+            )
             
             with tempfile.TemporaryDirectory() as tmpdir:
                 faiss_path = os.path.join(tmpdir, "faiss_index")

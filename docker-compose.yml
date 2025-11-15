@@ -43,6 +43,7 @@ services:
       - MKL_NUM_THREADS=1
       - RAYON_NUM_THREADS=1
       - TOKENIZERS_PARALLELISM=false
+      - TQDM_DISABLE=1
       - GOOGLE_CLIENT_ID=507995986306-qcdrhrrt3d71la4pkrf7lt1b2tvuusqm.apps.googleusercontent.com
       - GROQ_CLIENT_ID=your-groq-client-id
       - GROQ_CLIENT_SECRET=your-groq-client-secret
@@ -76,6 +77,7 @@ services:
       - MKL_NUM_THREADS=1
       - RAYON_NUM_THREADS=1
       - TOKENIZERS_PARALLELISM=false
+      - TQDM_DISABLE=1
       - GOOGLE_CLIENT_ID=your-google-client-id
       - GROQ_CLIENT_ID=your-groq-client-id
       - GROQ_CLIENT_SECRET=your-groq-client-secret
@@ -109,6 +111,7 @@ services:
       - MKL_NUM_THREADS=1
       - RAYON_NUM_THREADS=1
       - TOKENIZERS_PARALLELISM=false
+      - TQDM_DISABLE=1
       - GOOGLE_CLIENT_ID=your-google-client-id
       - GROQ_CLIENT_ID=your-groq-client-id
       - GROQ_CLIENT_SECRET=your-groq-client-secret
@@ -142,6 +145,7 @@ services:
       - MKL_NUM_THREADS=1
       - RAYON_NUM_THREADS=1
       - TOKENIZERS_PARALLELISM=false
+      - TQDM_DISABLE=1
       - GOOGLE_CLIENT_ID=your-google-client-id
       - GROQ_CLIENT_ID=your-groq-client-id
       - GROQ_CLIENT_SECRET=your-groq-client-secret

@@ -13,6 +13,9 @@ RUN apt-get update && apt-get install -y \
 
 # Add this to avoid hf_xet thread panic
 ENV HF_HUB_DISABLE_XET=1
+# Disable tqdm threading and tokenizer parallelism to prevent "cannot start new thread" errors
+ENV TQDM_DISABLE=1
+ENV TOKENIZERS_PARALLELISM=false
 
 # Copy requirements and install Python dependencies
 COPY requirements.txt .
