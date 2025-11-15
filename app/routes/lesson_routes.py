@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, session, send_file, after_this_request
+from flask import Blueprint, request, jsonify, session, send_file, after_this_request, render_template
 from app.models.models import UserModel, LessonModel
 from app.services.lesson_service import LessonService
 from app.utils.decorators import login_required, teacher_required, student_required
@@ -55,8 +55,8 @@ def create_lesson():
             logger.info("File uploaded - proceeding with lesson generation")
             file = request.files['file']
             
-            # Validate required fields for lesson generation
-            if not lesson_title or not lesson_prompt or not focus_area or not grade_level:
+            # Validate required fields for lesson generation (prompt is now optional since we use interactive chat)
+            if not lesson_title or not focus_area or not grade_level:
                 return jsonify({'error': 'All required fields must be filled for lesson generation'}), 400
             
             # Check if lesson title already exists for this teacher
@@ -78,58 +78,24 @@ def create_lesson():
                 'additional_notes': additional_notes
             }
             
-            # Process the file and generate lesson
-            result = lesson_service.process_file(file, lesson_details)
+            # Process the file first to create vector store
+            process_result = lesson_service.process_file(file, lesson_details)
             
-            if 'error' in result:
-                return jsonify({'error': result['error']}), 400
+            if 'error' in process_result:
+                return jsonify({'error': process_result['error']}), 400
             
-            # Debug: Log the result structure
-            lesson_check_logger.info(f"=== LESSON CREATION STARTED ===")
-            lesson_check_logger.info(f"Result keys: {list(result.keys())}")
-            lesson_check_logger.info(f"Lesson content type: {type(result.get('lesson'))}")
-            
-            # Extract lesson content (now a string)
-            lesson_content = result.get('lesson', '')
-            if not lesson_content:
-                return jsonify({'error': 'No lesson content generated'}), 400
-            
-            lesson_check_logger.info(f"Lesson content length: {len(lesson_content)}")
-            lesson_check_logger.info(f"Lesson content preview: {lesson_content[:200]}...")
-            
-            # Create summary from content
-            summary_str = lesson_content[:200] + "..." if len(lesson_content) > 200 else lesson_content
-            
-            # For string responses, we don't have structured learning objectives
-            learning_objectives_str = ''
-            
-            # Log what we're about to save
-            lesson_check_logger.info(f"About to save lesson content (first 300 chars): {lesson_content[:300]}")
-            lesson_check_logger.info(f"Content type: {type(lesson_content)}")
-            
-            # Ensure lesson_content is a plain string
-            if isinstance(lesson_content, str):
-                # If it still looks like JSON at this point, log an error
-                if lesson_content.strip().startswith('{') and 'response_type' in lesson_content:
-                    lesson_check_logger.error(f"CRITICAL: Content is still JSON! First 500 chars: {lesson_content[:500]}")
-                    # Try one more extraction
-                    try:
-                        parsed = json.loads(lesson_content)
-                        if 'answer' in parsed:
-                            lesson_content = parsed['answer']
-                            lesson_check_logger.info("Emergency extraction successful")
-                    except:
-                        lesson_check_logger.error("Emergency extraction failed")
-            
-            lesson_check_logger.info(f"Final content before save (first 300 chars): {lesson_content[:300]}")
-            lesson_check_logger.info(f"=== LESSON CREATION ENDED ===")
+            # Create a draft lesson entry in database
+            # Use a default summary since prompt is no longer required
+            summary_text = f"Lesson on {focus_area} for {grade_level} grade students"
+            if additional_notes:
+                summary_text = additional_notes[:200] + "..." if len(additional_notes) > 200 else additional_notes
             
             lesson_id = LessonModel.create_lesson(
                 teacher_id=session['user_id'],
                 title=lesson_title,
-                summary=summary_str,
-                learning_objectives=learning_objectives_str,
-                content=lesson_content,
+                summary=summary_text,
+                learning_objectives='',
+                content='',  # Will be filled when lesson is complete
                 grade_level=grade_level,
                 focus_area=focus_area,
                 is_public=True  # Make lessons public by default
@@ -138,55 +104,72 @@ def create_lesson():
             if not lesson_id:
                 return jsonify({'error': 'Failed to save lesson to database'}), 500
             
-            # Get the full lesson response
-            lesson_response = LessonModel.get_lesson_by_id(lesson_id)
+            # Start interactive chat with initial message containing form data
+            initial_message = f"I want to create a lesson on {focus_area} for {grade_level} grade students."
+            if additional_notes:
+                initial_message += f" Additional notes: {additional_notes}."
             
-            # For string responses, ensure the lesson response has the right structure
+            # Start interactive chat with form context
+            chat_result = lesson_service.interactive_chat(
+                lesson_id=lesson_id,
+                user_query=initial_message,
+                subject=focus_area,
+                grade_level=grade_level,
+                focus_area=focus_area,
+                document_uploaded=True,
+                document_filename=file.filename
+            )
+            
+            # Get the lesson response
+            lesson_response = LessonModel.get_lesson_by_id(lesson_id)
             lesson_response['title'] = lesson_title
             lesson_response['grade_level'] = grade_level
             lesson_response['focus_area'] = focus_area
-            lesson_response['learning_objectives'] = learning_objectives_str
             lesson_response['isFinalized'] = False
-            # Content is already stored as plain text
             
             return jsonify({
                 'success': True,
-                'response_type': 'lesson_generation',
+                'response_type': 'interactive_chat_started',
                 'lesson_id': lesson_id,
                 'lesson': lesson_response,
-                'message': 'Lesson created successfully!'
+                'ai_response': chat_result.ai_response,
+                'complete_lesson': chat_result.complete_lesson,
+                'message': 'Interactive chat started! Continue the conversation to refine your lesson.'
             })
         
         else:
-            # No file uploaded - analyze query to determine if it's a question or lesson generation request
-            query_analysis = lesson_service.analyze_user_query(lesson_prompt)
-            logger.info(f"Query analysis: {query_analysis}")
+            # No file uploaded - use additional_notes or lesson_prompt if provided, otherwise require file
+            query_text = additional_notes or lesson_prompt or ''
             
-            if query_analysis['query_type'] == 'QUESTION':
-                # User is asking a question - answer it using available lessons
-                logger.info("User query detected as question - answering using available lessons")
+            if query_text:
+                # Analyze query to determine if it's a question or lesson generation request
+                query_analysis = lesson_service.analyze_user_query(query_text)
+                logger.info(f"Query analysis: {query_analysis}")
                 
-                # Get available lesson IDs for context
-                available_lessons = lesson_service._get_available_lesson_ids()
-                
-                # Answer the question using available lesson content
-                answer_result = lesson_service.answer_general_question(lesson_prompt, available_lessons)
-                
-                return jsonify({
-                    'success': True,
-                    'response_type': 'question_answer',
-                    'answer': answer_result['answer'],
-                    'source': answer_result.get('source', 'unknown'),
-                    'confidence': answer_result.get('confidence', 0.0),
-                    'lesson_context': answer_result.get('lesson_context', ''),
-                    'relevant_lessons': answer_result.get('relevant_lessons', []),
-                    'query_analysis': query_analysis,
-                    'message': 'Question answered based on available lesson content'
-                })
+                if query_analysis['query_type'] == 'QUESTION':
+                    # User is asking a question - answer it using available lessons
+                    logger.info("User query detected as question - answering using available lessons")
+                    
+                    # Get available lesson IDs for context
+                    available_lessons = lesson_service._get_available_lesson_ids()
+                    
+                    # Answer the question using available lesson content
+                    answer_result = lesson_service.answer_general_question(query_text, available_lessons)
+                    
+                    return jsonify({
+                        'success': True,
+                        'response_type': 'question_answer',
+                        'answer': answer_result['answer'],
+                        'source': answer_result.get('source', 'unknown'),
+                        'confidence': answer_result.get('confidence', 0.0),
+                        'lesson_context': answer_result.get('lesson_context', ''),
+                        'relevant_lessons': answer_result.get('relevant_lessons', []),
+                        'query_analysis': query_analysis,
+                        'message': 'Question answered based on available lesson content'
+                    })
             
-            else:
-                # User wants to generate a lesson but no file provided
-                return jsonify({'error': 'File is required for lesson generation. Please upload a PDF, DOC, DOCX, or TXT file.'}), 400
+            # User wants to generate a lesson but no file provided
+            return jsonify({'error': 'File is required for lesson generation. Please upload a PDF, DOC, DOCX, or TXT file.'}), 400
         
     except Exception as e:
         logger.error(f"Lesson creation/query error: {str(e)}", exc_info=True)
@@ -410,13 +393,28 @@ def update_lesson(lesson_id):
         
         lesson_model = LessonModel(lesson_id)
         
+        # Update lesson - if content is provided, also update original_content if it's empty
+        content_to_save = data.get('content')
+        if content_to_save:
+            # Check if original_content is empty, if so, set it to the content being saved
+            lesson = LessonModel.get_lesson_by_id(lesson_id)
+            if lesson and (not lesson.get('original_content') or lesson.get('original_content').strip() == ''):
+                # Update original_content as well if it's empty
+                db = get_db()
+                db.execute(
+                    'UPDATE lessons SET original_content = ? WHERE id = ?',
+                    (content_to_save, lesson_id)
+                )
+                db.commit()
+                logger.info(f"Updated original_content for lesson {lesson_id} since it was empty")
+        
         success = lesson_model.update_lesson(
             title=data.get('title'),
             summary=data.get('summary'),
             learning_objectives=data.get('learning_objectives'),
             focus_area=data.get('focus_area'),
             grade_level=data.get('grade_level'),
-            content=data.get('content'),
+            content=content_to_save,
             is_public=data.get('is_public')
         )
         
@@ -1312,22 +1310,29 @@ def get_lesson_draft(lesson_id):
         
         draft_content = LessonModel.get_draft_content(lesson_id)
         
+        # Get the current content from the lesson (this is what we update when finalizing)
+        current_content = lesson.get('content') or lesson.get('original_content') or ''
+        
         # Get the original content from the first version of this lesson
-        original_content = lesson.get('original_content', lesson['content'])
+        original_content = lesson.get('original_content', '')
         if lesson.get('lesson_id'):
             # Get the first version (version_number = 1) to get true original content
             db = get_db()
             first_version = db.execute(
-                'SELECT original_content FROM lessons WHERE lesson_id = ? AND version_number = 1',
+                'SELECT original_content, content FROM lessons WHERE lesson_id = ? AND version_number = 1',
                 (lesson['lesson_id'],)
             ).fetchone()
             if first_version:
-                original_content = first_version['original_content']
+                # Use content if original_content is empty, otherwise use original_content
+                original_content = first_version['original_content'] or first_version['content'] or ''
+        
+        # Log for debugging
+        logger.info(f"get_draft for lesson {lesson_id}: current_content length={len(current_content)}, original_content length={len(original_content)}")
         
         return jsonify({
             'success': True,
             'draft_content': draft_content,
-            'current_content': lesson.get('original_content', lesson['content']),  # Current version's content
+            'current_content': current_content,  # Current version's content
             'original_content': original_content   # True original content from first version
         })
             
@@ -1542,47 +1547,66 @@ def finalize_lesson_version(lesson_id):
 
 #interactive chat with lesson
 
+# ROUTE HANDLER
 @bp.route('/lesson/<int:lesson_id>/interactive_chat', methods=['POST'])
 @teacher_required
 def interactive_chat(lesson_id):
-    """Interactive chat with lesson"""
     try:
-        # Check if lesson exists and belongs to the teacher
         lesson = LessonModel.get_lesson_by_id(lesson_id)
         if not lesson:
             return jsonify({'error': 'Lesson not found'}), 404
-        
         if lesson['teacher_id'] != session['user_id']:
             return jsonify({'error': 'Access denied'}), 403
-        
+
         data = request.get_json()
         user_query = data.get('query', '')
-        
+
         if not user_query.strip():
             return jsonify({'error': 'Query is required'}), 400
-        
-        # Get API key from session
+
         api_key = session.get('groq_api_key')
         if not api_key:
-            return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
-        
-        # Use LessonService to provide interactive chat
+            return jsonify({'error': 'API key not configured'}), 400
+
+        # Get lesson data to pass form context
+        lesson = LessonModel.get_lesson_by_id(lesson_id)
+        if not lesson:
+            return jsonify({'error': 'Lesson not found'}), 404
+
         lesson_service = LessonService(api_key=api_key)
-        ai_response = lesson_service.interactive_chat(
-            lesson_id=lesson_id,
-            user_query=user_query
-        )
         
+        # Check if document was uploaded (by checking if vector store exists)
+        # For now, we'll assume document was uploaded if focus_area exists
+        document_uploaded = bool(lesson.get('focus_area'))
+        
+        result = lesson_service.interactive_chat(
+            lesson_id=lesson_id,
+            user_query=user_query,
+            subject=lesson.get('focus_area'),
+            grade_level=lesson.get('grade_level'),
+            focus_area=lesson.get('focus_area'),
+            document_uploaded=document_uploaded,
+            document_filename=None  # Can be enhanced to store filename
+        )
+
+        # If complete lesson is generated, save it to database
+        if result.complete_lesson == "yes":
+            # Update lesson content in database
+            lesson_model = LessonModel(lesson_id)
+            lesson_model.update_lesson(content=result.ai_response)
+            logger.info(f"Complete lesson saved to database for lesson_id: {lesson_id}")
+
+        # Return response with lesson update status
         return jsonify({
             'success': True,
-            'ai_response': ai_response,
-            'message': 'Interactive chat completed successfully'
+            'ai_response': result.ai_response,
+            'complete_lesson': result.complete_lesson,
+            'lesson_id': lesson_id
         })
-            
-    except Exception as e:
-        logger.error(f"Error getting interactive chat: {str(e)}", exc_info=True)
-        return jsonify({'error': f'Failed to get interactive chat: {str(e)}'}), 500
 
+    except Exception as e:
+        logger.error(f"Error in interactive chat: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to process chat: {str(e)}'}), 500
 
 @bp.route('/lesson/<int:lesson_id>/clear_draft', methods=['DELETE'])
 @teacher_required
@@ -1610,3 +1634,18 @@ def clear_lesson_draft(lesson_id):
     except Exception as e:
         logger.error(f"Error clearing draft content: {str(e)}", exc_info=True)
         return jsonify({'error': f'Failed to clear draft content: {str(e)}'}), 500 
+
+
+@bp.route('/chatbot', methods=['GET'])
+@teacher_required
+def chatbot():
+    """Render the chatbot interface"""
+    try:
+        # Get user's lessons for selection
+        user_id = session.get('user_id')
+        lessons = LessonModel.get_lessons_by_teacher(user_id)
+        
+        return render_template('chatbot.html', lessons=lessons)
+    except Exception as e:
+        logger.error(f"Error rendering chatbot: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to render chatbot: {str(e)}'}), 500

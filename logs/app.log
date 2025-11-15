@@ -1,3 +1,0 @@
-2025-11-07 02:03:51,510 INFO: Vector store created successfully [in C:\Users\DCS\Desktop\New folder (22)\iqbalAI_1.0\app\services\lesson\rag_service.py:94]
-2025-11-07 02:03:51,925 INFO: Retrieved 5 relevant chunks for query [in C:\Users\DCS\Desktop\New folder (22)\iqbalAI_1.0\app\services\lesson\rag_service.py:126]
-2025-11-07 02:03:51,926 INFO: Created RAG prompt with 2696 characters of context [in C:\Users\DCS\Desktop\New folder (22)\iqbalAI_1.0\app\services\lesson\rag_service.py:172]

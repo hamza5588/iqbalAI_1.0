@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lesson Interactive Chat</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .chat-message {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .typing-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #6b7280;
+            animation: typing 1.4s infinite;
+        }
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        @keyframes typing {
+            0%, 60%, 100% {
+                transform: translateY(0);
+                opacity: 0.7;
+            }
+            30% {
+                transform: translateY(-10px);
+                opacity: 1;
+            }
+        }
+        #chatContainer {
+            scroll-behavior: smooth;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="bg-gradient-to-r from-[#05B0FC] to-blue-600 text-white shadow-lg">
+            <div class="container mx-auto px-4 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <i class="fas fa-comments text-2xl"></i>
+                        <h1 class="text-2xl font-bold">Lesson Interactive Chat</h1>
+                    </div>
+                    <div id="lessonSelectContainer" class="flex items-center space-x-4">
+                        <label class="text-sm font-medium">Select Lesson:</label>
+                        <select id="lessonSelect" class="bg-white text-gray-800 px-4 py-2 rounded-lg border-0 focus:ring-2 focus:ring-white focus:outline-none min-w-[200px]">
+                            <option value="">-- Select a Lesson --</option>
+                            {% if lessons %}
+                                {% for lesson in lessons %}
+                                    <option value="{{ lesson.id }}" data-title="{{ lesson.title }}">{{ lesson.title }}</option>
+                                {% endfor %}
+                            {% endif %}
+                        </select>
+                        <button id="manualLessonBtn" class="bg-white bg-opacity-20 hover:bg-opacity-30 px-4 py-2 rounded-lg text-sm font-medium transition-all">
+                            <i class="fas fa-keyboard mr-2"></i>Enter Lesson ID
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Manual Lesson ID Input Modal -->
+        <div id="manualLessonModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+                <div class="bg-gradient-to-r from-[#05B0FC] to-blue-600 px-6 py-4 rounded-t-lg">
+                    <h3 class="text-xl font-semibold text-white">Enter Lesson ID</h3>
+                </div>
+                <div class="p-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Lesson ID</label>
+                    <input type="number" id="manualLessonId" placeholder="Enter lesson ID..." 
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <div class="flex gap-3 mt-4">
+                        <button onclick="closeManualLessonModal()" 
+                            class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                            Cancel
+                        </button>
+                        <button onclick="setManualLessonId()" 
+                            class="flex-1 px-4 py-2 bg-gradient-to-r from-[#05B0FC] to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-[#05B0FC]">
+                            Set Lesson ID
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="flex-1 container mx-auto px-4 py-6 max-w-6xl">
+            <!-- Chat Container -->
+            <div id="chatContainer" class="bg-white rounded-lg shadow-lg h-[calc(100vh-250px)] flex flex-col overflow-hidden">
+                <!-- Messages Area -->
+                <div id="messagesArea" class="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
+                    <div id="welcomeMessage" class="text-center text-gray-500 py-12">
+                        <i class="fas fa-comments text-4xl mb-4 text-gray-300"></i>
+                        <p class="text-lg font-medium">Welcome to Interactive Chat</p>
+                        <p class="text-sm mt-2">Select a lesson above to start chatting</p>
+                    </div>
+                </div>
+
+                <!-- Input Area -->
+                <div class="border-t border-gray-200 p-4 bg-white">
+                    <div id="inputContainer" class="flex gap-3 items-end">
+                        <div class="flex-1">
+                            <textarea id="messageInput" 
+                                rows="1"
+                                placeholder="Type your message here..." 
+                                disabled
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                                onkeydown="handleKeyDown(event)"></textarea>
+                        </div>
+                        <button id="sendButton" 
+                            disabled
+                            onclick="sendMessage()"
+                            class="px-6 py-3 bg-gradient-to-r from-[#05B0FC] to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-[#05B0FC] disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center space-x-2">
+                            <span>Send</span>
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        let currentLessonId = null;
+        let chatHistory = [];
+
+        // Lesson selection
+        document.getElementById('lessonSelect').addEventListener('change', function(e) {
+            const lessonId = e.target.value;
+            if (lessonId) {
+                currentLessonId = parseInt(lessonId);
+                const lessonTitle = e.target.options[e.target.selectedIndex].dataset.title;
+                enableChat();
+                clearChat();
+                addSystemMessage(`Connected to lesson: "${lessonTitle}" (ID: ${lessonId})`);
+            } else {
+                disableChat();
+                clearChat();
+            }
+        });
+
+        // Manual lesson ID button
+        document.getElementById('manualLessonBtn').addEventListener('click', function() {
+            document.getElementById('manualLessonModal').classList.remove('hidden');
+        });
+
+        function closeManualLessonModal() {
+            document.getElementById('manualLessonModal').classList.add('hidden');
+            document.getElementById('manualLessonId').value = '';
+        }
+
+        function setManualLessonId() {
+            const lessonId = document.getElementById('manualLessonId').value;
+            if (lessonId) {
+                currentLessonId = parseInt(lessonId);
+                enableChat();
+                clearChat();
+                addSystemMessage(`Connected to lesson ID: ${lessonId}`);
+                closeManualLessonModal();
+                // Clear the dropdown selection
+                document.getElementById('lessonSelect').value = '';
+            } else {
+                alert('Please enter a valid lesson ID');
+            }
+        }
+
+        function enableChat() {
+            document.getElementById('messageInput').disabled = false;
+            document.getElementById('sendButton').disabled = false;
+            document.getElementById('welcomeMessage').classList.add('hidden');
+        }
+
+        function disableChat() {
+            document.getElementById('messageInput').disabled = true;
+            document.getElementById('sendButton').disabled = true;
+            document.getElementById('welcomeMessage').classList.remove('hidden');
+        }
+
+        function clearChat() {
+            document.getElementById('messagesArea').innerHTML = '';
+            chatHistory = [];
+        }
+
+        function addSystemMessage(text) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'text-center py-2';
+            messageDiv.innerHTML = `
+                <span class="inline-block px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                    ${text}
+                </span>
+            `;
+            document.getElementById('messagesArea').appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function addMessage(text, isUser = true) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message flex ${isUser ? 'justify-end' : 'justify-start'}`;
+            
+            const bubbleClass = isUser 
+                ? 'bg-gradient-to-r from-[#05B0FC] to-blue-600 text-white' 
+                : 'bg-white text-gray-800 border border-gray-200';
+            
+            messageDiv.innerHTML = `
+                <div class="max-w-[80%] ${isUser ? 'order-2' : 'order-1'}">
+                    <div class="${bubbleClass} rounded-2xl px-6 py-4 shadow-sm">
+                        <p class="whitespace-pre-wrap">${escapeHtml(text)}</p>
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1 ${isUser ? 'text-right' : 'text-left'} px-2">
+                        ${new Date().toLocaleTimeString()}
+                    </div>
+                </div>
+                <div class="${isUser ? 'order-1 mr-3' : 'order-2 ml-3'} flex items-end">
+                    <div class="w-8 h-8 rounded-full ${isUser ? 'bg-blue-500' : 'bg-gray-300'} flex items-center justify-center">
+                        <i class="fas ${isUser ? 'fa-user' : 'fa-robot'} text-white text-sm"></i>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('messagesArea').appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        function addTypingIndicator() {
+            const typingDiv = document.createElement('div');
+            typingDiv.id = 'typingIndicator';
+            typingDiv.className = 'chat-message flex justify-start';
+            typingDiv.innerHTML = `
+                <div class="ml-11">
+                    <div class="bg-white border border-gray-200 rounded-2xl px-6 py-4 shadow-sm inline-block">
+                        <div class="typing-indicator">
+                            <span></span>
+                            <span></span>
+                            <span></span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.getElementById('messagesArea').appendChild(typingDiv);
+            scrollToBottom();
+        }
+
+        function removeTypingIndicator() {
+            const typingIndicator = document.getElementById('typingIndicator');
+            if (typingIndicator) {
+                typingIndicator.remove();
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function scrollToBottom() {
+            const container = document.getElementById('messagesArea');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function handleKeyDown(event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage();
+            }
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('messageInput');
+            const message = input.value.trim();
+            
+            if (!message || !currentLessonId) {
+                return;
+            }
+
+            // Add user message to chat
+            addMessage(message, true);
+            chatHistory.push({ role: 'user', content: message });
+            
+            // Clear input
+            input.value = '';
+            
+            // Show typing indicator
+            addTypingIndicator();
+            
+            // Disable input while waiting for response
+            input.disabled = true;
+            document.getElementById('sendButton').disabled = true;
+
+            try {
+                const response = await fetch(`/api/lessons/lesson/${currentLessonId}/interactive_chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include', // Include cookies for session
+                    body: JSON.stringify({
+                        query: message
+                    })
+                });
+
+                const data = await response.json();
+                
+                // Remove typing indicator
+                removeTypingIndicator();
+                
+                // Re-enable input
+                input.disabled = false;
+                document.getElementById('sendButton').disabled = false;
+
+                if (response.ok && data.success) {
+                    // Add AI response to chat
+                    const aiResponse = data.ai_response || 'No response received';
+                    addMessage(aiResponse, false);
+                    chatHistory.push({ role: 'assistant', content: aiResponse });
+                } else {
+                    // Show error message
+                    const errorMsg = data.error || 'Failed to get response from server';
+                    addMessage(`Error: ${errorMsg}`, false);
+                    console.error('API Error:', data);
+                }
+            } catch (error) {
+                // Remove typing indicator
+                removeTypingIndicator();
+                
+                // Re-enable input
+                input.disabled = false;
+                document.getElementById('sendButton').disabled = false;
+                
+                // Show error message
+                addMessage(`Error: Failed to connect to server. ${error.message}`, false);
+                console.error('Network Error:', error);
+            }
+
+            // Focus input for next message
+            input.focus();
+        }
+
+        // Auto-resize textarea
+        document.getElementById('messageInput').addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 150) + 'px';
+        });
+
+        // Close modal on outside click
+        document.getElementById('manualLessonModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeManualLessonModal();
+            }
+        });
+    </script>
+</body>
+</html>
+
+
+
+
