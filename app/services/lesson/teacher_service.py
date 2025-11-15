@@ -286,148 +286,270 @@ class TeacherLessonService(BaseLessonService):
     def _format_context_for_system_prompt(self, relevant_chunks: List[Document]) -> str:
         """Format context for system prompt without escaping (will be escaped later)"""
         return "\n\n".join([doc.page_content for doc in relevant_chunks])
+
     def interactive_chat(
-        self, 
-        lesson_id: int, 
-        user_query: str, 
-        session_id: str = None,
-        subject: str = None,
-        grade_level: str = None,
-        focus_area: str = None,
-        document_uploaded: bool = False,
-        document_filename: str = None
-    ) -> InteractiveChatResponse:
-        """Interactive chat with Prof. Potter for lesson creation"""
-        
-        # Use lesson_id as session_id to maintain context per lesson
-        if not session_id:
-            session_id = f"lesson_{lesson_id}"
-        
-        # Step 1: Load vector DB
-        vector_db = FAISS.load_local(
-            "vector_store.faiss",
-            self.rag_service.embeddings,
-            allow_dangerous_deserialization=True
-        )
-        retriever = vector_db.as_retriever(search_type="similarity", search_kwargs={"k": 5})
-        
-        # Step 2: Handle uploaded document content
-        uploaded_doc_content = ""
-        if document_uploaded and document_filename:
-            try:
-                # TODO: Implement actual document retrieval from your storage
-                # Example: uploaded_doc_content = self.get_uploaded_document(lesson_id, document_filename)
-                uploaded_doc_content = f"\n\n### Uploaded Document: {document_filename}\n[Document content should be retrieved and inserted here]"
-                teacher_logger.info(f"Retrieved uploaded document: {document_filename}")
-            except Exception as e:
-                teacher_logger.warning(f"Could not retrieve uploaded document: {str(e)}")
-        
-        # Step 3: Store form data in session context
-        form_context = {
-            'subject': subject or focus_area,
-            'grade_level': grade_level,
-            'document_uploaded': document_uploaded,
-            'document_filename': document_filename,
-            'uploaded_content': uploaded_doc_content  # Add actual content
-        }
-        
-        # Step 4: Retriever is now used directly in build_chain_input to avoid parallel execution
-        
-        # Step 5: Build system prompt with form context (but NOT with RAG context yet)
-        # RAG context will be dynamically added per query via {context} placeholder
-        base_system_prompt = self._get_system_prompt(form_context)
-        
-        # Escape curly braces to prevent template variable errors
-        escaped_system_prompt = base_system_prompt.replace("{", "{{").replace("}", "}}")
-        
-        # Build prompt template
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", escaped_system_prompt + "\n\n### Knowledge Base Context:\n{context}" + uploaded_doc_content),
-            MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{user_query}")
-        ])
-
-        # Step 6: Build chain - restructured to avoid parallel execution that causes thread exhaustion
-        def extract_query_content(x):
-            """Extract user query from input - handles both string and message objects"""
-            user_input = x.get("user_query", "")
-            if hasattr(user_input, 'content'):
-                return user_input.content
-            return str(user_input)
-        
-        # def build_chain_input(x):
-        #     """Build chain input sequentially to avoid parallel execution"""
-        #     query = extract_query_content(x)
-        #     # Retrieve context synchronously (not in parallel)
-        #     context = self.format_context(retriever.invoke(query))
-        #     chat_history = x.get("chat_history", [])
-        #     return {
-        #         "context": context,
-        #         "user_query": query,
-        #         "chat_history": chat_history
-        #     }
-        def build_chain_input(x):
-            query = extract_query_content(x)
-            docs = retriever.invoke(query)  # Sequential, not parallel
-            return {
-                "context": self.format_context(docs),
-                "user_query": query,
-                "chat_history": x.get("chat_history", [])
-            }
-        
-        
-        chain = (
-            RunnableLambda(build_chain_input)
-            | prompt 
-            | self.llm
-        )
-
-        # Step 7: Wrap with message history
-        conversational_chain = RunnableWithMessageHistory(
-            chain,
-            self.get_session_history,
-            input_messages_key="user_query",
-            history_messages_key="chat_history"
-        )
-        
-
-        # Step 8: For initial message, retrieve document overview to inform the greeting
-        # Check if this is the first message (no chat history)
-        chat_history = self.get_session_history(session_id)
-        is_first_message = len(chat_history.messages) == 0 if hasattr(chat_history, 'messages') else True
-        
-        # If first message and document is uploaded, enhance the query with document overview
-        if is_first_message and document_uploaded:
-            # Retrieve document overview to understand what it's about
-            try:
-                overview_query = "What is this document about? Provide a brief summary of the main topics, themes, and content."
-                overview_docs = retriever.invoke(overview_query)
-                if overview_docs:
-                    # Extract key topics from the document
-                    doc_summary = "\n".join([doc.page_content[:200] for doc in overview_docs[:3]])  # First 200 chars of top 3 chunks
-                    # Enhance user query to include document context for better initial response
-                    enhanced_query = f"{user_query}\n\n[Document Context: The uploaded document covers: {doc_summary}...]"
-                else:
-                    enhanced_query = user_query
-            except Exception as e:
-                teacher_logger.warning(f"Could not retrieve document overview: {str(e)}")
+    self, 
+    lesson_id: int, 
+    user_query: str, 
+    session_id: str = None, 
+    subject: str = None, 
+    grade_level: str = None, 
+    focus_area: str = None, 
+    document_uploaded: bool = False, 
+    document_filename: str = None
+) -> InteractiveChatResponse:
+    """Interactive chat with Prof. Potter for lesson creation"""
+    
+    # Use lesson_id as session_id
+    if not session_id:
+        session_id = f"lesson_{lesson_id}"
+    
+    # Load vector DB
+    vector_db = FAISS.load_local(
+        "vector_store.faiss", 
+        self.rag_service.embeddings, 
+        allow_dangerous_deserialization=True
+    )
+    retriever = vector_db.as_retriever(search_type="similarity", search_kwargs={"k": 5})
+    
+    # Handle uploaded document content
+    uploaded_doc_content = ""
+    if document_uploaded and document_filename:
+        try:
+            uploaded_doc_content = f"\n\n### Uploaded Document: {document_filename}\n[Document content]"
+            teacher_logger.info(f"Retrieved uploaded document: {document_filename}")
+        except Exception as e:
+            teacher_logger.warning(f"Could not retrieve uploaded document: {str(e)}")
+    
+    # Store form data
+    form_context = {
+        'subject': subject or focus_area,
+        'grade_level': grade_level,
+        'document_uploaded': document_uploaded,
+        'document_filename': document_filename,
+        'uploaded_content': uploaded_doc_content
+    }
+    
+    # Build system prompt
+    base_system_prompt = self._get_system_prompt(form_context)
+    
+    # Get chat history
+    chat_history = self.get_session_history(session_id)
+    is_first_message = len(chat_history.messages) == 0 if hasattr(chat_history, 'messages') else True
+    
+    # Enhance query if first message with document
+    if is_first_message and document_uploaded:
+        try:
+            overview_query = "What is this document about? Provide a brief summary."
+            overview_docs = retriever.invoke(overview_query)
+            if overview_docs:
+                doc_summary = "\n".join([doc.page_content[:200] for doc in overview_docs[:3]])
+                enhanced_query = f"{user_query}\n\n[Document Context: {doc_summary}...]"
+            else:
                 enhanced_query = user_query
-        else:
+        except Exception as e:
+            teacher_logger.warning(f"Could not retrieve document overview: {str(e)}")
             enhanced_query = user_query
+    else:
+        enhanced_query = user_query
+    
+    # === MANUAL CHAIN EXECUTION (NO LANGCHAIN CHAINS) ===
+    try:
+        # Step 1: Retrieve context
+        docs = retriever.invoke(enhanced_query)
+        context = self.format_context(docs)
         
-        # Step 8: Invoke with configuration to prevent thread exhaustion
-        # Use simple config to avoid parallel execution issues
+        # Step 2: Build messages manually
+        messages = []
+        
+        # Add system message
+        system_content = f"{base_system_prompt}\n\n### Knowledge Base Context:\n{context}{uploaded_doc_content}"
+        messages.append({"role": "system", "content": system_content})
+        
+        # Add chat history
+        if hasattr(chat_history, 'messages'):
+            for msg in chat_history.messages:
+                if hasattr(msg, 'type'):
+                    role = "user" if msg.type == "human" else "assistant"
+                    messages.append({"role": role, "content": msg.content})
+        
+        # Add current user query
+        messages.append({"role": "user", "content": enhanced_query})
+        
+        # Step 3: Call LLM directly (no chain)
+        response = self.llm.invoke(messages)
+        response_text = response.content if hasattr(response, 'content') else str(response)
+        
+        # Step 4: Update chat history manually
+        from langchain_core.messages import HumanMessage, AIMessage
+        chat_history.add_message(HumanMessage(content=enhanced_query))
+        chat_history.add_message(AIMessage(content=response_text))
+        
+        teacher_logger.info(f"Chat completed for session: {session_id}")
+        
+    except Exception as e:
+        teacher_logger.error(f"Chat execution error: {str(e)}")
+        raise
+    
+    # Check if complete lesson generated
+    try:
+        lesson_check = check_lesson_response(response_text, self.api_key)
+        complete_lesson_status = lesson_check.complete_lesson
+        teacher_logger.info(f"Lesson completion check: {complete_lesson_status}")
+    except Exception as e:
+        teacher_logger.warning(f"Error checking lesson completion: {str(e)}")
+        complete_lesson_status = "no"
+    
+    # Force cleanup
+    import gc
+    gc.collect()
+    
+    return InteractiveChatResponse(
+        ai_response=response_text,
+        complete_lesson=complete_lesson_status
+    )
+    # def interactive_chat(
+    #     self, 
+    #     lesson_id: int, 
+    #     user_query: str, 
+    #     session_id: str = None,
+    #     subject: str = None,
+    #     grade_level: str = None,
+    #     focus_area: str = None,
+    #     document_uploaded: bool = False,
+    #     document_filename: str = None
+    # ) -> InteractiveChatResponse:
+    #     """Interactive chat with Prof. Potter for lesson creation"""
+        
+    #     # Use lesson_id as session_id to maintain context per lesson
+    #     if not session_id:
+    #         session_id = f"lesson_{lesson_id}"
+        
+    #     # Step 1: Load vector DB
+    #     vector_db = FAISS.load_local(
+    #         "vector_store.faiss",
+    #         self.rag_service.embeddings,
+    #         allow_dangerous_deserialization=True
+    #     )
+    #     retriever = vector_db.as_retriever(search_type="similarity", search_kwargs={"k": 5})
+        
+    #     # Step 2: Handle uploaded document content
+    #     uploaded_doc_content = ""
+    #     if document_uploaded and document_filename:
+    #         try:
+    #             # TODO: Implement actual document retrieval from your storage
+    #             # Example: uploaded_doc_content = self.get_uploaded_document(lesson_id, document_filename)
+    #             uploaded_doc_content = f"\n\n### Uploaded Document: {document_filename}\n[Document content should be retrieved and inserted here]"
+    #             teacher_logger.info(f"Retrieved uploaded document: {document_filename}")
+    #         except Exception as e:
+    #             teacher_logger.warning(f"Could not retrieve uploaded document: {str(e)}")
+        
+    #     # Step 3: Store form data in session context
+    #     form_context = {
+    #         'subject': subject or focus_area,
+    #         'grade_level': grade_level,
+    #         'document_uploaded': document_uploaded,
+    #         'document_filename': document_filename,
+    #         'uploaded_content': uploaded_doc_content  # Add actual content
+    #     }
+        
+    #     # Step 4: Retriever is now used directly in build_chain_input to avoid parallel execution
+        
+    #     # Step 5: Build system prompt with form context (but NOT with RAG context yet)
+    #     # RAG context will be dynamically added per query via {context} placeholder
+    #     base_system_prompt = self._get_system_prompt(form_context)
+        
+    #     # Escape curly braces to prevent template variable errors
+    #     escaped_system_prompt = base_system_prompt.replace("{", "{{").replace("}", "}}")
+        
+    #     # Build prompt template
+    #     prompt = ChatPromptTemplate.from_messages([
+    #         ("system", escaped_system_prompt + "\n\n### Knowledge Base Context:\n{context}" + uploaded_doc_content),
+    #         MessagesPlaceholder(variable_name="chat_history"),
+    #         ("human", "{user_query}")
+    #     ])
 
-        run_config = RunnableConfig(
-            configurable={"session_id": session_id},
-            max_concurrency=1,
-            recursion_limit=3
-        )
+    #     # Step 6: Build chain - restructured to avoid parallel execution that causes thread exhaustion
+    #     def extract_query_content(x):
+    #         """Extract user query from input - handles both string and message objects"""
+    #         user_input = x.get("user_query", "")
+    #         if hasattr(user_input, 'content'):
+    #             return user_input.content
+    #         return str(user_input)
         
-        response_message = conversational_chain.invoke(
-            {"user_query": enhanced_query},
-            config=run_config
-        )
+    #     # def build_chain_input(x):
+    #     #     """Build chain input sequentially to avoid parallel execution"""
+    #     #     query = extract_query_content(x)
+    #     #     # Retrieve context synchronously (not in parallel)
+    #     #     context = self.format_context(retriever.invoke(query))
+    #     #     chat_history = x.get("chat_history", [])
+    #     #     return {
+    #     #         "context": context,
+    #     #         "user_query": query,
+    #     #         "chat_history": chat_history
+    #     #     }
+    #     def build_chain_input(x):
+    #         query = extract_query_content(x)
+    #         docs = retriever.invoke(query)  # Sequential, not parallel
+    #         return {
+    #             "context": self.format_context(docs),
+    #             "user_query": query,
+    #             "chat_history": x.get("chat_history", [])
+    #         }
+        
+        
+    #     chain = (
+    #         RunnableLambda(build_chain_input)
+    #         | prompt 
+    #         | self.llm
+    #     )
+
+    #     # Step 7: Wrap with message history
+    #     conversational_chain = RunnableWithMessageHistory(
+    #         chain,
+    #         self.get_session_history,
+    #         input_messages_key="user_query",
+    #         history_messages_key="chat_history"
+    #     )
+        
+
+    #     # Step 8: For initial message, retrieve document overview to inform the greeting
+    #     # Check if this is the first message (no chat history)
+    #     chat_history = self.get_session_history(session_id)
+    #     is_first_message = len(chat_history.messages) == 0 if hasattr(chat_history, 'messages') else True
+        
+    #     # If first message and document is uploaded, enhance the query with document overview
+    #     if is_first_message and document_uploaded:
+    #         # Retrieve document overview to understand what it's about
+    #         try:
+    #             overview_query = "What is this document about? Provide a brief summary of the main topics, themes, and content."
+    #             overview_docs = retriever.invoke(overview_query)
+    #             if overview_docs:
+    #                 # Extract key topics from the document
+    #                 doc_summary = "\n".join([doc.page_content[:200] for doc in overview_docs[:3]])  # First 200 chars of top 3 chunks
+    #                 # Enhance user query to include document context for better initial response
+    #                 enhanced_query = f"{user_query}\n\n[Document Context: The uploaded document covers: {doc_summary}...]"
+    #             else:
+    #                 enhanced_query = user_query
+    #         except Exception as e:
+    #             teacher_logger.warning(f"Could not retrieve document overview: {str(e)}")
+    #             enhanced_query = user_query
+    #     else:
+    #         enhanced_query = user_query
+        
+    #     # Step 8: Invoke with configuration to prevent thread exhaustion
+    #     # Use simple config to avoid parallel execution issues
+
+    #     run_config = RunnableConfig(
+    #         configurable={"session_id": session_id},
+    #         max_concurrency=1,
+    #         recursion_limit=3
+    #     )
+        
+    #     response_message = conversational_chain.invoke(
+    #         {"user_query": enhanced_query},
+    #         config=run_config
+    #     )
         # run_config = RunnableConfig(
         #     configurable={"session_id": session_id}
         # )
