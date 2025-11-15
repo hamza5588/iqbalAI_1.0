@@ -1,9 +1,10 @@
 # app/routes/chat.py
 from flask import Blueprint, redirect, request, session, jsonify, render_template, url_for
 from app.services import ChatService, PromptService
-from app.models.models import SurveyModel
+from app.models.models import SurveyModel, LessonModel
 # from app.utils.decorators import login_required
 from app.utils.auth import login_required
+from app.utils.decorators import teacher_required
 import logging
 from app.utils.db import get_db
 
@@ -334,3 +335,17 @@ def get_user_info():
     except Exception as e:
         logger.error(f"Error getting user info: {str(e)}")
         return jsonify({'error': 'Failed to get user info'}), 500
+
+@bp.route('/chatbot', methods=['GET'])
+@teacher_required
+def chatbot():
+    """Render the chatbot interface"""
+    try:
+        # Get user's lessons for selection
+        user_id = session.get('user_id')
+        lessons = LessonModel.get_lessons_by_teacher(user_id)
+        
+        return render_template('chatbot.html', lessons=lessons)
+    except Exception as e:
+        logger.error(f"Error rendering chatbot: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to render chatbot: {str(e)}'}), 500

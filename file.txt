@@ -1,3 +1,7 @@
 IPv4 Address: 104.219.55.160
 Username: root
 Password: 4MfPxUmQSNACRBdY
+
+
+
+scp root@104.219.55.160:/root/iqbalAI_1.0/instance/chatbot.db "C:\Users\DCS\Desktop\New folder (22)\New folder\chatbot.db"
