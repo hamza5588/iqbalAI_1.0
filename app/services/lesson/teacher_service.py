@@ -366,7 +366,7 @@ class TeacherLessonService(BaseLessonService):
         #         "user_query": query,
         #         "chat_history": chat_history
         #     }
-        def build_input(x):
+        def build_chain_input(x):
             query = extract_query_content(x)
             docs = retriever.invoke(query)  # Sequential, not parallel
             return {
