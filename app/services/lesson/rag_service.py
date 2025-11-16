@@ -142,37 +142,100 @@ class RAGService:
         except Exception as e:
             logger.error(f"Error retrieving relevant chunks: {str(e)}")
             return []
+    
 
-    def create_rag_prompt(self, user_prompt: str, relevant_chunks: List[Document], lesson_details: Optional[Dict[str, str]] = None) -> str:
+
+    def create_rag_prompt(self, user_prompt: str, relevant_chunks: List[Document], 
+                     lesson_details: Optional[Dict[str, str]] = None,
+                     tables_data: List[Dict] = None,
+                     images_data: List[Dict] = None) -> str:
         """
-        Create RAG prompt with retrieved context
-        
+        Create RAG prompt with retrieved context, enhanced with tables and images data
+    
         Args:
             user_prompt: User's prompt
             relevant_chunks: Retrieved relevant chunks
             lesson_details: Additional lesson details
-            
+            tables_data: Extracted tables data
+            images_data: Extracted images data with summaries
+        
         Returns:
-            Formatted RAG prompt
+            Formatted RAG prompt with enhanced context
         """
         try:
-            # Combine relevant chunks
+         # Combine relevant chunks
             context = "\n\n".join([chunk.page_content for chunk in relevant_chunks])
+        
+            # Build tables context section
+            tables_context = ""
+            if tables_data and isinstance(tables_data, list) and len(tables_data) > 0:
+                tables_context = "\n\n=== DOCUMENT TABLES DATA ===\n"
+                tables_context += f"Total tables extracted: {len(tables_data)}\n"
             
-            # Create base prompt
-            # prompt = f"""
-            # You are an intelligent and articulate assistant that answers questions using a provided document.
-            # If the document does not contain the information, you may use your general knowledge.
-
-            # INSTRUCTIONS:
-            # 1. Read the user's question carefully and focus only on what they are asking.
-            # 2. Understand the user’s intent and adjust the level of detail accordingly:
-            # - If the user asks for a **concise**, **short**, or **1-line** answer → respond briefly and directly in one line.
-            # - Otherwise (by default) → provide a **comprehensive, detailed, and well-structured** explanation with clear sections and examples when useful.
-            # 3. Use the document as the primary information source. If the answer is not found in the document, use accurate general knowledge.
-            # 4. If the user asks for a **lesson**, generate it in a detailed and educational format with headings and subheadings.
-            # 5. Do **not** mention phrases like "based on the provided document" or "from the context" in your answer.
-            # 6. Always respond clearly, professionally, and in an engaging tone.
+                for i, table in enumerate(tables_data[:5]):  # Limit to first 5 tables
+                    if isinstance(table, dict):
+                        tables_context += f"\n--- Table {i+1} (Page {table.get('page', 'N/A')}) ---\n"
+                        tables_context += f"Structure: {table.get('shape', 'N/A')} rows x columns\n"
+                    
+                        # Add column headers
+                        if table.get('columns'):
+                            tables_context += f"Columns: {', '.join(str(col) for col in table['columns'])}\n"
+                    
+                        # Add sample data (first 3 rows)
+                        if table.get('data') and len(table['data']) > 0:
+                            tables_context += "Sample Data:\n"
+                            for row_idx, row in enumerate(table['data'][:3]):
+                                row_str = " | ".join(str(cell)[:50] for cell in row)  # Limit cell length
+                                tables_context += f"Row {row_idx+1}: {row_str}\n"
+                        
+                            if len(table['data']) > 3:
+                                tables_context += f"... and {len(table['data']) - 3} more rows\n"
+        
+            # Build images context section
+            images_context = ""
+            if images_data and isinstance(images_data, list) and len(images_data) > 0:
+                images_context = "\n\n=== DOCUMENT IMAGES WITH AI SUMMARIES ===\n"
+                images_context += f"Total images extracted: {len(images_data)}\n"
+            
+                for i, image in enumerate(images_data[:5]):  # Limit to first 5 images
+                    if isinstance(image, dict):
+                        images_context += f"\n--- Image {i+1} (Page {image.get('page_number', 'N/A')}) ---\n"
+                        if image.get('width') and image.get('height'):
+                            images_context += f"Dimensions: {image['width']}x{image['height']} pixels\n"
+                    
+                        # Add AI-generated summary
+                        summary = image.get('summary', 'No summary available')
+                        if summary and not summary.startswith("Error generating summary"):
+                            images_context += f"AI Description: {summary}\n"
+                        else:
+                            images_context += "AI Description: Visual content from document\n"
+        
+            # Build enhanced instructions for using tables and images
+            enhanced_instructions = ""
+            if tables_data or images_data:
+                enhanced_instructions = """
+            
+                CRITICAL INSTRUCTION - INCORPORATE DOCUMENT ELEMENTS:
+                You MUST use the available tables and images data to create a comprehensive lesson:
+            
+                FOR TABLES:
+                - Create data analysis exercises using the table structures and sample data
+                - Reference specific tables when teaching quantitative concepts
+                - Generate practice questions based on the table column structures
+                - Explain how to interpret the tabular data
+            
+                FOR IMAGES:
+                - Reference the AI-generated image descriptions in your explanations
+                - Create visual learning activities based on the image content
+                - Suggest how to use these images for student engagement
+                - Connect visual elements with conceptual understanding
+            
+                INTEGRATION REQUIREMENT:
+                Your lesson MUST actively incorporate at least 2-3 references to specific tables or images.
+                Create activities that directly use the extracted data and visual content.
+                """
+        
+            # Build the complete enhanced prompt
             prompt = f"""
             Prof Potter's Role: Prof. Potter assists the Faculty in generating structured, logical, and engaging class-lessons for students.
 
@@ -210,15 +273,34 @@ class RAGService:
 
             Praise Faculty for creative teaching methods or unique perspectives.
 
-            Document Context:
+            ========== DOCUMENT CONTEXT ==========
+            Document Text Content:
             {context}
+            {tables_context}
+            {images_context}
+            ======================================
 
             User Request:
             {user_prompt}
+            {enhanced_instructions}
+
+            REMEMBER: You have access to structured tables data and AI-analyzed images. 
+            Use this rich multimodal content to create exceptionally comprehensive and engaging lessons!
             """
 
-            logger.info(f"Created RAG prompt with {len(context)} characters of context")
+            logger.info(f"Created enhanced RAG prompt with:")
+            logger.info(f"- Text context: {len(context)} characters")
+            logger.info(f"- Tables: {len(tables_data) if tables_data else 0} tables")
+            logger.info(f"- Images: {len(images_data) if images_data else 0} images")
+        
             return prompt
+        
         except Exception as e:
-            logger.error(f"Error creating RAG prompt: {str(e)}")
-            return f"Please answer the following question: {user_prompt}"
+            logger.error(f"Error creating enhanced RAG prompt: {str(e)}")
+            # Fallback to basic prompt
+            return f"""Please create a comprehensive lesson plan based on the user's request.
+
+    User Request: {user_prompt}
+
+    Available additional context: Tables and images data from the document (processing error occurred).
+    Please incorporate any available visual and tabular data into your lesson."""

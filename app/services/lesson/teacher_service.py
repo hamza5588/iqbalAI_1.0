@@ -67,6 +67,23 @@ import re
 from langchain_core.runnables import RunnableLambda
 from langchain_core.runnables.config import RunnableConfig
 from langchain_groq import ChatGroq
+import base64
+import requests
+try:
+    import camelot
+    CAMELOT_AVAILABLE = True
+except ImportError:
+    teacher_logger.warning("Camelot not available for table extraction")
+    CAMELOT_AVAILABLE = False
+
+# Add image extraction imports
+try:
+    import fitz  # PyMuPDF
+    from PIL import Image
+    PYPDF_AVAILABLE = True
+except ImportError:
+    teacher_logger.warning("PyMuPDF not available for image extraction")
+    PYPDF_AVAILABLE = False
 
 class lesson_response(BaseModel):
     complete_lesson: Literal["yes", "no"] = Field(
@@ -136,13 +153,10 @@ class TeacherLessonService(BaseLessonService):
 
     def process_file(self, file: FileStorage, lesson_details: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """
-        Process an uploaded file and return structured lesson content with DOCX bytes.
-        Accepts additional lesson details (title, prompt, focus areas, etc.) for teacher-focused workflow.
+        Process an uploaded file - UPDATED VERSION with new Groq client functions
         """
         teacher_logger.info(f"=== TEACHER FILE PROCESSING STARTED ===")
-        teacher_logger.info(f"File: {file.filename if file else 'None'}")
-        teacher_logger.info(f"Lesson details: {json.dumps(lesson_details, indent=2) if lesson_details else 'None'}")
-        
+
         temp_path = None
         try:
             if not file or not file.filename:
@@ -151,107 +165,109 @@ class TeacherLessonService(BaseLessonService):
             if not self.allowed_file(file.filename):
                 teacher_logger.warning(f"Unsupported file type: {file.filename}")
                 return {"error": "File type not supported. Please upload PDF, DOC, DOCX, or TXT files."}
-            
-            teacher_logger.info(f"File validation passed: {file.filename}")
-            
+        
             with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{secure_filename(file.filename)}") as temp_file:
                 temp_path = temp_file.name
                 file.save(temp_path)
-            
+        
             teacher_logger.info(f"File saved to temporary path: {temp_path}")
+        
+            # STEP 1: Extract tables and images using NEW Groq client functions
+            teacher_logger.info("=== EXTRACTING TABLES AND IMAGES ===")
+        
+            tables_data = self.extract_tables_from_document(temp_path)
+            teacher_logger.info(f"Tables extracted: {len(tables_data) if isinstance(tables_data, list) else 0}")
             
+            # Call the UPDATED image extraction function with Groq client
+            images_data = self.extract_images_and_summarize(temp_path, self.api_key)
+            teacher_logger.info(f"Images extracted: {len(images_data) if isinstance(images_data, list) else 0}")
+        
+            # STEP 2: Load and process document content
             documents = self._load_document(temp_path, file.filename)
             if not documents:
                 teacher_logger.error("Could not extract content from the file")
                 return {"error": "Could not extract content from the file"}
-            
-            teacher_logger.info(f"Document loaded successfully: {len(documents)} pages/sections")
-            
+        
             full_text = "\n".join([doc.page_content for doc in documents])
             if not full_text.strip():
                 teacher_logger.error("No readable content found in the file")
                 return {"error": "No readable content found in the file"}
-            
+        
             teacher_logger.info(f"Text extracted successfully: {len(full_text)} characters")
-            
-            # Process document with RAG service
+        
+            # STEP 3: Process document with RAG service
             rag_result = self.rag_service.process_document(documents, file.filename)
             if 'error' in rag_result:
                 teacher_logger.error(f"RAG processing failed: {rag_result['error']}")
                 return rag_result
-            
-            # Store the original document's RAG service immediately after processing
+        
+            # STEP 4: Generate lesson using tables AND images data
+            user_prompt = lesson_details.get('lesson_prompt', '') if lesson_details else ''
+        
             if rag_result['use_rag']:
-                self._store_original_document_rag(file.filename)
-                teacher_logger.info("Original document RAG service stored for AI review")
+                teacher_logger.info("Using RAG with tables and images data")
             
-            # Check if RAG should be used
-            if rag_result['use_rag']:
-                teacher_logger.info("Using RAG for large document processing")
-                
-                # Get user prompt
-                user_prompt = lesson_details.get('lesson_prompt', '') if lesson_details else ''
-                
                 # Retrieve relevant chunks
                 relevant_chunks = self.rag_service.retrieve_relevant_chunks(user_prompt, k=5)
                 if not relevant_chunks:
                     teacher_logger.warning("No relevant chunks found, using first few chunks")
                     relevant_chunks = self.rag_service.documents[:3]
-                
-                # Create RAG prompt
-                rag_prompt = self.rag_service.create_rag_prompt(user_prompt, relevant_chunks, lesson_details)
-                
-                # Generate lesson using RAG prompt
-                teacher_logger.info("Starting AI lesson generation with RAG")
+            
+                # Create enhanced RAG prompt with tables AND images
+                rag_prompt = self.create_enhanced_rag_prompt(
+                    user_prompt=user_prompt,
+                    relevant_chunks=relevant_chunks,
+                    tables_data=tables_data,
+                    images_data=images_data,  # ADDED: Include images data
+                    document_text=full_text[:5000]  # Limit text
+                )
+            
                 lesson_response = self._llm_responce(rag_prompt, lesson_details)
             else:
-                teacher_logger.info("Document is small, using direct processing")
-                
-                # Extract specific sections based on prompt if specified
-                if lesson_details and lesson_details.get('lesson_prompt'):
-                    teacher_logger.info(f"Extracting sections based on prompt: {lesson_details['lesson_prompt']}")
-                    extracted_text = self._extract_sections_from_prompt(full_text, lesson_details['lesson_prompt'])
-                    if extracted_text:
-                        full_text = extracted_text
-                        teacher_logger.info(f"Specific sections extracted: {len(extracted_text)} characters")
-                        logger.info(f"Extracted specific sections based on prompt: {lesson_details['lesson_prompt']}")
-                    else:
-                        teacher_logger.info("No specific sections found, using full text")
-                
-                # Generate structured lesson
-                teacher_logger.info("Starting AI lesson generation")
-                lesson_response = self._generate_structured_lesson(full_text, lesson_details)
+                teacher_logger.info("Using direct processing with tables and images")
             
+                # Create direct prompt with tables AND images
+                lesson_prompt = self.create_simple_lesson_prompt(
+                    document_text=full_text,
+                    tables_data=tables_data,
+                    images_data=images_data,  # ADDED: Include images data
+                    user_request=user_prompt
+                )
+            
+                lesson_response = self._llm_responce(lesson_prompt, lesson_details)
+        
             # Check if lesson generation was successful
             if lesson_response.startswith("Error generating lesson:"):
                 teacher_logger.error(f"Lesson generation failed: {lesson_response}")
                 return {"error": lesson_response}
-            
+        
             teacher_logger.info("Lesson generation completed successfully")
-            teacher_logger.info(f"Generated lesson response length: {len(lesson_response)} characters")
-
-            # Generate DOCX from the lesson response
+        
+            # Generate DOCX
             if lesson_response and not lesson_response.startswith("Error"):
                 teacher_logger.info("Generating DOCX document")
                 docx_bytes = self._create_docx_from_text(lesson_response, lesson_details)
                 base_name = os.path.splitext(file.filename)[0]
                 filename = f"lesson_{base_name}.docx"
-                teacher_logger.info(f"DOCX generated: {filename}, size: {len(docx_bytes)} bytes")
             else:
                 teacher_logger.info("Skipping DOCX generation due to error")
                 docx_bytes = None
                 filename = None
-            
+        
             teacher_logger.info("=== TEACHER FILE PROCESSING COMPLETED ===")
-            
+        
             return {
                 "lesson": lesson_response,
                 "docx_bytes": docx_bytes,
-                "filename": filename
+                "filename": filename,
+                "tables": tables_data,
+                "images": images_data,  # ADDED: Return images data
+                "tables_count": len(tables_data) if isinstance(tables_data, list) else 0,
+                "images_count": len(images_data) if isinstance(images_data, list) else 0
             }
+        
         except Exception as e:
             teacher_logger.error(f"File processing failed: {str(e)}")
-            logger.error(f"Error processing file: {str(e)}", exc_info=True)
             return {
                 "error": "Failed to process file",
                 "details": str(e)
@@ -263,10 +279,265 @@ class TeacherLessonService(BaseLessonService):
                     teacher_logger.info(f"Temporary file cleaned up: {temp_path}")
                 except Exception as e:
                     teacher_logger.warning(f"Could not remove temporary file {temp_path}: {str(e)}")
-                    logger.warning(f"Could not remove temporary file {temp_path}: {str(e)}")
 
+
+    def create_simple_lesson_prompt(self, document_text: str, tables_data: List[Dict], 
+                              images_data: List[Dict], user_request: str = "") -> str:
+        """
+        Simple prompt that uses available tables AND images
+        """
+        # Build tables context
+        tables_context = ""
+        if tables_data and isinstance(tables_data, list):
+            tables_context = "\n\nDOCUMENT TABLES DATA:\n"
+            for i, table in enumerate(tables_data[:5]):
+                if table.get('columns') and table.get('data'):
+                    tables_context += f"\nTable {i+1}: {table.get('shape', '')} - Columns: {', '.join(str(col) for col in table['columns'][:5])}\n"
+                    if len(table['data']) > 0:
+                        tables_context += f"Sample: {table['data'][0][:3]}...\n"
     
+        # Build images context
+        images_context = ""
+        if images_data and isinstance(images_data, list):
+            images_context = f"\n\nDOCUMENT IMAGES:\nTotal images: {len(images_data)}\n"
+            # Add image summaries if available
+            valid_summaries = [img.get('summary', '') for img in images_data[:3] 
+                            if img.get('summary') and not img.get('summary', '').startswith('Error')]
+            if valid_summaries:
+                images_context += "Image summaries:\n"
+                for i, summary in enumerate(valid_summaries):
+                    images_context += f"- {summary[:100]}...\n"
     
+        prompt = f"""
+    Create a comprehensive lesson plan using the document content, tables, and images.
+
+    DOCUMENT CONTENT:
+    {document_text[:6000]}
+
+    {tables_context}
+    {images_context}
+
+    USER REQUEST:
+    {user_request if user_request else "Create a complete lesson plan from this document"}
+
+    CREATE A LESSON THAT:
+    - Uses the table data for practical examples and exercises
+    - References the images/diagrams for visual learning
+    - Follows logical teaching progression  
+    - Includes activities using the available data
+    - Is engaging and educational
+
+    Format with clear sections and include real examples from the tables and images.
+    """
+        return prompt
+
+    def create_enhanced_rag_prompt(self, user_prompt: str, relevant_chunks: List[Document],
+                             tables_data: List[Dict], images_data: List[Dict], document_text: str = "") -> str:
+        """
+        Enhanced RAG prompt with tables AND images data
+        """
+        # Combine relevant chunks
+        context = "\n\n".join([chunk.page_content for chunk in relevant_chunks])
+        
+        # Build tables context
+        tables_context = ""
+        if tables_data and isinstance(tables_data, list):
+            tables_context = "\n\nDOCUMENT TABLES:\n"
+            for i, table in enumerate(tables_data[:3]):
+                if table.get('columns') and table.get('data'):
+                    tables_context += f"\nTable {i+1}: Columns: {', '.join(str(col) for col in table['columns'][:5])}\n"
+                    if len(table['data']) > 0:
+                        tables_context += f"Sample: {table['data'][0][:3]}...\n"
+        
+        # Build images context
+        images_context = ""
+        if images_data and isinstance(images_data, list):
+            images_context = f"\n\nDOCUMENT IMAGES: {len(images_data)} images available\n"
+            images_context += "Use these for visual examples and diagrams in your lesson.\n"
+        
+        prompt = f"""
+    Create a comprehensive lesson plan using the retrieved document content, tables, and images.
+
+    RETRIEVED DOCUMENT CONTEXT:
+    {context}
+
+    {tables_context}
+    {images_context}
+
+    USER REQUEST:
+    {user_prompt}
+
+    Create a lesson that incorporates:
+    - Table data for examples and exercises
+    - Images/diagrams for visual learning
+    - Practical learning activities using all available content
+    """
+        return prompt
+    
+    def extract_tables_from_document(self,document_path:str,pages:str='all')->List[Dict[str,Any]]:
+        """
+        Function 1: Extract tables from uploaded document using Camelot
+        Args:
+           document_path (str): Path to the PDF document
+           pages (str): Pages to extract tables from (default: "all")
+        
+    Returns:
+        List of dictionaries containing table data and metadata
+        """
+        try:
+            if not CAMELOT_AVAILABLE:
+                return {"error": "camelot not available for table extraction"}
+            teacher_logger.info("Extracting Tables from {document_path}...")
+            tables=camelot.read_pdf(document_path,pages=pages,flavor='lattice')
+            extracted_tables=[]
+            for i , table in enumerate(tables):
+                table_data={
+                    'table_number':i+1,
+                    'page': table.page,
+                    'accuracy': table.accuracy,
+                    'whitespace': table.whitespace,
+                    'order': table.order,
+                    'data': table.df.values.tolist(),
+                    'columns': table.df.columns.tolist(),
+                    'shape': table.df.shape
+                }
+                extracted_tables.append(table_data)
+            teacher_logger.info(f"Successfully extracted {len(extracted_tables)} tables")
+            return extracted_tables
+        except Exception as e:
+            teacher_logger.info(f"Error Extracting tables : {str(e)}")
+            return {'error': f"table extraction failed {str(e)}"}
+        
+    def extract_images_and_summarize(self, document_path: str, groq_api_key: str = None) -> List[Dict[str, Any]]:
+        """
+        Function 2: Extract images and generate summaries using Groq Python client
+    
+        Args:
+            document_path (str): Path to the PDF document
+            groq_api_key (str): Groq API key for image summarization
+        
+        Returns:
+            List of dictionaries containing image data and summaries
+        """
+        try:
+            if not PYPDF_AVAILABLE:
+                return {"error": "PyMuPDF not available for image extraction"}
+        
+            teacher_logger.info(f"Extracting images from {document_path}...")
+        
+            # Use class API key if not provided
+            api_key = groq_api_key or self.api_key
+        
+            # Initialize Groq client
+            from groq import Groq
+            client = Groq(api_key=api_key)
+        
+            # Extract images using PyMuPDF
+            doc = fitz.open(document_path)
+            extracted_images = []
+        
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+                image_list = page.get_images()
+            
+                for img_index, img in enumerate(image_list):
+                    # Extract the image
+                    xref = img[0]
+                    pix = fitz.Pixmap(doc, xref)
+                
+                    if pix.n - pix.alpha < 4:  # this is GRAY or RGB
+                        img_data = pix.tobytes("png")
+                    else:  # CMYK: convert to RGB first
+                        pix1 = fitz.Pixmap(fitz.csRGB, pix)
+                        img_data = pix1.tobytes("png")
+                        pix1 = None
+                
+                    pix = None
+                
+                    # Generate summary using Groq client
+                    summary = self._generate_image_summary_with(img_data, client)
+                
+                    image_info = {
+                        'page_number': page_num + 1,
+                        'image_index': img_index + 1,
+                        'image_data': base64.b64encode(img_data).decode('utf-8'),
+                        'summary': summary,
+                        'format': 'png',
+                        'width': img[2],
+                        'height': img[3]
+                    }
+                
+                    extracted_images.append(image_info)
+                
+            doc.close()
+            teacher_logger.info(f"Successfully extracted {len(extracted_images)} images")
+            return extracted_images
+        
+        except Exception as e:
+            teacher_logger.error(f"Error extracting images: {str(e)}")
+            return {"error": f"Image extraction failed: {str(e)}"}
+
+    def _generate_image_summary_with(self, image_data: bytes, groq_client) -> str:
+        """
+        Generate summary for image using Groq Python client with size optimization
+        """
+        try:
+            # OPTIMIZE IMAGE SIZE to avoid payload issues
+            from PIL import Image
+            import io
+        
+            # Convert to PIL Image and resize if too large
+            img = Image.open(io.BytesIO(image_data))
+        
+            # Resize if image is too large (keep aspect ratio)
+            max_size = (512, 512)
+            if img.size[0] > max_size[0] or img.size[1] > max_size[1]:
+                img.thumbnail(max_size, Image.Resampling.LANCZOS)
+        
+            # Convert back to bytes with quality compression
+            output = io.BytesIO()
+            img.save(output, format='PNG', optimize=True, quality=85)
+            optimized_image_data = output.getvalue()
+        
+            # Convert optimized image to base64
+            base64_image = base64.b64encode(optimized_image_data).decode('utf-8')
+        
+            # Create data URL for the image
+            image_url = f"data:image/png;base64,{base64_image}"
+        
+            # Use Groq client for image analysis
+            completion = groq_client.chat.completions.create(
+                model="meta-llama/llama-4-scout-17b-16e-instruct", 
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": "Briefly describe this educational image for lesson planning. Focus on key elements, text if present, and how it could be used in teaching."
+                            },
+                            {
+                                    "type": "image_url",
+                                    "image_url": {
+                                    "url": image_url
+                                }
+                            }
+                        ]
+                    }
+                ],
+                temperature=0.1,
+                max_completion_tokens=300,
+                top_p=1,
+                stream=False,
+                stop=None,
+            )
+        
+            return completion.choices[0].message.content
+        
+        except Exception as e:
+            teacher_logger.error(f"Error generating image summary with Groq client: {str(e)}")
+            return "Educational diagram/chart from document - analysis unavailable"
+
     def get_session_history(self, session_id: str) -> BaseChatMessageHistory:
         """Get or create chat history for a session"""
         # Use class-level dictionary to persist history across service instances
@@ -576,18 +847,18 @@ class TeacherLessonService(BaseLessonService):
         response_text = response_message.content if hasattr(response_message, 'content') else str(response_message)
         
         # Step 9: Check if complete lesson has been generated
-        try:
-            lesson_check = check_lesson_response(response_text, self.api_key)
-            complete_lesson_status = lesson_check.complete_lesson
-            teacher_logger.info(f"Lesson completion check: {complete_lesson_status}")
-        except Exception as e:
-            teacher_logger.warning(f"Error checking lesson completion status: {str(e)}")
-            complete_lesson_status = "no"
+        # try:
+        #     lesson_check = check_lesson_response(response_text, self.api_key)
+        #     complete_lesson_status = lesson_check.complete_lesson
+        #     teacher_logger.info(f"Lesson completion check: {complete_lesson_status}")
+        # except Exception as e:
+        #     teacher_logger.warning(f"Error checking lesson completion status: {str(e)}")
+        #     complete_lesson_status = "no"
         
-        return InteractiveChatResponse(
-            ai_response=response_text,
-            complete_lesson=complete_lesson_status
-        )
+        # return InteractiveChatResponse(
+        #     ai_response=response_text,
+        #     complete_lesson=complete_lesson_status
+        # )
     # def interactive_chat(
     #     self, 
     #     lesson_id: int, 
@@ -2179,6 +2450,4 @@ Please provide an improved version of the lesson content that addresses the user
             buffer = BytesIO()
             doc.save(buffer)
             buffer.seek(0)
-            return buffer.getvalue()
-
-
+            return buffer.getvalue() 
