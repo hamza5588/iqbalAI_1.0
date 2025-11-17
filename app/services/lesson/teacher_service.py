@@ -317,7 +317,7 @@ class TeacherLessonService(BaseLessonService):
                 self.rag_service.embeddings, 
                 allow_dangerous_deserialization=True
             )
-            retriever = vector_db.as_retriever(search_type="similarity", search_kwargs={"k": 5})
+            retriever = vector_db.as_retriever(search_type="similarity", search_kwargs={"k": 15})
             teacher_logger.info("Vector DB loaded successfully")
             
             # Step 2: Handle uploaded document content
