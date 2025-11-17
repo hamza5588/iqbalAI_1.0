@@ -81,14 +81,16 @@ class RAGService:
             
             from langchain_core.documents import Document
 
-            all_chunks = []
-            for doc_text in documents:
-                if isinstance(doc_text, str):
-                    doc = Document(page_content=doc_text)
-                else:
-                    doc = doc_text
-                chunks = self.text_splitter.split_documents([doc])
-                all_chunks.extend(chunks)
+            # all_chunks = []
+            # for doc_text in documents:
+            #     if isinstance(doc_text, str):
+            #         doc = Document(page_content=doc_text)
+            #     else:
+            #         doc = doc_text
+            #     chunks = self.text_splitter.split_documents([doc])
+            #     all_chunks.extend(chunks)
+            all_chunks = self.text_splitter.split_documents(documents)
+
             
             logger.info(f"Created {len(all_chunks)} chunks from documents")
             
