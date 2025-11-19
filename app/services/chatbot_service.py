@@ -248,7 +248,9 @@ import logging
 from urllib.parse import quote
 from pathlib import Path
 from typing import Optional, Union
-from langchain_groq import ChatGroq
+# from langchain_groq import ChatGroq
+from langchain_ollama import ChatOllama
+
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -283,7 +285,8 @@ class DocumentChatBot:
         if not self.nomic_api_key:
             raise ValueError("NOMIC_API_KEY environment variable not set")
             
-        self.llm = ChatGroq(groq_api_key=self.groq_api_key, model_name="llama-3.3-70b-versatile")
+        # self.llm = ChatGroq(groq_api_key=self.groq_api_key, model_name="llama-3.3-70b-versatile")
+        self.llm = ChatOllama( model="qwen2.5:1.5b")
         self.prompt = self._create_prompt()
         self.vectors = None
         self.embeddings = None
