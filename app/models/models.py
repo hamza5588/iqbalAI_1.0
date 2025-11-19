@@ -1007,9 +1007,11 @@ class ChatModel:
         """Lazy initialization of chat model"""
         if not self._chat_model:
             try:
+                ollama_base_url = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
                 self._chat_model = ChatOllama(
                     model="qwen2.5:1.5b",
-                    )
+                    base_url=ollama_base_url
+                )
                 # self._chat_model = ChatGroq(
                 #     api_key=self.api_key,
                 #     model_name="llama-3.3-70b-versatile",

@@ -49,6 +49,7 @@ services:
       - GROQ_CLIENT_SECRET=your-groq-client-secret
       - GROQ_API_KEY=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
       - NOMIC_APIC_KEY=nk-7Ad201NonNkEv_pYdRwb-EkNjf84mVLW205ihoE7RyU
+      - OLLAMA_BASE_URL=http://ollama:11434
     volumes:
       - .:/app
     healthcheck:
@@ -57,6 +58,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    depends_on:
+      - ollama
     networks:
       - app_network
 
@@ -83,6 +86,7 @@ services:
       - GROQ_CLIENT_SECRET=your-groq-client-secret
       - GROQ_API_KEY=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
       - NOMIC_APIC_KEY=nk-7Ad201NonNkEv_pYdRwb-EkNjf84mVLW205ihoE7RyU
+      - OLLAMA_BASE_URL=http://ollama:11434
     volumes:
       - .:/app
     healthcheck:
@@ -91,6 +95,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    depends_on:
+      - ollama
     networks:
       - app_network
 
@@ -117,6 +123,7 @@ services:
       - GROQ_CLIENT_SECRET=your-groq-client-secret
       - GROQ_API_KEY=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
       - NOMIC_APIC_KEY=nk-7Ad201NonNkEv_pYdRwb-EkNjf84mVLW205ihoE7RyU
+      - OLLAMA_BASE_URL=http://ollama:11434
     volumes:
       - .:/app
     healthcheck:
@@ -125,6 +132,8 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    depends_on:
+      - ollama
     networks:
       - app_network
 
@@ -151,6 +160,7 @@ services:
       - GROQ_CLIENT_SECRET=your-groq-client-secret
       - GROQ_API_KEY=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
       - NOMIC_APIC_KEY=nk-7Ad201NonNkEv_pYdRwb-EkNjf84mVLW205ihoE7RyU
+      - OLLAMA_BASE_URL=http://ollama:11434
     volumes:
       - .:/app
     healthcheck:
@@ -159,8 +169,28 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    depends_on:
+      - ollama
     networks:
       - app_network
+
+  ollama:
+    image: ollama/ollama:latest
+    expose:
+      - "11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  ollama_data:
 
 networks:
   app_network:

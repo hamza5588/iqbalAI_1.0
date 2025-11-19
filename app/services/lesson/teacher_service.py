@@ -88,7 +88,8 @@ def check_lesson_response(text: str, groq_api_key: str):
     #     model_name="llama-3.1-8b-instant",
     #     temperature=0.1
     # )
-    llm = ChatOllama(model="qwen2.5:1.5b")
+    ollama_base_url = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
+    llm = ChatOllama(model="qwen2.5:1.5b", base_url=ollama_base_url)
     
     # Create a prompt to analyze if the response is a complete lesson or just an outline/draft
     analysis_prompt = f"""Analyze the following AI response and determine if it contains a COMPLETE LESSON or just an OUTLINE/DRAFT.
