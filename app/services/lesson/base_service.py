@@ -3,7 +3,9 @@ Base lesson service with common functionality
 """
 import logging
 from typing import Any, Dict, List, Optional
-from langchain_groq import ChatGroq
+# from langchain_groq import ChatGroq
+from langchain_ollama import ChatOllama
+
 from langchain_core.documents import Document
 from langchain_community.document_loaders import PyMuPDFLoader, UnstructuredWordDocumentLoader, TextLoader
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -23,11 +25,13 @@ class BaseLessonService:
     def __init__(self, groq_api_key: str):
         """Initialize the base service with API key"""
         self.api_key = groq_api_key
-        self.llm = ChatGroq(
-            groq_api_key=groq_api_key,
-            model_name="llama-3.1-8b-instant",
-            temperature=0.1
-        )
+        # self.llm = ChatGroq(
+        #     groq_api_key=groq_api_key,
+        #     model_name="llama-3.1-8b-instant",
+        #     temperature=0.1
+        # )
+        self.llm = ChatOllama(
+        model="qwen2.5:1.5b")
         logger.info("Base lesson service initialized")
 
     def allowed_file(self, filename: str) -> bool:

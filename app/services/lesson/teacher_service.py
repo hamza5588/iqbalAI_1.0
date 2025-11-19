@@ -66,7 +66,9 @@ from pydantic import BaseModel, Field
 import re
 from langchain_core.runnables import RunnableLambda
 from langchain_core.runnables.config import RunnableConfig
-from langchain_groq import ChatGroq
+from langchain_ollama import ChatOllama
+
+
 
 class lesson_response(BaseModel):
     complete_lesson: Literal["yes", "no"] = Field(
@@ -81,11 +83,12 @@ class InteractiveChatResponse(BaseModel):
 
 def check_lesson_response(text: str, groq_api_key: str):
     """Check if the AI response indicates a complete lesson has been generated"""
-    llm = ChatGroq(
-        groq_api_key=groq_api_key,
-        model_name="llama-3.1-8b-instant",
-        temperature=0.1
-    )
+    # llm = ChatGroq(
+    #     groq_api_key=groq_api_key,
+    #     model_name="llama-3.1-8b-instant",
+    #     temperature=0.1
+    # )
+    llm = ChatOllama(model="qwen2.5:1.5b")
     
     # Create a prompt to analyze if the response is a complete lesson or just an outline/draft
     analysis_prompt = f"""Analyze the following AI response and determine if it contains a COMPLETE LESSON or just an OUTLINE/DRAFT.
@@ -279,9 +282,23 @@ class TeacherLessonService(BaseLessonService):
             teacher_logger.info(f"Retrieved existing chat history for session: {session_id} ({message_count} messages)")
         return TeacherLessonService._chat_histories[session_id]
 
-    def format_context(self, relevant_chunks: List[Document]) -> str:
+    def _estimate_tokens(self, text: str) -> int:
+        """Rough token estimation: ~4 characters per token"""
+        return len(text) // 4
+    
+    def _truncate_text(self, text: str, max_tokens: int) -> str:
+        """Truncate text to fit within token limit"""
+        max_chars = max_tokens * 4
+        if len(text) <= max_chars:
+            return text
+        # Truncate and add indicator
+        return text[:max_chars - 50] + "... [truncated]"
+    
+    def format_context(self, relevant_chunks: List[Document], max_tokens: int = 2000) -> str:
         """Format context and escape curly braces to prevent LangChain template errors"""
         rag_context = "\n\n".join([doc.page_content for doc in relevant_chunks])
+        # Truncate if too long
+        rag_context = self._truncate_text(rag_context, max_tokens)
         # Escape curly braces in context content (this is a value, not a template string)
         # All braces in the context value should be escaped since it will be inserted into {context}
         escaped_context = rag_context.replace("{", "{{").replace("}", "}}")
@@ -317,7 +334,8 @@ class TeacherLessonService(BaseLessonService):
                 self.rag_service.embeddings, 
                 allow_dangerous_deserialization=True
             )
-            retriever = vector_db.as_retriever(search_type="similarity", search_kwargs={"k": 15})
+            # Reduce k to 5 to stay within token limits (was 15)
+            retriever = vector_db.as_retriever(search_type="similarity", search_kwargs={"k": 5})
             teacher_logger.info("Vector DB loaded successfully")
             
             # Step 2: Handle uploaded document content
@@ -365,34 +383,106 @@ class TeacherLessonService(BaseLessonService):
             
             # Step 7: Retrieve context from vector store
             docs = retriever.invoke(enhanced_query)
-            context = self.format_context(docs)
+            # Limit context to 1500 tokens to leave room for system prompt and chat history
+            context = self.format_context(docs, max_tokens=1500)
             teacher_logger.info(f"Retrieved {len(docs)} documents from vector store")
             
-            # Step 8: Build messages array manually
+            # Step 8: Build messages array manually with token management
             messages = []
             
             # Add system message with context
             system_content = f"{base_system_prompt}\n\n### Knowledge Base Context:\n{context}{uploaded_doc_content}"
             messages.append({"role": "system", "content": system_content})
             
-            # Add chat history messages
+            # Add chat history messages (limit to last 10 messages to prevent token overflow)
             if hasattr(chat_history, 'messages'):
-                for msg in chat_history.messages:
+                history_messages = list(chat_history.messages)
+                # Keep only the most recent 10 messages (5 exchanges)
+                if len(history_messages) > 10:
+                    history_messages = history_messages[-10:]
+                    teacher_logger.info(f"Truncated chat history to last 10 messages (from {len(chat_history.messages)})")
+                
+                for msg in history_messages:
                     if hasattr(msg, 'type'):
                         role = "user" if msg.type == "human" else "assistant"
                         content = msg.content if hasattr(msg, 'content') else str(msg)
+                        # Truncate individual messages if too long (max 500 tokens per message)
+                        if self._estimate_tokens(content) > 500:
+                            content = self._truncate_text(content, 500)
                         messages.append({"role": role, "content": content})
             
             # Add current user query
             messages.append({"role": "user", "content": enhanced_query})
             
-            teacher_logger.info(f"Built message array with {len(messages)} messages")
+            # Estimate total tokens before sending
+            total_text = "\n".join([msg.get("content", "") for msg in messages])
+            estimated_tokens = self._estimate_tokens(total_text)
+            teacher_logger.info(f"Built message array with {len(messages)} messages, estimated tokens: {estimated_tokens}")
             
-            # Step 9: Call LLM directly (no chain, no threading)
+            # If estimated tokens exceed limit, reduce context further
+            if estimated_tokens > 5500:  # Leave some buffer below 6000 limit
+                teacher_logger.warning(f"Estimated tokens ({estimated_tokens}) exceed safe limit, reducing context")
+                # Reduce context to 800 tokens
+                context = self.format_context(docs, max_tokens=800)
+                system_content = f"{base_system_prompt}\n\n### Knowledge Base Context:\n{context}{uploaded_doc_content}"
+                messages[0] = {"role": "system", "content": system_content}
+                # Re-estimate
+                total_text = "\n".join([msg.get("content", "") for msg in messages])
+                estimated_tokens = self._estimate_tokens(total_text)
+                teacher_logger.info(f"After reduction, estimated tokens: {estimated_tokens}")
+            
+            # Step 9: Call LLM directly (no chain, no threading) with retry logic
             teacher_logger.info("Calling LLM directly...")
-            response = self.llm.invoke(messages)
-            response_text = response.content if hasattr(response, 'content') else str(response)
-            teacher_logger.info(f"LLM response received: {len(response_text)} characters")
+            try:
+                response = self.llm.invoke(messages)
+                response_text = response.content if hasattr(response, 'content') else str(response)
+                teacher_logger.info(f"LLM response received: {len(response_text)} characters")
+            except Exception as e:
+                error_str = str(e)
+                # Check if it's a 413 error (payload too large) or token limit error
+                is_token_error = (
+                    "413" in error_str or 
+                    "too large" in error_str.lower() or 
+                    "tokens per minute" in error_str.lower() or
+                    "rate_limit_exceeded" in error_str.lower() or
+                    "request too large" in error_str.lower()
+                )
+                
+                if is_token_error:
+                    teacher_logger.warning(f"Request too large (token limit error), retrying with reduced context. Error: {error_str[:200]}")
+                    # Retry with minimal context (500 tokens)
+                    context = self.format_context(docs, max_tokens=500)
+                    system_content = f"{base_system_prompt}\n\n### Knowledge Base Context:\n{context}"
+                    messages[0] = {"role": "system", "content": system_content}
+                    # Also reduce chat history to last 4 messages
+                    if hasattr(chat_history, 'messages'):
+                        history_messages = list(chat_history.messages)
+                        if len(history_messages) > 4:
+                            history_messages = history_messages[-4:]
+                        # Rebuild messages with reduced history
+                        messages = [{"role": "system", "content": system_content}]
+                        for msg in history_messages:
+                            if hasattr(msg, 'type'):
+                                role = "user" if msg.type == "human" else "assistant"
+                                content = msg.content if hasattr(msg, 'content') else str(msg)
+                                content = self._truncate_text(content, 300)  # Further truncate
+                                messages.append({"role": role, "content": content})
+                        messages.append({"role": "user", "content": enhanced_query})
+                    # Re-estimate tokens after reduction
+                    total_text = "\n".join([msg.get("content", "") for msg in messages])
+                    estimated_tokens = self._estimate_tokens(total_text)
+                    teacher_logger.info(f"Retrying with reduced context and chat history. Estimated tokens: {estimated_tokens}")
+                    try:
+                        response = self.llm.invoke(messages)
+                        response_text = response.content if hasattr(response, 'content') else str(response)
+                        teacher_logger.info(f"LLM response received after retry: {len(response_text)} characters")
+                    except Exception as retry_error:
+                        teacher_logger.error(f"Retry also failed: {str(retry_error)}")
+                        # If retry fails, return a helpful error message
+                        raise Exception(f"Request exceeds token limit even after reduction. Please try with a shorter query or less context. Original error: {error_str[:200]}")
+                else:
+                    # Re-raise if it's a different error
+                    raise
             
             # Step 10: Update chat history manually
             from langchain_core.messages import HumanMessage, AIMessage
