@@ -286,7 +286,8 @@ class DocumentChatBot:
             raise ValueError("NOMIC_API_KEY environment variable not set")
             
         # self.llm = ChatGroq(groq_api_key=self.groq_api_key, model_name="llama-3.3-70b-versatile")
-        self.llm = ChatOllama( model="qwen2.5:1.5b")
+        ollama_base_url = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
+        self.llm = ChatOllama(model="qwen2.5:1.5b", base_url=ollama_base_url)
         self.prompt = self._create_prompt()
         self.vectors = None
         self.embeddings = None

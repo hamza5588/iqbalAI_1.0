@@ -30,9 +30,12 @@ class BaseLessonService:
         #     model_name="llama-3.1-8b-instant",
         #     temperature=0.1
         # )
+        ollama_base_url = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
         self.llm = ChatOllama(
-        model="qwen2.5:1.5b")
-        logger.info("Base lesson service initialized")
+            model="qwen2.5:1.5b",
+            base_url=ollama_base_url
+        )
+        logger.info(f"Base lesson service initialized with Ollama at {ollama_base_url}")
 
     def allowed_file(self, filename: str) -> bool:
         """Check if file extension is supported"""
