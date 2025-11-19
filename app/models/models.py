@@ -669,7 +669,9 @@ class LessonModel:
             raise
 
 # app/models/models.py (ChatModel part)
-from langchain_groq import ChatGroq
+# from langchain_groq import ChatGroq
+from langchain_ollama import ChatOllama
+
 from typing import Optional, List, Dict, Any
 import logging
 import time
@@ -1005,12 +1007,15 @@ class ChatModel:
         """Lazy initialization of chat model"""
         if not self._chat_model:
             try:
-                self._chat_model = ChatGroq(
-                    api_key=self.api_key,
-                    model_name="llama-3.3-70b-versatile",
-                    timeout=self.timeout,
-                    max_retries=3,
-                )
+                self._chat_model = ChatOllama(
+                    model="qwen2.5:1.5b",
+                    )
+                # self._chat_model = ChatGroq(
+                #     api_key=self.api_key,
+                #     model_name="llama-3.3-70b-versatile",
+                #     timeout=self.timeout,
+                #     max_retries=3,
+                # )
             except Exception as e:
                 logger.error(f"Failed to initialize chat model: {str(e)}")
                 raise
