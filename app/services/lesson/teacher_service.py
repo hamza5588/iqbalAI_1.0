@@ -19,8 +19,7 @@ from docx.shared import Inches
 from io import BytesIO
 from datetime import datetime
 import json
-# Add this with your other imports at the top
-from app.utils.ollama_limiter import limit_ollama_requests, ollama_limiter
+
 from .base_service import BaseLessonService
 from .models import LessonResponse, LessonPlan
 from .rag_service import RAGService
@@ -82,7 +81,6 @@ class InteractiveChatResponse(BaseModel):
     ai_response: str = Field(..., description="The AI's response text")
     complete_lesson: Literal["yes", "no"] = Field(..., description="Whether the complete lesson has been generated ('yes') or still in draft/outline stage ('no')")
 
-@limit_ollama_requests(timeout=600)
 def check_lesson_response(text: str, groq_api_key: str):
     """Check if the AI response indicates a complete lesson has been generated"""
     # llm = ChatGroq(
@@ -390,9 +388,7 @@ class TeacherLessonService(BaseLessonService):
             # Step 9: Call LLM directly (no chain, no threading) with retry logic
             teacher_logger.info("Calling LLM directly...")
             try:
-                with ollama_limiter.semaphore:  # Acquire lock
-                    response = self.llm.invoke(messages)
-                # response = self.llm.invoke(messages)
+                response = self.llm.invoke(messages)
                 response_text = response.content if hasattr(response, 'content') else str(response)
                 teacher_logger.info(f"LLM response received: {len(response_text)} characters")
             except Exception as e:
@@ -431,9 +427,7 @@ class TeacherLessonService(BaseLessonService):
                     estimated_tokens = self._estimate_tokens(total_text)
                     teacher_logger.info(f"Retrying with reduced context and chat history. Estimated tokens: {estimated_tokens}")
                     try:
-                        # response = self.llm.invoke(messages)
-                        with ollama_limiter.semaphore:
-                            response = self.llm.invoke(messages)
+                        response = self.llm.invoke(messages)
                         response_text = response.content if hasattr(response, 'content') else str(response)
                         teacher_logger.info(f"LLM response received after retry: {len(response_text)} characters")
                     except Exception as retry_error:
@@ -592,51 +586,30 @@ class TeacherLessonService(BaseLessonService):
             
             # Step 9: Stream LLM response
             teacher_logger.info("Starting LLM streaming...")
-            # Step 9: Stream LLM response
-            teacher_logger.info(f"[OLLAMA] Starting LLM streaming (active: {ollama_limiter.get_active_count()}/2)")
             try:
-                # Acquire lock before streaming
-                ollama_limiter.acquire(timeout=600)
-                try:
-                    # Stream the response
-                    for chunk in self.llm.stream(messages):
-                        if hasattr(chunk, 'content'):
-                            chunk_text = chunk.content
-                        else:
-                            chunk_text = str(chunk)
-                        
-                        if chunk_text:
-                            response_text += chunk_text
-                            yield (chunk_text, False, "no")
+                # Stream the response
+                for chunk in self.llm.stream(messages):
+                    if hasattr(chunk, 'content'):
+                        chunk_text = chunk.content
+                    else:
+                        chunk_text = str(chunk)
                     
-                    teacher_logger.info(f"[OLLAMA] Streaming completed (active: {ollama_limiter.get_active_count()}/2)")
-                finally:
-                    # Always release the lock
-                    ollama_limiter.release()
-            # try:
-            #     # Stream the response
-            #     for chunk in self.llm.stream(messages):
-            #         if hasattr(chunk, 'content'):
-            #             chunk_text = chunk.content
-            #         else:
-            #             chunk_text = str(chunk)
-                    
-            #         if chunk_text:
-            #             response_text += chunk_text
-            #             # Yield each chunk with is_complete=False
-            #             yield (chunk_text, False, "no")
+                    if chunk_text:
+                        response_text += chunk_text
+                        # Yield each chunk with is_complete=False
+                        yield (chunk_text, False, "no")
                 
-            #     teacher_logger.info(f"LLM streaming completed: {len(response_text)} characters")
+                teacher_logger.info(f"LLM streaming completed: {len(response_text)} characters")
                 
-            # except Exception as e:
-            #     error_str = str(e)
-            #     is_token_error = (
-            #         "413" in error_str or 
-            #         "too large" in error_str.lower() or 
-            #         "tokens per minute" in error_str.lower() or
-            #         "rate_limit_exceeded" in error_str.lower() or
-            #         "request too large" in error_str.lower()
-            #     )
+            except Exception as e:
+                error_str = str(e)
+                is_token_error = (
+                    "413" in error_str or 
+                    "too large" in error_str.lower() or 
+                    "tokens per minute" in error_str.lower() or
+                    "rate_limit_exceeded" in error_str.lower() or
+                    "request too large" in error_str.lower()
+                )
                 
                 if is_token_error:
                     teacher_logger.warning(f"Request too large, retrying with reduced context. Error: {error_str[:200]}")
@@ -659,39 +632,22 @@ class TeacherLessonService(BaseLessonService):
                         messages.append({"role": "user", "content": enhanced_query})
                     
                     # Retry streaming
-                    # Retry streaming with lock
                     response_text = ""
-                    teacher_logger.info(f"[OLLAMA] Retrying stream (active: {ollama_limiter.get_active_count()}/2)")
-                    ollama_limiter.acquire(timeout=600)
-                    try:
-                        for chunk in self.llm.stream(messages):
-                            if hasattr(chunk, 'content'):
-                                chunk_text = chunk.content
-                            else:
-                                chunk_text = str(chunk)
-                            
-                            if chunk_text:
-                                response_text += chunk_text
-                                yield (chunk_text, False, "no")
-                    finally:
-                        ollama_limiter.release()
-                        teacher_logger.info(f"[OLLAMA] Retry stream completed (active: {ollama_limiter.get_active_count()}/2)")
-                #     response_text = ""
-                #     for chunk in self.llm.stream(messages):
-                #         if hasattr(chunk, 'content'):
-                #             chunk_text = chunk.content
-                #         else:
-                #             chunk_text = str(chunk)
+                    for chunk in self.llm.stream(messages):
+                        if hasattr(chunk, 'content'):
+                            chunk_text = chunk.content
+                        else:
+                            chunk_text = str(chunk)
                         
-                #         if chunk_text:
-                #             response_text += chunk_text
-                #             yield (chunk_text, False, "no")
-                # else:
-                #     # Re-raise if it's a different error
-                #     error_msg = f"\n\n[Error: {str(e)}]"
-                #     response_text += error_msg
-                #     yield (error_msg, False, "no")
-                #     raise
+                        if chunk_text:
+                            response_text += chunk_text
+                            yield (chunk_text, False, "no")
+                else:
+                    # Re-raise if it's a different error
+                    error_msg = f"\n\n[Error: {str(e)}]"
+                    response_text += error_msg
+                    yield (error_msg, False, "no")
+                    raise
             
             # Step 10: Update chat history manually
             from langchain_core.messages import HumanMessage, AIMessage
@@ -1333,9 +1289,7 @@ Remember: You're a helpful assistant, not starting from scratch each time. Use t
         
         try:
             # Use the RAG prompt directly with the LLM
-            with ollama_limiter.semaphore:
-                 response = self.llm.invoke(rag_prompt)
-            # response = self.llm.invoke(rag_prompt)
+            response = self.llm.invoke(rag_prompt)
             teacher_logger.info("LLM response received")
             
             # Extract content from AIMessage
@@ -1526,9 +1480,7 @@ Provide a detailed, comprehensive answer that directly addresses the user's ques
 Answer:"""
 
             teacher_logger.info("Invoking LLM for direct answer")
-            with ollama_limiter.semaphore:
-                response = self.llm.invoke(answer_prompt)
-            # response = self.llm.invoke(answer_prompt)
+            response = self.llm.invoke(answer_prompt)
             
             # Extract content from AIMessage
             if hasattr(response, 'content'):
@@ -1755,9 +1707,7 @@ Answer:"""
             
             # Generate response using RAG
             teacher_logger.info("Generating RAG-based response")
-            with ollama_limiter.semaphore:
-                response = self.llm.invoke(rag_prompt)
-            # response = self.llm.invoke(rag_prompt)
+            response = self.llm.invoke(rag_prompt)
 
             response=response.content
             
@@ -1860,12 +1810,7 @@ Answer:"""
               if the user say give me detailed answer give the answer in detailed manner
             """
             # Generate improved content using LLM
-
-            with ollama_limiter.semaphore:
-                response = self.llm.invoke(prompt)
-            # response = self.llm.invoke(prompt)
-
-
+            response = self.llm.invoke(prompt)
             improved_content = response.content.strip()
             
             # Check if the response is in JSON format and extract the actual content
