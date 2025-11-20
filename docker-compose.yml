@@ -184,7 +184,7 @@ services:
       - GROQ_API_KEY=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
       - NOMIC_APIC_KEY=nk-7Ad201NonNkEv_pYdRwb-EkNjf84mVLW205ihoE7RyU
       - OLLAMA_BASE_URL=http://ollama:11434
-      - OLLAMA_MODEL=qwen2.5:3b
+      - OLLAMA_MODEL=qwen2.5:1.5b
     volumes:
       - .:/app
     healthcheck:
