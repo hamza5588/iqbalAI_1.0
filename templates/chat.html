@@ -6182,6 +6182,141 @@ async function initializeApp() {
         loadChatHistory();
     }
 
+    // Handle streaming lesson chat
+    async function handleStreamingLessonChat(message) {
+        hideTypingIndicator();
+        
+        // Create a placeholder message div for streaming
+        const chatMessages = document.getElementById('chatMessages');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'flex items-start gap-3 mb-2 message-container';
+        const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        messageDiv.id = messageId;
+        
+        // Create the message structure
+        messageDiv.innerHTML = `
+            <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                AI
+            </div>
+            <div class="bg-gray-100 rounded-2xl px-4 py-3 w-full message-bubble">
+                <div class="text-gray-700 leading-relaxed prose max-w-none" id="${messageId}_content">
+                    <span class="typing-indicator">▋</span>
+                </div>
+            </div>
+        `;
+        
+        chatMessages.appendChild(messageDiv);
+        smoothScrollToBottom(chatMessages);
+        
+        const contentDiv = document.getElementById(messageId + '_content');
+        let fullResponse = '';
+        let completeLessonStatus = 'no';
+        
+        try {
+            const response = await authenticatedFetch(`/api/lessons/lesson/${currentLessonChatId}/interactive_chat_stream`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    query: message
+                })
+            });
+            
+            if (!response) {
+                // Authentication error handled by authenticatedFetch
+                contentDiv.innerHTML = '<span class="text-red-600">Authentication error. Please login again.</span>';
+                return;
+            }
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || ''; // Keep incomplete line in buffer
+                
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.slice(6));
+                            
+                            if (data.chunk) {
+                                fullResponse += data.chunk;
+                                // Update the message content incrementally
+                                const formattedChunk = formatMessageContent(fullResponse);
+                                contentDiv.innerHTML = formattedChunk;
+                                
+                                // Auto-scroll to bottom as content streams
+                                smoothScrollToBottom(chatMessages);
+                            }
+                            
+                            if (data.is_complete) {
+                                completeLessonStatus = data.complete_lesson || 'no';
+                                
+                                // Use full_response if available, otherwise use accumulated response
+                                if (data.full_response) {
+                                    fullResponse = data.full_response;
+                                }
+                                
+                                // Final update with complete formatted message
+                                const formattedResponse = formatMessageContent(fullResponse);
+                                contentDiv.innerHTML = formattedResponse;
+                                
+                                // Store the last AI message for finalization
+                                lastAIMessage = fullResponse;
+                                
+                                // Update lesson content if complete lesson is generated
+                                if (completeLessonStatus === 'yes' && currentLessonData) {
+                                    currentLessonData.content = fullResponse;
+                                    generatedLessonContent = fullResponse;
+                                    saveLessonData();
+                                }
+                                
+                                // Handle scrolling for long messages
+                                setTimeout(() => {
+                                    handleLongMessageScrolling(messageDiv, chatMessages);
+                                    highlightNewMessage(messageDiv);
+                                }, 100);
+                                
+                                // Automatically speak the response if voice output is enabled
+                                if (isVoiceOutputEnabled || isRecording) {
+                                    speakText(fullResponse);
+                                }
+                                
+                                // Focus back to input after AI response
+                                setTimeout(() => {
+                                    focusMessageInput();
+                                }, 500);
+                                
+                                return; // Exit the function
+                            }
+                            
+                            if (data.error) {
+                                throw new Error(data.error);
+                            }
+                        } catch (e) {
+                            console.error('Error parsing SSE data:', e);
+                        }
+                    }
+                }
+            }
+            
+        } catch (error) {
+            console.error('Error in streaming chat:', error);
+            contentDiv.innerHTML = `<span class="text-red-600">Error: ${error.message || 'Failed to get streaming response'}</span>`;
+        }
+    }
+
     async function sendMessage() {
         const input = document.getElementById('messageInput');
         const message = input.value.trim();
@@ -6209,16 +6344,8 @@ async function initializeApp() {
                 
                 // Check if we're in lesson chat mode
                 if (isLessonChatMode && currentLessonChatId) {
-                    // Use interactive chat API for lesson
-                    response = await authenticatedFetch(`/api/lessons/lesson/${currentLessonChatId}/interactive_chat`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            query: message
-                        })
-                    });
+                    // Use streaming interactive chat API for lesson
+                    await handleStreamingLessonChat(message);
                 } else {
                     // Use regular chat API
                     response = await authenticatedFetch('/chat', {
@@ -6231,34 +6358,18 @@ async function initializeApp() {
                             conversation_id: currentChatId
                         })
                     });
-                }
-                
-                if (!response) return; // Authentication error handled by authenticatedFetch
+                    
+                    if (!response) return; // Authentication error handled by authenticatedFetch
 
-                hideTypingIndicator();
-                
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.error) {
-                        addMessageToChat('ai', `Error: ${data.error}`);
-                    } else {
-                        // Parse and format the response properly
-                        let formattedResponse;
-                        
-                        if (isLessonChatMode && data.ai_response) {
-                            // Use ai_response from interactive chat
-                            formattedResponse = data.ai_response;
-                            // Store the last AI message for finalization
-                            lastAIMessage = formattedResponse;
-                            
-                            // Update lesson content if complete lesson is generated
-                            if (data.complete_lesson === 'yes' && currentLessonData) {
-                                currentLessonData.content = formattedResponse;
-                                generatedLessonContent = formattedResponse;
-                                saveLessonData();
-                            }
+                    hideTypingIndicator();
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.error) {
+                            addMessageToChat('ai', `Error: ${data.error}`);
                         } else {
-                            formattedResponse = data.response;
+                            // Parse and format the response properly
+                            let formattedResponse = data.response;
                             
                             // Check if the response is a JSON string that needs parsing
                             try {
@@ -6271,37 +6382,33 @@ async function initializeApp() {
                                 // Not a JSON string, use as is
                                 formattedResponse = data.response;
                             }
+                            
+                            addMessageToChat('ai', formattedResponse);
+                            
+                            // Focus back to input after AI response for better engagement
+                            setTimeout(() => {
+                                focusMessageInput();
+                            }, 500);
+                            
+                            // Generate and update chat title after first message (only for regular chat)
+                            if (currentChatId && document.getElementById('chatTitle').textContent === 'New Chat') {
+                                const generatedTitle = generateChatTitle(message);
+                                updateChatTitle(currentChatId, generatedTitle);
+                            }
+                            
+                            // Automatically speak the response if voice recording was used or voice output is enabled
+                            if (isVoiceOutputEnabled || isRecording) {
+                                speakText(formattedResponse);
+                            }
                         }
-                        
-                        addMessageToChat('ai', formattedResponse);
-                        
-                        // Focus back to input after AI response for better engagement
-                        setTimeout(() => {
-                            focusMessageInput();
-                        }, 500);
-                        
-                        // Generate and update chat title after first message (only for regular chat)
-                        if (!isLessonChatMode && currentChatId && document.getElementById('chatTitle').textContent === 'New Chat') {
-                            const generatedTitle = generateChatTitle(message);
-                            updateChatTitle(currentChatId, generatedTitle);
-                        }
-                        
-                        // Automatically speak the response if voice recording was used or voice output is enabled
-                        if (isVoiceOutputEnabled || isRecording) {
-                            speakText(formattedResponse);
-                        }
-                    }
-                        
-                        // Save chat data to localStorage for persistence (only for regular chat)
-                        if (!isLessonChatMode) {
+                            
+                            // Save chat data to localStorage for persistence
                             saveChatToLocalStorage();
-                        }
-                } else {
-                    const errorData = await response.json();
-                    addMessageToChat('ai', `Error: ${errorData.error || 'Failed to get response'}`);
-                }
-                
-                if (!isLessonChatMode) {
+                    } else {
+                        const errorData = await response.json();
+                        addMessageToChat('ai', `Error: ${errorData.error || 'Failed to get response'}`);
+                    }
+                    
                     updateTokenMeter();
                 }
                 
