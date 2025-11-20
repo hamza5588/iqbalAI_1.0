@@ -2,26 +2,55 @@ import sqlite3
 import logging
 from flask import current_app, g 
 from typing import Dict, Any, Optional, List
+import os
+
 logger = logging.getLogger(__name__)
 
 def get_db():
-    """Get database connection."""
+    """Get database connection with read-only support for replicas."""
     if 'db' not in g:
         try:
             print(current_app.config['DATABASE'])
-            g.db = sqlite3.connect(
-                current_app.config['DATABASE'],
-                detect_types=sqlite3.PARSE_DECLTYPES,
-                timeout=20.0,  # Add timeout to prevent immediate locking
-                check_same_thread=False  # Allow multiple threads
-            )
+            
+            # Check if this is a read-only replica
+            instance_role = os.getenv('INSTANCE_ROLE', 'primary')
+            db_mode = os.getenv('DB_MODE', 'primary')
+            is_readonly = (instance_role == 'replica' or db_mode == 'readonly')
+            
+            # Connect with appropriate mode
+            if is_readonly:
+                # Read-only connection for replicas
+                db_uri = f"file:{current_app.config['DATABASE']}?mode=ro"
+                g.db = sqlite3.connect(
+                    db_uri,
+                    uri=True,
+                    detect_types=sqlite3.PARSE_DECLTYPES,
+                    timeout=30.0,
+                    check_same_thread=False
+                )
+                logger.info(f"Connected to database in READ-ONLY mode")
+            else:
+                # Read-write connection for primary
+                g.db = sqlite3.connect(
+                    current_app.config['DATABASE'],
+                    detect_types=sqlite3.PARSE_DECLTYPES,
+                    timeout=30.0,
+                    check_same_thread=False
+                )
+                logger.info(f"Connected to database in READ-WRITE mode")
+            
             g.db.row_factory = sqlite3.Row
-            # Enable foreign key support
+            
+            # Enable foreign key support (works even in read-only mode)
             g.db.execute('PRAGMA foreign_keys = ON')
-            # Set WAL mode for better concurrency
-            g.db.execute('PRAGMA journal_mode = WAL')
+            
+            # Set WAL mode (only on primary, will already be set on replicas)
+            if not is_readonly:
+                g.db.execute('PRAGMA journal_mode = WAL')
+            
             # Set busy timeout
             g.db.execute('PRAGMA busy_timeout = 30000')
+            
         except Exception as e:
             logger.error(f"Database connection error: {str(e)}")
             raise
@@ -32,18 +61,26 @@ def close_db(e=None):
     db = g.pop('db', None)
     if db is not None:
         try:
-            db.commit()  # Commit any pending transactions
+            # Only commit on primary instances
+            instance_role = os.getenv('INSTANCE_ROLE', 'primary')
+            if instance_role == 'primary':
+                db.commit()
             db.close()
         except Exception as e:
             logger.error(f"Error closing database: {str(e)}")
             try:
-                db.rollback()  # Rollback on error
+                if instance_role == 'primary':
+                    db.rollback()
             except:
                 pass
 
 
 def update_token_usage(user_id: int, tokens_used: int) -> None:
     """Update the token usage for a user."""
+    instance_role = os.getenv('INSTANCE_ROLE', 'primary')
+    if instance_role != 'primary':
+        raise PermissionError("Write operations not allowed on read replicas")
+    
     try:
         db = get_db()
         # Try to update existing record for today
@@ -100,6 +137,10 @@ def get_token_usage(user_id: int) -> Dict[str, Any]:
 
 def record_token_reset(user_id: int, tokens_used: int, limit_reached: bool = False) -> None:
     """Record when a user's token counter is reset."""
+    instance_role = os.getenv('INSTANCE_ROLE', 'primary')
+    if instance_role != 'primary':
+        raise PermissionError("Write operations not allowed on read replicas")
+    
     try:
         db = get_db()
         db.execute(
@@ -112,11 +153,15 @@ def record_token_reset(user_id: int, tokens_used: int, limit_reached: bool = Fal
     except Exception as e:
         logger.error(f"Error recording token reset: {str(e)}")
         raise
-# ----- >
 
 
 def init_db(app):
-    """Initialize the database schema."""
+    """Initialize the database schema - ONLY RUN ON PRIMARY."""
+    instance_role = os.getenv('INSTANCE_ROLE', 'primary')
+    if instance_role != 'primary':
+        logger.info("Skipping database initialization on read replica")
+        return
+    
     try:
         with app.app_context():
             db = get_db()
@@ -156,114 +201,75 @@ def init_db(app):
                     has_child_version BOOLEAN DEFAULT FALSE,
                     parent_lesson_id INTEGER,
                     version INTEGER DEFAULT 1,
+                    lesson_id TEXT,
+                    version_number INTEGER DEFAULT 1,
+                    parent_version_id INTEGER,
+                    original_content TEXT,
+                    draft_content TEXT,
+                    status TEXT DEFAULT "finalized",
                     FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE,
                     FOREIGN KEY (parent_lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
                 )
             ''')
             
-            # Add parent_lesson_id and version columns if they don't exist (for existing databases)
+            # Add columns if they don't exist (for existing databases)
+            columns_to_add = [
+                ('parent_lesson_id', 'INTEGER'),
+                ('version', 'INTEGER DEFAULT 1'),
+                ('has_child_version', 'BOOLEAN DEFAULT FALSE'),
+                ('detailed_answer', 'TEXT'),
+                ('lesson_id', 'TEXT'),
+                ('version_number', 'INTEGER DEFAULT 1'),
+                ('parent_version_id', 'INTEGER'),
+                ('original_content', 'TEXT'),
+                ('draft_content', 'TEXT'),
+                ('status', 'TEXT DEFAULT "finalized"'),
+            ]
+            
+            for column_name, column_type in columns_to_add:
+                try:
+                    db.execute(f'ALTER TABLE lessons ADD COLUMN {column_name} {column_type}')
+                    logger.info(f"Added column {column_name} to lessons table")
+                except:
+                    pass  # Column already exists
+            
+            # Migrate existing lessons to new schema
             try:
-                db.execute('ALTER TABLE lessons ADD COLUMN parent_lesson_id INTEGER')
-            except:
-                pass  # Column already exists
+                existing_lessons = db.execute('SELECT id FROM lessons WHERE lesson_id IS NULL').fetchall()
+                for lesson in existing_lessons:
+                    lesson_id = f"L{lesson['id']:06d}"
+                    db.execute('UPDATE lessons SET lesson_id = ? WHERE id = ?', (lesson_id, lesson['id']))
                 
-            try:
-                db.execute('ALTER TABLE lessons ADD COLUMN version INTEGER DEFAULT 1')
-            except:
-                pass  # Column already exists
-            
-            # Add has_child_version flag if it doesn't exist
-            try:
-                db.execute('ALTER TABLE lessons ADD COLUMN has_child_version BOOLEAN DEFAULT FALSE')
-            except:
-                pass  # Column already exists
+                db.execute('UPDATE lessons SET original_content = content WHERE original_content IS NULL')
+                db.execute('UPDATE lessons SET version_number = 1 WHERE version_number IS NULL')
+                db.execute('UPDATE lessons SET status = "finalized" WHERE status IS NULL')
                 
-            # Add detailed_answer column if it doesn't exist
-            try:
-                db.execute('ALTER TABLE lessons ADD COLUMN detailed_answer TEXT')
-            except:
-                pass  # Column already exists
+                try:
+                    db.execute('UPDATE lessons SET has_child_version = COALESCE(has_child_version, FALSE)')
+                except:
+                    pass
                 
-                    # Add new columns for proper lesson versioning
-        try:
-            db.execute('ALTER TABLE lessons ADD COLUMN lesson_id TEXT')
-        except:
-            pass  # Column already exists
-            
-        try:
-            db.execute('ALTER TABLE lessons ADD COLUMN version_number INTEGER DEFAULT 1')
-        except:
-            pass  # Column already exists
-            
-        try:
-            db.execute('ALTER TABLE lessons ADD COLUMN parent_version_id INTEGER')
-        except:
-            pass  # Column already exists
-            
-        try:
-            db.execute('ALTER TABLE lessons ADD COLUMN original_content TEXT')
-        except:
-            pass  # Column already exists
-            
-        try:
-            db.execute('ALTER TABLE lessons ADD COLUMN draft_content TEXT')
-        except:
-            pass  # Column already exists
-            
-        try:
-            db.execute('ALTER TABLE lessons ADD COLUMN status TEXT DEFAULT "finalized"')
-        except:
-            pass  # Column already exists
-            
-        # Migrate existing lessons to new schema
-        try:
-            # Generate lesson_id for existing lessons that don't have one
-            existing_lessons = db.execute('SELECT id FROM lessons WHERE lesson_id IS NULL').fetchall()
-            for lesson in existing_lessons:
-                lesson_id = f"L{lesson['id']:06d}"  # Generate lesson_id like L000001
-                db.execute('UPDATE lessons SET lesson_id = ? WHERE id = ?', (lesson_id, lesson['id']))
-            
-            # Set original_content for existing lessons
-            db.execute('UPDATE lessons SET original_content = content WHERE original_content IS NULL')
-            
-            # Set version_number for existing lessons
-            db.execute('UPDATE lessons SET version_number = 1 WHERE version_number IS NULL')
-            
-            # Set status for existing lessons
-            db.execute('UPDATE lessons SET status = "finalized" WHERE status IS NULL')
-            
-            # Ensure has_child_version defaults are set (if the column exists)
-            try:
-                db.execute('UPDATE lessons SET has_child_version = COALESCE(has_child_version, FALSE)')
-            except:
-                pass
-            
-            # Add unique constraint to prevent duplicate version numbers for the same lesson_id
-            try:
-                # First, remove any existing duplicates by keeping only the one with the lowest ID
-                db.execute('''
-                    DELETE FROM lessons 
-                    WHERE id NOT IN (
-                        SELECT MIN(id) 
-                        FROM lessons 
-                        GROUP BY lesson_id, version_number
-                    )
-                ''')
-                
-                # Create unique index to prevent future duplicates
-                db.execute('''
-                    CREATE UNIQUE INDEX IF NOT EXISTS idx_lesson_version_unique 
-                    ON lessons(lesson_id, version_number)
-                ''')
-                logger.info("Added unique constraint on lesson_id and version_number")
-            except Exception as e:
-                logger.warning(f"Could not add unique constraint: {e}")
-                pass
+                try:
+                    db.execute('''
+                        DELETE FROM lessons 
+                        WHERE id NOT IN (
+                            SELECT MIN(id) 
+                            FROM lessons 
+                            GROUP BY lesson_id, version_number
+                        )
+                    ''')
+                    
+                    db.execute('''
+                        CREATE UNIQUE INDEX IF NOT EXISTS idx_lesson_version_unique 
+                        ON lessons(lesson_id, version_number)
+                    ''')
+                    logger.info("Added unique constraint on lesson_id and version_number")
+                except Exception as e:
+                    logger.warning(f"Could not add unique constraint: {e}")
 
-            db.commit()
-        except Exception as e:
-            print(f"Migration error: {e}")
-            pass
+                db.commit()
+            except Exception as e:
+                logger.warning(f"Migration error: {e}")
             
             # Create conversations table
             db.execute('''
@@ -314,7 +320,7 @@ def init_db(app):
                 )
             ''')
 
-             # Create user_documents table
+            # Create user_documents table
             db.execute('''
                 CREATE TABLE IF NOT EXISTS user_documents (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -330,7 +336,8 @@ def init_db(app):
                     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
                 )
             ''')
-             # Create user_token_usage table
+            
+            # Create user_token_usage table
             db.execute('''
                 CREATE TABLE IF NOT EXISTS user_token_usage (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -355,26 +362,28 @@ def init_db(app):
                 )
             ''')
 
-            # Create index for token usage tracking
-            db.execute('CREATE INDEX IF NOT EXISTS idx_user_token_usage_user_id ON user_token_usage(user_id)')
-            db.execute('CREATE INDEX IF NOT EXISTS idx_user_token_usage_date ON user_token_usage(date)')
-
-            # Create indexes for lessons table
-            db.execute('CREATE INDEX IF NOT EXISTS idx_lessons_teacher_id ON lessons(teacher_id)')
-            db.execute('CREATE INDEX IF NOT EXISTS idx_lessons_grade_level ON lessons(grade_level)')
-            db.execute('CREATE INDEX IF NOT EXISTS idx_lessons_focus_area ON lessons(focus_area)')
-            db.execute('CREATE INDEX IF NOT EXISTS idx_lessons_is_public ON lessons(is_public)')
-
-            db.execute('CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id)')
-            db.execute('CREATE INDEX IF NOT EXISTS idx_chat_history_conversation_id ON chat_history(conversation_id)')
-            db.execute('CREATE INDEX IF NOT EXISTS idx_user_prompts_user_id ON user_prompts(user_id)')
-            db.execute('CREATE INDEX IF NOT EXISTS idx_user_documents_user_id ON user_documents(user_id)')
-            db.execute('CREATE INDEX IF NOT EXISTS idx_user_documents_file_type ON user_documents(file_type)')
+            # Create indexes
+            indexes = [
+                'CREATE INDEX IF NOT EXISTS idx_user_token_usage_user_id ON user_token_usage(user_id)',
+                'CREATE INDEX IF NOT EXISTS idx_user_token_usage_date ON user_token_usage(date)',
+                'CREATE INDEX IF NOT EXISTS idx_lessons_teacher_id ON lessons(teacher_id)',
+                'CREATE INDEX IF NOT EXISTS idx_lessons_grade_level ON lessons(grade_level)',
+                'CREATE INDEX IF NOT EXISTS idx_lessons_focus_area ON lessons(focus_area)',
+                'CREATE INDEX IF NOT EXISTS idx_lessons_is_public ON lessons(is_public)',
+                'CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id)',
+                'CREATE INDEX IF NOT EXISTS idx_chat_history_conversation_id ON chat_history(conversation_id)',
+                'CREATE INDEX IF NOT EXISTS idx_user_prompts_user_id ON user_prompts(user_id)',
+                'CREATE INDEX IF NOT EXISTS idx_user_documents_user_id ON user_documents(user_id)',
+                'CREATE INDEX IF NOT EXISTS idx_user_documents_file_type ON user_documents(file_type)',
+            ]
+            
+            for index_sql in indexes:
+                db.execute(index_sql)
             
             db.commit()
-            logger.info("Database initialized successfully")
+            logger.info("✓ Database initialized successfully on PRIMARY instance")
+            logger.info("✓ WAL mode enabled for better concurrent reads")
             
     except Exception as e:
         logger.error(f"Database initialization error: {str(e)}")
         raise
-
