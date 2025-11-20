@@ -184,14 +184,16 @@ services:
       - "11434"
     volumes:
       - ollama_data:/root/.ollama
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 4 && ollama pull qwen2.5:3b && wait"]
     networks:
       - app_network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
-      interval: 30s
+      test: ["CMD", "curl", "-sS", "http://localhost:11434/api/tags"]
+      interval: 20s
       timeout: 10s
-      retries: 3
-      start_period: 60s
+      retries: 10
+      start_period: 160s
+
     # Optional: Limit resources if needed
     # deploy:
     #   resources:
