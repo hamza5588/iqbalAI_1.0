@@ -67,6 +67,29 @@ class LessonService:
             document_uploaded=document_uploaded,
             document_filename=document_filename
         )
+    
+    def interactive_chat_stream(
+        self, 
+        lesson_id: int, 
+        user_query: str,
+        session_id: str = None,
+        subject: str = None,
+        grade_level: str = None,
+        focus_area: str = None,
+        document_uploaded: bool = False,
+        document_filename: str = None
+    ):
+        """Interactive chat with streaming response"""
+        return self.teacher_service.interactive_chat_stream(
+            lesson_id=lesson_id,
+            user_query=user_query,
+            session_id=session_id,
+            subject=subject,
+            grade_level=grade_level,
+            focus_area=focus_area,
+            document_uploaded=document_uploaded,
+            document_filename=document_filename
+        )
 
     def review_lesson_with_rag(self, lesson_content: str, user_prompt: str, filename: str = "") -> str:
         """Review lesson content using RAG to retrieve relevant information from vector database"""

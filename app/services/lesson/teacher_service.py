@@ -140,8 +140,9 @@ class TeacherLessonService(BaseLessonService):
 
     def process_file(self, file: FileStorage, lesson_details: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """
-        Process an uploaded file and return structured lesson content with DOCX bytes.
-        Accepts additional lesson details (title, prompt, focus areas, etc.) for teacher-focused workflow.
+        Process an uploaded file and create vector DB for RAG.
+        Returns a greeting message instead of generating lesson immediately.
+        Lesson generation happens only when user sends a query via interactive_chat.
         """
         teacher_logger.info(f"=== TEACHER FILE PROCESSING STARTED ===")
         teacher_logger.info(f"File: {file.filename if file else 'None'}")
@@ -178,7 +179,7 @@ class TeacherLessonService(BaseLessonService):
             
             teacher_logger.info(f"Text extracted successfully: {len(full_text)} characters")
             
-            # Process document with RAG service
+            # Process document with RAG service to create vector DB
             rag_result = self.rag_service.process_document(documents, file.filename)
             if 'error' in rag_result:
                 teacher_logger.error(f"RAG processing failed: {rag_result['error']}")
@@ -189,69 +190,20 @@ class TeacherLessonService(BaseLessonService):
                 self._store_original_document_rag(file.filename)
                 teacher_logger.info("Original document RAG service stored for AI review")
             
-            # Check if RAG should be used
-            if rag_result['use_rag']:
-                teacher_logger.info("Using RAG for large document processing")
-                
-                # Get user prompt
-                user_prompt = lesson_details.get('lesson_prompt', '') if lesson_details else ''
-                
-                # Retrieve relevant chunks
-                relevant_chunks = self.rag_service.retrieve_relevant_chunks(user_prompt, k=5)
-                if not relevant_chunks:
-                    teacher_logger.warning("No relevant chunks found, using first few chunks")
-                    relevant_chunks = self.rag_service.documents[:3]
-                
-                # Create RAG prompt
-                rag_prompt = self.rag_service.create_rag_prompt(user_prompt, relevant_chunks, lesson_details)
-                
-                # Generate lesson using RAG prompt
-                teacher_logger.info("Starting AI lesson generation with RAG")
-                lesson_response = self._llm_responce(rag_prompt, lesson_details)
-            else:
-                teacher_logger.info("Document is small, using direct processing")
-                
-                # Extract specific sections based on prompt if specified
-                if lesson_details and lesson_details.get('lesson_prompt'):
-                    teacher_logger.info(f"Extracting sections based on prompt: {lesson_details['lesson_prompt']}")
-                    extracted_text = self._extract_sections_from_prompt(full_text, lesson_details['lesson_prompt'])
-                    if extracted_text:
-                        full_text = extracted_text
-                        teacher_logger.info(f"Specific sections extracted: {len(extracted_text)} characters")
-                        logger.info(f"Extracted specific sections based on prompt: {lesson_details['lesson_prompt']}")
-                    else:
-                        teacher_logger.info("No specific sections found, using full text")
-                
-                # Generate structured lesson
-                teacher_logger.info("Starting AI lesson generation")
-                lesson_response = self._generate_structured_lesson(full_text, lesson_details)
+            teacher_logger.info("Vector DB created successfully. Skipping LLM call - will respond on user query.")
             
-            # Check if lesson generation was successful
-            if lesson_response.startswith("Error generating lesson:"):
-                teacher_logger.error(f"Lesson generation failed: {lesson_response}")
-                return {"error": lesson_response}
+            # Return a simple greeting message instead of generating lesson
+            # The actual lesson generation will happen in interactive_chat when user sends a query
+            greeting_message = f"Hello! I'm Prof. Potter, here to help you prepare your lesson plan. Your file '{file.filename}' has been uploaded and processed successfully. I've analyzed the document and I'm ready to help you create a lesson from this content. How would you like me to help you create a lesson?"
             
-            teacher_logger.info("Lesson generation completed successfully")
-            teacher_logger.info(f"Generated lesson response length: {len(lesson_response)} characters")
-
-            # Generate DOCX from the lesson response
-            if lesson_response and not lesson_response.startswith("Error"):
-                teacher_logger.info("Generating DOCX document")
-                docx_bytes = self._create_docx_from_text(lesson_response, lesson_details)
-                base_name = os.path.splitext(file.filename)[0]
-                filename = f"lesson_{base_name}.docx"
-                teacher_logger.info(f"DOCX generated: {filename}, size: {len(docx_bytes)} bytes")
-            else:
-                teacher_logger.info("Skipping DOCX generation due to error")
-                docx_bytes = None
-                filename = None
-            
-            teacher_logger.info("=== TEACHER FILE PROCESSING COMPLETED ===")
+            teacher_logger.info("=== TEACHER FILE PROCESSING COMPLETED (No LLM call) ===")
             
             return {
-                "lesson": lesson_response,
-                "docx_bytes": docx_bytes,
-                "filename": filename
+                "lesson": greeting_message,
+                "docx_bytes": None,  # No DOCX generated at upload time
+                "filename": None,
+                "file_processed": True,
+                "filename_processed": file.filename
             }
         except Exception as e:
             teacher_logger.error(f"File processing failed: {str(e)}")
@@ -514,6 +466,219 @@ class TeacherLessonService(BaseLessonService):
             ai_response=response_text,
             complete_lesson=complete_lesson_status
         )
+    
+    def interactive_chat_stream(
+        self, 
+        lesson_id: int, 
+        user_query: str, 
+        session_id: str = None, 
+        subject: str = None, 
+        grade_level: str = None, 
+        focus_area: str = None, 
+        document_uploaded: bool = False, 
+        document_filename: str = None
+    ):
+        """
+        Interactive chat with streaming response for Prof. Potter.
+        Yields chunks of the response as they are generated.
+        Returns a generator that yields (chunk_text, is_complete, complete_lesson_status) tuples.
+        """
+        teacher_logger.info("=== INTERACTIVE CHAT STREAMING STARTED ===")
+        
+        # Use lesson_id as session_id
+        if not session_id:
+            session_id = f"lesson_{lesson_id}"
+        
+        response_text = ""
+        complete_lesson_status = "no"
+        
+        try:
+            # Step 1: Load vector DB
+            vector_db = FAISS.load_local(
+                "vector_store.faiss", 
+                self.rag_service.embeddings, 
+                allow_dangerous_deserialization=True
+            )
+            retriever = vector_db.as_retriever(search_type="similarity", search_kwargs={"k": 5})
+            teacher_logger.info("Vector DB loaded successfully")
+            
+            # Step 2: Handle uploaded document content
+            uploaded_doc_content = ""
+            if document_uploaded and document_filename:
+                try:
+                    uploaded_doc_content = f"\n\n### Uploaded Document: {document_filename}\n[Document content]"
+                    teacher_logger.info(f"Retrieved uploaded document: {document_filename}")
+                except Exception as e:
+                    teacher_logger.warning(f"Could not retrieve uploaded document: {str(e)}")
+            
+            # Step 3: Store form data
+            form_context = {
+                'subject': subject or focus_area,
+                'grade_level': grade_level,
+                'document_uploaded': document_uploaded,
+                'document_filename': document_filename,
+                'uploaded_content': uploaded_doc_content
+            }
+            
+            # Step 4: Build system prompt
+            base_system_prompt = self._get_system_prompt(form_context)
+            teacher_logger.info("System prompt built")
+            
+            # Step 5: Get chat history
+            chat_history = self.get_session_history(session_id)
+            is_first_message = len(chat_history.messages) == 0 if hasattr(chat_history, 'messages') else True
+            teacher_logger.info(f"Chat history retrieved: {len(chat_history.messages) if hasattr(chat_history, 'messages') else 0} messages")
+            
+            # Step 6: Enhance query if first message with document
+            enhanced_query = user_query
+            if is_first_message and document_uploaded:
+                try:
+                    overview_query = "What is this document about? Provide a brief summary."
+                    overview_docs = retriever.invoke(overview_query)
+                    if overview_docs:
+                        doc_summary = "\n".join([doc.page_content[:200] for doc in overview_docs[:3]])
+                        enhanced_query = f"{user_query}\n\n[Document Context: {doc_summary}...]"
+                        teacher_logger.info("Query enhanced with document context")
+                except Exception as e:
+                    teacher_logger.warning(f"Could not retrieve document overview: {str(e)}")
+            
+            # Step 7: Retrieve context from vector store
+            docs = retriever.invoke(enhanced_query)
+            context = self.format_context(docs, max_tokens=1500)
+            teacher_logger.info(f"Retrieved {len(docs)} documents from vector store")
+            
+            # Step 8: Build messages array manually with token management
+            messages = []
+            
+            # Add system message with context
+            system_content = f"{base_system_prompt}\n\n### Knowledge Base Context:\n{context}{uploaded_doc_content}"
+            messages.append({"role": "system", "content": system_content})
+            
+            # Add chat history messages (limit to last 10 messages)
+            if hasattr(chat_history, 'messages'):
+                history_messages = list(chat_history.messages)
+                if len(history_messages) > 10:
+                    history_messages = history_messages[-10:]
+                
+                for msg in history_messages:
+                    if hasattr(msg, 'type'):
+                        role = "user" if msg.type == "human" else "assistant"
+                        content = msg.content if hasattr(msg, 'content') else str(msg)
+                        if self._estimate_tokens(content) > 500:
+                            content = self._truncate_text(content, 500)
+                        messages.append({"role": role, "content": content})
+            
+            # Add current user query
+            messages.append({"role": "user", "content": enhanced_query})
+            
+            # Estimate total tokens before sending
+            total_text = "\n".join([msg.get("content", "") for msg in messages])
+            estimated_tokens = self._estimate_tokens(total_text)
+            teacher_logger.info(f"Built message array with {len(messages)} messages, estimated tokens: {estimated_tokens}")
+            
+            # If estimated tokens exceed limit, reduce context further
+            if estimated_tokens > 5500:
+                teacher_logger.warning(f"Estimated tokens ({estimated_tokens}) exceed safe limit, reducing context")
+                context = self.format_context(docs, max_tokens=800)
+                system_content = f"{base_system_prompt}\n\n### Knowledge Base Context:\n{context}{uploaded_doc_content}"
+                messages[0] = {"role": "system", "content": system_content}
+            
+            # Step 9: Stream LLM response
+            teacher_logger.info("Starting LLM streaming...")
+            try:
+                # Stream the response
+                for chunk in self.llm.stream(messages):
+                    if hasattr(chunk, 'content'):
+                        chunk_text = chunk.content
+                    else:
+                        chunk_text = str(chunk)
+                    
+                    if chunk_text:
+                        response_text += chunk_text
+                        # Yield each chunk with is_complete=False
+                        yield (chunk_text, False, "no")
+                
+                teacher_logger.info(f"LLM streaming completed: {len(response_text)} characters")
+                
+            except Exception as e:
+                error_str = str(e)
+                is_token_error = (
+                    "413" in error_str or 
+                    "too large" in error_str.lower() or 
+                    "tokens per minute" in error_str.lower() or
+                    "rate_limit_exceeded" in error_str.lower() or
+                    "request too large" in error_str.lower()
+                )
+                
+                if is_token_error:
+                    teacher_logger.warning(f"Request too large, retrying with reduced context. Error: {error_str[:200]}")
+                    # Retry with minimal context
+                    context = self.format_context(docs, max_tokens=500)
+                    system_content = f"{base_system_prompt}\n\n### Knowledge Base Context:\n{context}"
+                    messages[0] = {"role": "system", "content": system_content}
+                    
+                    if hasattr(chat_history, 'messages'):
+                        history_messages = list(chat_history.messages)
+                        if len(history_messages) > 4:
+                            history_messages = history_messages[-4:]
+                        messages = [{"role": "system", "content": system_content}]
+                        for msg in history_messages:
+                            if hasattr(msg, 'type'):
+                                role = "user" if msg.type == "human" else "assistant"
+                                content = msg.content if hasattr(msg, 'content') else str(msg)
+                                content = self._truncate_text(content, 300)
+                                messages.append({"role": role, "content": content})
+                        messages.append({"role": "user", "content": enhanced_query})
+                    
+                    # Retry streaming
+                    response_text = ""
+                    for chunk in self.llm.stream(messages):
+                        if hasattr(chunk, 'content'):
+                            chunk_text = chunk.content
+                        else:
+                            chunk_text = str(chunk)
+                        
+                        if chunk_text:
+                            response_text += chunk_text
+                            yield (chunk_text, False, "no")
+                else:
+                    # Re-raise if it's a different error
+                    error_msg = f"\n\n[Error: {str(e)}]"
+                    response_text += error_msg
+                    yield (error_msg, False, "no")
+                    raise
+            
+            # Step 10: Update chat history manually
+            from langchain_core.messages import HumanMessage, AIMessage
+            chat_history.add_message(HumanMessage(content=enhanced_query))
+            chat_history.add_message(AIMessage(content=response_text))
+            teacher_logger.info(f"Chat history updated for session: {session_id}")
+            
+        except Exception as e:
+            teacher_logger.error(f"Interactive chat streaming error: {str(e)}", exc_info=True)
+            # Yield error message
+            error_msg = f"\n\n[Error: {str(e)}]"
+            yield (error_msg, True, "no")
+            return
+        
+        # Step 11: Check if complete lesson generated (after streaming completes)
+        try:
+            lesson_check = check_lesson_response(response_text, self.api_key)
+            complete_lesson_status = lesson_check.complete_lesson
+            teacher_logger.info(f"Lesson completion check: {complete_lesson_status}")
+        except Exception as e:
+            teacher_logger.warning(f"Error checking lesson completion: {str(e)}")
+            complete_lesson_status = "no"
+        
+        # Step 12: Force cleanup
+        import gc
+        gc.collect()
+        
+        teacher_logger.info("=== INTERACTIVE CHAT STREAMING COMPLETED ===")
+        
+        # Yield final chunk with completion status
+        yield ("", True, complete_lesson_status)
+    
     # def interactive_chat(
     #     self, 
     #     lesson_id: int, 
@@ -954,10 +1119,11 @@ class TeacherLessonService(BaseLessonService):
 
 **Important Guideline 1: Communication Style**
 * Greeting (first interaction only): 
-  - If document is uploaded: Use the knowledge base context to understand what the document is about, then greet with: "Hello, I'm Prof. Potter, here to help you prepare your lesson plan. I've reviewed your uploaded document about [briefly mention main topics/themes from the document]. How would you like me to help you create a lesson from this content?"
+  - If document is uploaded: The greeting has already been sent when the file was uploaded. Do NOT greet again - just respond directly to the user's query using the knowledge base context to understand what the document is about.
   - If no document: "Hello, I'm Prof. Potter, here to help you prepare your lesson plan. Could you please provide me with the document content or topic you'd like to create a lesson about?"
   - NEVER ask about uploading documents if document_uploaded is True - the document is already uploaded
   - NEVER mention "Other" as a subject - if subject is "Other" or empty, don't mention it
+  - When document is uploaded, use the knowledge base context to understand the document's main topics/themes and incorporate that understanding into your responses
 * All responses: Concise, clear, confidence-building, self-explanatory (≤150 words per response)
 * Exception: Final complete lesson plan may exceed 150 words
 * Use confidence-building language throughout: "Let's work together", "This will help your students", "Great question"

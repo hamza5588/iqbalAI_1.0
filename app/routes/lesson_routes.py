@@ -104,21 +104,8 @@ def create_lesson():
             if not lesson_id:
                 return jsonify({'error': 'Failed to save lesson to database'}), 500
             
-            # Start interactive chat with initial message containing form data
-            initial_message = f"I want to create a lesson on {focus_area} for {grade_level} grade students."
-            if additional_notes:
-                initial_message += f" Additional notes: {additional_notes}."
-            
-            # Start interactive chat with form context
-            chat_result = lesson_service.interactive_chat(
-                lesson_id=lesson_id,
-                user_query=initial_message,
-                subject=focus_area,
-                grade_level=grade_level,
-                focus_area=focus_area,
-                document_uploaded=True,
-                document_filename=file.filename
-            )
+            # Get the greeting message from process_result (no LLM call was made)
+            greeting_message = process_result.get('lesson', 'Your file has been uploaded successfully.')
             
             # Get the lesson response
             lesson_response = LessonModel.get_lesson_by_id(lesson_id)
@@ -127,14 +114,18 @@ def create_lesson():
             lesson_response['focus_area'] = focus_area
             lesson_response['isFinalized'] = False
             
+            # Return greeting message without calling LLM
+            # LLM will only be called when user sends a query via interactive_chat endpoint
             return jsonify({
                 'success': True,
-                'response_type': 'interactive_chat_started',
+                'response_type': 'file_uploaded',
                 'lesson_id': lesson_id,
                 'lesson': lesson_response,
-                'ai_response': chat_result.ai_response,
-                'complete_lesson': chat_result.complete_lesson,
-                'message': 'Interactive chat started! Continue the conversation to refine your lesson.'
+                'ai_response': greeting_message,
+                'complete_lesson': 'no',
+                'message': 'File uploaded successfully! You can now start chatting to create your lesson.',
+                'file_processed': True,
+                'filename': process_result.get('filename_processed', file.filename)
             })
         
         else:
@@ -1607,6 +1598,104 @@ def interactive_chat(lesson_id):
     except Exception as e:
         logger.error(f"Error in interactive chat: {str(e)}", exc_info=True)
         return jsonify({'error': f'Failed to process chat: {str(e)}'}), 500
+
+@bp.route('/lesson/<int:lesson_id>/interactive_chat_stream', methods=['POST'])
+@teacher_required
+def interactive_chat_stream(lesson_id):
+    """Interactive chat with streaming response using Server-Sent Events (SSE)"""
+    try:
+        lesson = LessonModel.get_lesson_by_id(lesson_id)
+        if not lesson:
+            return jsonify({'error': 'Lesson not found'}), 404
+        if lesson['teacher_id'] != session['user_id']:
+            return jsonify({'error': 'Access denied'}), 403
+
+        data = request.get_json()
+        user_query = data.get('query', '')
+
+        if not user_query.strip():
+            return jsonify({'error': 'Query is required'}), 400
+
+        api_key = session.get('groq_api_key')
+        if not api_key:
+            return jsonify({'error': 'API key not configured'}), 400
+
+        # Get lesson data to pass form context
+        lesson = LessonModel.get_lesson_by_id(lesson_id)
+        if not lesson:
+            return jsonify({'error': 'Lesson not found'}), 404
+
+        lesson_service = LessonService(api_key=api_key)
+        
+        # Check if document was uploaded
+        document_uploaded = bool(lesson.get('focus_area'))
+        
+        # Import Response for streaming
+        from flask import Response
+        import json
+        
+        def generate():
+            """Generator function for Server-Sent Events"""
+            try:
+                full_response = ""
+                complete_lesson_status = "no"
+                
+                # Stream the response
+                for chunk_text, is_complete, complete_lesson in lesson_service.interactive_chat_stream(
+                    lesson_id=lesson_id,
+                    user_query=user_query,
+                    subject=lesson.get('focus_area'),
+                    grade_level=lesson.get('grade_level'),
+                    focus_area=lesson.get('focus_area'),
+                    document_uploaded=document_uploaded,
+                    document_filename=None
+                ):
+                    # Always accumulate the chunk text (even if empty for final message)
+                    if chunk_text:
+                        full_response += chunk_text
+                        # Send chunk as SSE
+                        yield f"data: {json.dumps({'chunk': chunk_text, 'is_complete': False, 'complete_lesson': 'no'})}\n\n"
+                    
+                    # Check if this is the final message
+                    if is_complete:
+                        complete_lesson_status = complete_lesson
+                        # Send completion message with full response
+                        yield f"data: {json.dumps({'chunk': '', 'is_complete': True, 'complete_lesson': complete_lesson_status, 'full_response': full_response})}\n\n"
+                        
+                        # If complete lesson is generated, save it to database
+                        if complete_lesson_status == "yes" and full_response:
+                            try:
+                                lesson_model = LessonModel(lesson_id)
+                                lesson_model.update_lesson(content=full_response)
+                                logger.info(f"Complete lesson saved to database for lesson_id: {lesson_id}")
+                            except Exception as e:
+                                logger.error(f"Error saving lesson: {str(e)}")
+                        
+                        break
+                
+            except Exception as e:
+                logger.error(f"Error in streaming chat: {str(e)}", exc_info=True)
+                error_data = json.dumps({
+                    'error': str(e),
+                    'is_complete': True,
+                    'complete_lesson': 'no'
+                })
+                yield f"data: {error_data}\n\n"
+        
+        # Return streaming response with SSE headers
+        return Response(
+            generate(),
+            mimetype='text/event-stream',
+            headers={
+                'Cache-Control': 'no-cache',
+                'X-Accel-Buffering': 'no',  # Disable buffering in nginx
+                'Connection': 'keep-alive'
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Error in streaming chat route: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to start streaming: {str(e)}'}), 500
 
 @bp.route('/lesson/<int:lesson_id>/clear_draft', methods=['DELETE'])
 @teacher_required
