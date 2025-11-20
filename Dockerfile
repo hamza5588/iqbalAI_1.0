@@ -39,4 +39,6 @@ ENV PYTHONPATH=/app
 EXPOSE 5000
 
 # Run the app
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "1", "--timeout", "120", "--preload", "run:app"]
+# Increased timeout to 1800s (30 minutes) for streaming endpoints
+# graceful-timeout allows workers to finish current requests before being killed
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--workers", "1", "--threads", "1", "--timeout", "1800", "--graceful-timeout", "30", "--keep-alive", "5", "--preload", "run:app"]
