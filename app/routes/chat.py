@@ -7,9 +7,15 @@ from app.utils.auth import login_required
 from app.utils.decorators import teacher_required
 import logging
 from app.utils.db import get_db
+import time
+from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('chat', __name__)
+
+# Simple cache for token status (user_id -> (timestamp, data))
+_token_status_cache = {}
+CACHE_TTL = 2  # Cache for 2 seconds
 
 @bp.route('/health')
 def health_check():
@@ -285,11 +291,21 @@ def get_token_usage():
 @login_required
 def get_token_status():
     try:
-        # Get current API key from session
+        user_id = session['user_id']
         current_api_key = session.get('groq_api_key')
+        current_time = time.time()
         
+        # Check cache first
+        cache_key = f"{user_id}_{current_api_key}"
+        if cache_key in _token_status_cache:
+            cached_time, cached_data = _token_status_cache[cache_key]
+            if current_time - cached_time < CACHE_TTL:
+                # Return cached data
+                return jsonify(cached_data)
+        
+        # Cache miss or expired - fetch fresh data
         # Initialize chat service
-        chat_service = ChatService(session['user_id'], current_api_key)
+        chat_service = ChatService(user_id, current_api_key)
         
         # Verify the API key matches what's being used
         if chat_service.chat_model.api_key != current_api_key:
@@ -297,13 +313,25 @@ def get_token_status():
             
         token_status = chat_service.chat_model.get_token_status()
         
-        return jsonify({
+        response_data = {
             'used': token_status['used'],
             'remaining': token_status['remaining'],
             'limit': token_status['limit'],
             'reset_in': token_status['reset_in'],
             'api_key_changed': False  # Can be used by frontend if needed
-        })
+        }
+        
+        # Cache the response
+        _token_status_cache[cache_key] = (current_time, response_data)
+        
+        # Clean old cache entries (keep only last 100)
+        if len(_token_status_cache) > 100:
+            # Remove oldest entries
+            sorted_cache = sorted(_token_status_cache.items(), key=lambda x: x[1][0])
+            for key, _ in sorted_cache[:-100]:
+                del _token_status_cache[key]
+        
+        return jsonify(response_data)
     except Exception as e:
         logger.error(f"Error getting token status: {str(e)}")
         return jsonify({'error': str(e)}), 500
