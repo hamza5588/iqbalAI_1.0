@@ -188,11 +188,12 @@ services:
     networks:
       - app_network
     healthcheck:
-      test: ["CMD", "curl", "-sS", "http://localhost:11434/api/tags"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:11434/api/tags"]
       interval: 20s
       timeout: 10s
       retries: 10
       start_period: 160s
+
 
     # Optional: Limit resources if needed
     # deploy:
