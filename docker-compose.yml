@@ -22,6 +22,7 @@ services:
     networks:
       - app_network
 
+  # PRIMARY - Handles ALL writes (POST, PUT, DELETE, PATCH)
   flask_app1:
     build:
       context: .
@@ -34,12 +35,14 @@ services:
       - FLASK_DEBUG=0
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
-      - OPENBLAS_NUM_THREADS=6
-      - OMP_NUM_THREADS=6
-      - MKL_NUM_THREADS=6
-      - RAYON_NUM_THREADS=6
+      - OPENBLAS_NUM_THREADS=2
+      - OMP_NUM_THREADS=2
+      - MKL_NUM_THREADS=2
+      - RAYON_NUM_THREADS=2
       - TOKENIZERS_PARALLELISM=false
       - TQDM_DISABLE=1
+      - DB_MODE=primary
+      - INSTANCE_ROLE=primary
       - GOOGLE_CLIENT_ID=507995986306-qcdrhrrt3d71la4pkrf7lt1b2tvuusqm.apps.googleusercontent.com
       - GROQ_CLIENT_ID=your-groq-client-id
       - GROQ_CLIENT_SECRET=your-groq-client-secret
@@ -47,7 +50,9 @@ services:
       - NOMIC_APIC_KEY=nk-7Ad201NonNkEv_pYdRwb-EkNjf84mVLW205ihoE7RyU
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=qwen2.5:3b
+      - OLLAMA_TIMEOUT=600
     volumes:
+      - app_data:/app/instance  # Read-write access
       - .:/app
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
@@ -68,6 +73,7 @@ services:
     networks:
       - app_network
 
+  # REPLICA 1 - Read-only
   flask_app2:
     build:
       context: .
@@ -80,12 +86,14 @@ services:
       - FLASK_DEBUG=0
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
-      - OPENBLAS_NUM_THREADS=6
-      - OMP_NUM_THREADS=6
-      - MKL_NUM_THREADS=6
-      - RAYON_NUM_THREADS=6
+      - OPENBLAS_NUM_THREADS=2
+      - OMP_NUM_THREADS=2
+      - MKL_NUM_THREADS=2
+      - RAYON_NUM_THREADS=2
       - TOKENIZERS_PARALLELISM=false
       - TQDM_DISABLE=1
+      - DB_MODE=readonly
+      - INSTANCE_ROLE=replica
       - GOOGLE_CLIENT_ID=your-google-client-id
       - GROQ_CLIENT_ID=your-groq-client-id
       - GROQ_CLIENT_SECRET=your-groq-client-secret
@@ -93,7 +101,9 @@ services:
       - NOMIC_APIC_KEY=nk-7Ad201NonNkEv_pYdRwb-EkNjf84mVLW205ihoE7RyU
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=qwen2.5:3b
+      - OLLAMA_TIMEOUT=600
     volumes:
+      - app_data:/app/instance:ro  # Read-only mount
       - .:/app
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
@@ -103,17 +113,19 @@ services:
       start_period: 40s
     depends_on:
      - ollama
+     - flask_app1
     deploy:
       resources:
         limits:
-          cpus: '3'
-          memory: 6G
-        reservations:
           cpus: '2'
           memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
     networks:
       - app_network
 
+  # REPLICA 2 - Read-only
   flask_app3:
     build:
       context: .
@@ -126,12 +138,14 @@ services:
       - FLASK_DEBUG=0
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
-      - OPENBLAS_NUM_THREADS=6
-      - OMP_NUM_THREADS=6
-      - MKL_NUM_THREADS=6
-      - RAYON_NUM_THREADS=6
+      - OPENBLAS_NUM_THREADS=2
+      - OMP_NUM_THREADS=2
+      - MKL_NUM_THREADS=2
+      - RAYON_NUM_THREADS=2
       - TOKENIZERS_PARALLELISM=false
       - TQDM_DISABLE=1
+      - DB_MODE=readonly
+      - INSTANCE_ROLE=replica
       - GOOGLE_CLIENT_ID=your-google-client-id
       - GROQ_CLIENT_ID=your-groq-client-id
       - GROQ_CLIENT_SECRET=your-groq-client-secret
@@ -139,7 +153,9 @@ services:
       - NOMIC_APIC_KEY=nk-7Ad201NonNkEv_pYdRwb-EkNjf84mVLW205ihoE7RyU
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=qwen2.5:3b
+      - OLLAMA_TIMEOUT=600
     volumes:
+      - app_data:/app/instance:ro  # Read-only mount
       - .:/app
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
@@ -149,17 +165,19 @@ services:
       start_period: 40s
     depends_on:
     - ollama
+    - flask_app1
     deploy:
       resources:
         limits:
-          cpus: '3'
-          memory: 6G
-        reservations:
           cpus: '2'
           memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
     networks:
       - app_network
 
+  # REPLICA 3 - Read-only
   flask_app4:
     build:
       context: .
@@ -172,20 +190,24 @@ services:
       - FLASK_DEBUG=0
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
-      - OPENBLAS_NUM_THREADS=6
-      - OMP_NUM_THREADS=6
-      - MKL_NUM_THREADS=6
-      - RAYON_NUM_THREADS=6
+      - OPENBLAS_NUM_THREADS=2
+      - OMP_NUM_THREADS=2
+      - MKL_NUM_THREADS=2
+      - RAYON_NUM_THREADS=2
       - TOKENIZERS_PARALLELISM=false
       - TQDM_DISABLE=1
+      - DB_MODE=readonly
+      - INSTANCE_ROLE=replica
       - GOOGLE_CLIENT_ID=your-google-client-id
       - GROQ_CLIENT_ID=your-groq-client-id
       - GROQ_CLIENT_SECRET=your-groq-client-secret
       - GROQ_API_KEY=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
       - NOMIC_APIC_KEY=nk-7Ad201NonNkEv_pYdRwb-EkNjf84mVLW205ihoE7RyU
       - OLLAMA_BASE_URL=http://ollama:11434
-      - OLLAMA_MODEL=qwen2.5:1.5b
+      - OLLAMA_MODEL=qwen2.5:3b
+      - OLLAMA_TIMEOUT=600
     volumes:
+      - app_data:/app/instance:ro  # Read-only mount
       - .:/app
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
@@ -195,14 +217,15 @@ services:
       start_period: 40s
     depends_on:
      - ollama
+     - flask_app1
     deploy:
       resources:
         limits:
-          cpus: '3'
-          memory: 6G
-        reservations:
           cpus: '2'
           memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
     networks:
       - app_network
 
@@ -213,39 +236,26 @@ services:
     volumes:
       - ollama_data:/root/.ollama
     environment:
-      # Optimize Ollama for performance with 16 CPUs
-      - OLLAMA_NUM_PARALLEL=8
-      - OLLAMA_MAX_LOADED_MODELS=2
-      - OLLAMA_NUM_GPU=0
-      - OLLAMA_NUM_THREAD=8
-    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 4 && ollama pull qwen2.5:3b && wait"]
+      # Optimized for 16 CPU cores
+      - OLLAMA_NUM_PARALLEL=2
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_NUM_THREAD=12
+      - OLLAMA_KEEP_ALIVE=15m
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull qwen2.5:3b && wait"]
     deploy:
       resources:
         limits:
+          cpus: '12'
+          memory: 40G
+        reservations:
           cpus: '8'
           memory: 20G
-        reservations:
-          cpus: '6'
-          memory: 12G
     networks:
       - app_network
-    # healthcheck:
-    #   test: ["CMD", "wget", "-qO-", "http://localhost:11434/api/tags"]
-    #   interval: 20s
-    #   timeout: 10s
-    #   retries: 10
-    #   start_period: 160s
-
-
-    # Optional: Limit resources if needed
-    # deploy:
-    #   resources:
-    #     limits:
-    #       memory: 16G
-    #     reservations:
-    #       memory: 8G
+    restart: unless-stopped
 
 volumes:
+  app_data:  # Shared volume for SQLite database
   ollama_data:
 
 networks:
