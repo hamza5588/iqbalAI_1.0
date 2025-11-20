@@ -34,10 +34,10 @@ services:
       - FLASK_DEBUG=0
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
-      - OPENBLAS_NUM_THREADS=1
-      - OMP_NUM_THREADS=1
-      - MKL_NUM_THREADS=1
-      - RAYON_NUM_THREADS=1
+      - OPENBLAS_NUM_THREADS=6
+      - OMP_NUM_THREADS=6
+      - MKL_NUM_THREADS=6
+      - RAYON_NUM_THREADS=6
       - TOKENIZERS_PARALLELISM=false
       - TQDM_DISABLE=1
       - GOOGLE_CLIENT_ID=507995986306-qcdrhrrt3d71la4pkrf7lt1b2tvuusqm.apps.googleusercontent.com
@@ -57,7 +57,14 @@ services:
       start_period: 40s
     depends_on:
      - ollama
-
+    deploy:
+      resources:
+        limits:
+          cpus: '3'
+          memory: 6G
+        reservations:
+          cpus: '2'
+          memory: 4G
     networks:
       - app_network
 
@@ -73,10 +80,10 @@ services:
       - FLASK_DEBUG=0
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
-      - OPENBLAS_NUM_THREADS=1
-      - OMP_NUM_THREADS=1
-      - MKL_NUM_THREADS=1
-      - RAYON_NUM_THREADS=1
+      - OPENBLAS_NUM_THREADS=6
+      - OMP_NUM_THREADS=6
+      - MKL_NUM_THREADS=6
+      - RAYON_NUM_THREADS=6
       - TOKENIZERS_PARALLELISM=false
       - TQDM_DISABLE=1
       - GOOGLE_CLIENT_ID=your-google-client-id
@@ -96,7 +103,14 @@ services:
       start_period: 40s
     depends_on:
      - ollama
-
+    deploy:
+      resources:
+        limits:
+          cpus: '3'
+          memory: 6G
+        reservations:
+          cpus: '2'
+          memory: 4G
     networks:
       - app_network
 
@@ -112,10 +126,10 @@ services:
       - FLASK_DEBUG=0
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
-      - OPENBLAS_NUM_THREADS=1
-      - OMP_NUM_THREADS=1
-      - MKL_NUM_THREADS=1
-      - RAYON_NUM_THREADS=1
+      - OPENBLAS_NUM_THREADS=6
+      - OMP_NUM_THREADS=6
+      - MKL_NUM_THREADS=6
+      - RAYON_NUM_THREADS=6
       - TOKENIZERS_PARALLELISM=false
       - TQDM_DISABLE=1
       - GOOGLE_CLIENT_ID=your-google-client-id
@@ -135,7 +149,14 @@ services:
       start_period: 40s
     depends_on:
     - ollama
-
+    deploy:
+      resources:
+        limits:
+          cpus: '3'
+          memory: 6G
+        reservations:
+          cpus: '2'
+          memory: 4G
     networks:
       - app_network
 
@@ -151,10 +172,10 @@ services:
       - FLASK_DEBUG=0
       - PYTHONUNBUFFERED=1
       - PYTHONPATH=/app
-      - OPENBLAS_NUM_THREADS=1
-      - OMP_NUM_THREADS=1
-      - MKL_NUM_THREADS=1
-      - RAYON_NUM_THREADS=1
+      - OPENBLAS_NUM_THREADS=6
+      - OMP_NUM_THREADS=6
+      - MKL_NUM_THREADS=6
+      - RAYON_NUM_THREADS=6
       - TOKENIZERS_PARALLELISM=false
       - TQDM_DISABLE=1
       - GOOGLE_CLIENT_ID=your-google-client-id
@@ -174,7 +195,14 @@ services:
       start_period: 40s
     depends_on:
      - ollama
-
+    deploy:
+      resources:
+        limits:
+          cpus: '3'
+          memory: 6G
+        reservations:
+          cpus: '2'
+          memory: 4G
     networks:
       - app_network
 
@@ -184,7 +212,21 @@ services:
       - "11434"
     volumes:
       - ollama_data:/root/.ollama
+    environment:
+      # Optimize Ollama for performance with 16 CPUs
+      - OLLAMA_NUM_PARALLEL=8
+      - OLLAMA_MAX_LOADED_MODELS=2
+      - OLLAMA_NUM_GPU=0
+      - OLLAMA_NUM_THREAD=8
     entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 4 && ollama pull qwen2.5:3b && wait"]
+    deploy:
+      resources:
+        limits:
+          cpus: '8'
+          memory: 20G
+        reservations:
+          cpus: '6'
+          memory: 12G
     networks:
       - app_network
     # healthcheck:
