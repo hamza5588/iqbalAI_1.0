@@ -288,7 +288,7 @@ class DocumentChatBot:
         # self.llm = ChatGroq(groq_api_key=self.groq_api_key, model_name="llama-3.3-70b-versatile")
         ollama_base_url = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
         ollama_model = os.getenv('OLLAMA_MODEL', 'qwen2.5:3b')
-        self.llm = ChatOllama(model=ollama_model, base_url=ollama_base_url)
+        self.llm = ChatOllama(model="qwen2.5:1.5b", base_url=ollama_base_url)
         self.prompt = self._create_prompt()
         self.vectors = None
         self.embeddings = None
