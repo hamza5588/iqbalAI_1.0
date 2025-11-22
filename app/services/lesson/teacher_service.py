@@ -90,7 +90,14 @@ def check_lesson_response(text: str, groq_api_key: str):
     # )
     ollama_base_url = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
     ollama_model = os.getenv('OLLAMA_MODEL', 'qwen2.5:3b')
-    llm = ChatOllama(model="qwen2.5:1.5b", base_url=ollama_base_url)
+    llm = ChatOllama(
+        model="qwen2.5:1.5b", 
+        base_url=ollama_base_url,
+        num_predict=512,  # Reduced for faster responses
+        num_thread=16,
+        num_ctx=2048,  # Reduced context for faster processing
+        temperature=0.1
+    )
     
     # Create a prompt to analyze if the response is a complete lesson or just an outline/draft
     analysis_prompt = f"""Analyze the following AI response and determine if it contains a COMPLETE LESSON or just an OUTLINE/DRAFT.
@@ -543,9 +550,9 @@ class TeacherLessonService(BaseLessonService):
                 except Exception as e:
                     teacher_logger.warning(f"Could not retrieve document overview: {str(e)}")
             
-            # Step 7: Retrieve context from vector store
+            # Step 7: Retrieve context from vector store (reduced for faster CPU inference)
             docs = retriever.invoke(enhanced_query)
-            context = self.format_context(docs, max_tokens=1500)
+            context = self.format_context(docs, max_tokens=800)  # Reduced from 1500 for faster processing
             teacher_logger.info(f"Retrieved {len(docs)} documents from vector store")
             
             # Step 8: Build messages array manually with token management
@@ -555,18 +562,18 @@ class TeacherLessonService(BaseLessonService):
             system_content = f"{base_system_prompt}\n\n### Knowledge Base Context:\n{context}{uploaded_doc_content}"
             messages.append({"role": "system", "content": system_content})
             
-            # Add chat history messages (limit to last 10 messages)
+            # Add chat history messages (limit to last 5 messages for faster processing)
             if hasattr(chat_history, 'messages'):
                 history_messages = list(chat_history.messages)
-                if len(history_messages) > 10:
-                    history_messages = history_messages[-10:]
+                if len(history_messages) > 5:  # Reduced from 10 to 5
+                    history_messages = history_messages[-5:]
                 
                 for msg in history_messages:
                     if hasattr(msg, 'type'):
                         role = "user" if msg.type == "human" else "assistant"
                         content = msg.content if hasattr(msg, 'content') else str(msg)
-                        if self._estimate_tokens(content) > 500:
-                            content = self._truncate_text(content, 500)
+                        if self._estimate_tokens(content) > 300:  # Reduced from 500 to 300
+                            content = self._truncate_text(content, 300)
                         messages.append({"role": role, "content": content})
             
             # Add current user query
@@ -577,10 +584,10 @@ class TeacherLessonService(BaseLessonService):
             estimated_tokens = self._estimate_tokens(total_text)
             teacher_logger.info(f"Built message array with {len(messages)} messages, estimated tokens: {estimated_tokens}")
             
-            # If estimated tokens exceed limit, reduce context further
-            if estimated_tokens > 5500:
+            # If estimated tokens exceed limit, reduce context further (lowered threshold for CPU)
+            if estimated_tokens > 3000:  # Reduced from 5500 to 3000 for faster CPU inference
                 teacher_logger.warning(f"Estimated tokens ({estimated_tokens}) exceed safe limit, reducing context")
-                context = self.format_context(docs, max_tokens=800)
+                context = self.format_context(docs, max_tokens=500)  # Reduced from 800
                 system_content = f"{base_system_prompt}\n\n### Knowledge Base Context:\n{context}{uploaded_doc_content}"
                 messages[0] = {"role": "system", "content": system_content}
             

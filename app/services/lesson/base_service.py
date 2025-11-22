@@ -116,15 +116,19 @@ class BaseLessonService:
         ollama_model = os.getenv('OLLAMA_MODEL', 'qwen2.5:1.5b')
         ollama_timeout = int(os.getenv('OLLAMA_TIMEOUT', 600))
         
-        # Initialize Ollama client
+        # Initialize Ollama client with optimized settings for CPU inference
         self.llm = ChatOllama(
             model=ollama_model,
             base_url=ollama_base_url,
             timeout=ollama_timeout,
-            num_predict=2048,  # Max tokens to generate
+            num_predict=1024,  # Reduced from 2048 for faster responses
             temperature=0.1,
-            # Use all available threads for this request
-            num_thread=12,
+            # Use all available threads for this request (16 CPUs available)
+            num_thread=16,
+            # Reduce context window to speed up processing
+            num_ctx=4096,  # Reduced from default 8192 for faster CPU inference
+            # Enable repeat penalty to avoid repetition
+            repeat_penalty=1.1,
         )
         
         logger.info(f"Base lesson service initialized with Ollama at {ollama_base_url} using model {ollama_model}")
