@@ -24,8 +24,31 @@ class Config:
     MAIL_DEBUG = True  # Enable debug mode to see more detailed logs
 
     
-    # Database configuration
-    DATABASE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'instance', 'chatbot.db')
+    # Database configuration - supports SQLite, MySQL, and PostgreSQL
+    # Examples:
+    # SQLite: sqlite:///instance/chatbot.db or sqlite:////absolute/path/to/chatbot.db
+    # MySQL: mysql+pymysql://user:password@localhost/dbname
+    # PostgreSQL: postgresql://user:password@localhost/dbname or postgresql+psycopg2://user:password@localhost/dbname
+    DATABASE_URL = os.getenv('DATABASE_URL','postgresql://myuser:mypassword@localhost:5432/mydatabase')
+    
+    # SQLAlchemy configuration
+    SQLALCHEMY_DATABASE_URI = DATABASE_URL
+    SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True,  # Verify connections before using
+        'pool_recycle': 300,    # Recycle connections after 5 minutes
+        'echo': False           # Set to True for SQL query logging
+    }
+    
+    # Legacy DATABASE path for backward compatibility (used only if needed)
+    if DATABASE_URL.startswith('sqlite'):
+        # Extract path from SQLite URL
+        db_path = DATABASE_URL.replace('sqlite:///', '').replace('sqlite:////', '')
+        if not os.path.isabs(db_path):
+            db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), db_path)
+        DATABASE = db_path
+    else:
+        DATABASE = None  # Not used for non-SQLite databases
     
     # Nomic API configuration
     NOMIC_API_KEY = os.getenv('NOMIC_API_KEY', 'nk-7Em9YdxJJI09E4vXTxJ9VOC2zygDGWD9eGBYxDLuG0E')  # Replace with your Nomic API key 

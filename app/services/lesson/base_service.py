@@ -98,8 +98,6 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-# Import the Ollama limiter
-from app.utils.ollama_limiter import limit_ollama_requests, ollama_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +113,7 @@ class BaseLessonService:
         
         # Get Ollama configuration from environment
         ollama_base_url = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
-        ollama_model = os.getenv('OLLAMA_MODEL', 'qwen2.5:3b')
+        ollama_model = os.getenv('OLLAMA_MODEL', 'qwen2.5:1.5b')
         ollama_timeout = int(os.getenv('OLLAMA_TIMEOUT', 600))
         
         # Initialize Ollama client
@@ -175,7 +173,6 @@ class BaseLessonService:
         
         return heading
 
-    @limit_ollama_requests(timeout=600)
     def invoke_llm(self, prompt: str) -> str:
         """
         Invoke Ollama LLM with rate limiting.
@@ -206,7 +203,6 @@ class BaseLessonService:
             logger.error(f"Error invoking LLM: {str(e)}")
             raise
 
-    @limit_ollama_requests(timeout=600)
     def stream_llm(self, prompt: str):
         """
         Stream responses from Ollama LLM with rate limiting.

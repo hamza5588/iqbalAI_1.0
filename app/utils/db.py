@@ -1,98 +1,162 @@
-import sqlite3
 import logging
-from flask import current_app, g 
+from flask import current_app, g
+from sqlalchemy import create_engine, event, text
+from sqlalchemy.orm import sessionmaker, scoped_session
+from sqlalchemy.pool import StaticPool, QueuePool
 from typing import Dict, Any, Optional, List
+import os
+
 logger = logging.getLogger(__name__)
 
+# Global engine and session factory
+_engine = None
+_session_factory = None
+
+def get_engine():
+    """Get or create SQLAlchemy engine."""
+    global _engine
+    if _engine is None:
+        db_url = current_app.config['SQLALCHEMY_DATABASE_URI']
+        engine_options = current_app.config.get('SQLALCHEMY_ENGINE_OPTIONS', {}).copy()
+        
+        # SQLite-specific optimizations
+        if db_url.startswith('sqlite'):
+            # Use StaticPool for in-memory, QueuePool otherwise
+            if 'sqlite:///:memory:' in db_url:
+                engine_options['poolclass'] = StaticPool
+                engine_options['connect_args'] = {'check_same_thread': False}
+            else:
+                engine_options['poolclass'] = StaticPool
+                engine_options['connect_args'] = {
+                    'check_same_thread': False,
+                    'timeout': 20.0
+                }
+        else:
+            # MySQL/PostgreSQL - use QueuePool
+            engine_options.setdefault('poolclass', QueuePool)
+        
+        _engine = create_engine(db_url, **engine_options)
+        
+        # Add SQLite-specific event listeners
+        if db_url.startswith('sqlite'):
+            @event.listens_for(_engine, "connect")
+            def set_sqlite_pragma(dbapi_conn, connection_record):
+                """Set SQLite pragmas for better concurrency."""
+                cursor = dbapi_conn.cursor()
+                cursor.execute("PRAGMA foreign_keys = ON")
+                cursor.execute("PRAGMA journal_mode = WAL")
+                cursor.execute("PRAGMA busy_timeout = 30000")
+                cursor.close()
+        
+        logger.info(f"Database engine created for: {db_url.split('@')[-1] if '@' in db_url else db_url}")
+    
+    return _engine
+
+def get_session_factory():
+    """Get or create session factory."""
+    global _session_factory
+    if _session_factory is None:
+        engine = get_engine()
+        _session_factory = scoped_session(sessionmaker(bind=engine, autocommit=False, autoflush=False))
+    return _session_factory
+
 def get_db():
-    """Get database connection."""
+    """Get database session (replaces old get_db function)."""
     if 'db' not in g:
-        try:
-            print(current_app.config['DATABASE'])
-            g.db = sqlite3.connect(
-                current_app.config['DATABASE'],
-                detect_types=sqlite3.PARSE_DECLTYPES,
-                timeout=20.0,  # Add timeout to prevent immediate locking
-                check_same_thread=False  # Allow multiple threads
-            )
-            g.db.row_factory = sqlite3.Row
-            # Enable foreign key support
-            g.db.execute('PRAGMA foreign_keys = ON')
-            # Set WAL mode for better concurrency
-            g.db.execute('PRAGMA journal_mode = WAL')
-            # Set busy timeout
-            g.db.execute('PRAGMA busy_timeout = 30000')
-        except Exception as e:
-            logger.error(f"Database connection error: {str(e)}")
-            raise
+        factory = get_session_factory()
+        g.db = factory()
     return g.db
 
 def close_db(e=None):
-    """Close database connection."""
+    """Close database session."""
     db = g.pop('db', None)
     if db is not None:
         try:
-            db.commit()  # Commit any pending transactions
-            db.close()
+            db.commit()
         except Exception as e:
-            logger.error(f"Error closing database: {str(e)}")
-            try:
-                db.rollback()  # Rollback on error
-            except:
-                pass
+            logger.error(f"Error committing database session: {str(e)}")
+            db.rollback()
+        finally:
+            db.close()
 
 
 def update_token_usage(user_id: int, tokens_used: int) -> None:
     """Update the token usage for a user."""
+    from app.models.database_models import UserTokenUsage
+    from sqlalchemy import func, and_
+    from datetime import date
+    
     try:
         db = get_db()
-        # Try to update existing record for today
-        cursor = db.execute(
-            '''UPDATE user_token_usage 
-               SET tokens_used = tokens_used + ?, last_updated = CURRENT_TIMESTAMP
-               WHERE user_id = ? AND date = CURRENT_DATE''',
-            (tokens_used, user_id)
-        )
         
-        # If no rows were updated, insert a new record
-        if cursor.rowcount == 0:
-            db.execute(
-                '''INSERT INTO user_token_usage (user_id, tokens_used)
-                   VALUES (?, ?)''',
-                (user_id, tokens_used)
+        # Try to update existing record for today
+        today = date.today()
+        token_usage = db.query(UserTokenUsage).filter(
+            and_(
+                UserTokenUsage.user_id == user_id,
+                UserTokenUsage.date == today
             )
+        ).first()
+        
+        if token_usage:
+            token_usage.tokens_used += tokens_used
+            token_usage.last_updated = func.now()
+        else:
+            # Insert a new record
+            token_usage = UserTokenUsage(
+                user_id=user_id,
+                date=today,
+                tokens_used=tokens_used
+            )
+            db.add(token_usage)
         
         db.commit()
     except Exception as e:
         logger.error(f"Error updating token usage: {str(e)}")
+        db.rollback()
         raise
 
 
 # token usage functions 
 def get_token_usage(user_id: int) -> Dict[str, Any]:
     """Get current token usage for a user."""
+    from app.models.database_models import UserTokenUsage
+    from sqlalchemy import func, and_, desc
+    from datetime import date, timedelta
+    
     try:
         db = get_db()
+        today = date.today()
+        
         # Get today's usage
-        today = db.execute(
-            '''SELECT tokens_used, last_updated 
-               FROM user_token_usage 
-               WHERE user_id = ? AND date = CURRENT_DATE''',
-            (user_id,)
-        ).fetchone()
+        token_usage = db.query(UserTokenUsage).filter(
+            and_(
+                UserTokenUsage.user_id == user_id,
+                UserTokenUsage.date == today
+            )
+        ).first()
         
         # Get historical usage (last 7 days)
-        history = db.execute(
-            '''SELECT date, tokens_used 
-               FROM user_token_usage 
-               WHERE user_id = ? AND date >= date('now', '-7 days')
-               ORDER BY date DESC''',
-            (user_id,)
-        ).fetchall()
+        seven_days_ago = today - timedelta(days=7)
+        history = db.query(UserTokenUsage).filter(
+            and_(
+                UserTokenUsage.user_id == user_id,
+                UserTokenUsage.date >= seven_days_ago
+            )
+        ).order_by(desc(UserTokenUsage.date)).all()
         
         return {
-            'today': dict(today) if today else {'tokens_used': 0, 'last_updated': None},
-            'history': [dict(record) for record in history]
+            'today': {
+                'tokens_used': token_usage.tokens_used if token_usage else 0,
+                'last_updated': token_usage.last_updated.isoformat() if token_usage and token_usage.last_updated else None
+            },
+            'history': [
+                {
+                    'date': record.date.isoformat() if hasattr(record.date, 'isoformat') else str(record.date),
+                    'tokens_used': record.tokens_used
+                }
+                for record in history
+            ]
         }
     except Exception as e:
         logger.error(f"Error getting token usage: {str(e)}")
@@ -100,278 +164,75 @@ def get_token_usage(user_id: int) -> Dict[str, Any]:
 
 def record_token_reset(user_id: int, tokens_used: int, limit_reached: bool = False) -> None:
     """Record when a user's token counter is reset."""
+    from app.models.database_models import TokenResetHistory
+    
     try:
         db = get_db()
-        db.execute(
-            '''INSERT INTO token_reset_history 
-               (user_id, tokens_used, was_limit_reached)
-               VALUES (?, ?, ?)''',
-            (user_id, tokens_used, limit_reached)
+        reset_record = TokenResetHistory(
+            user_id=user_id,
+            tokens_used=tokens_used,
+            was_limit_reached=limit_reached
         )
+        db.add(reset_record)
         db.commit()
     except Exception as e:
         logger.error(f"Error recording token reset: {str(e)}")
+        db.rollback()
         raise
 # ----- >
 
 
 def init_db(app):
-    """Initialize the database schema."""
+    """Initialize the database schema using SQLAlchemy."""
+    from app.models.database_models import (
+        Base, User, Lesson, Conversation, ChatHistory, SurveyResponse,
+        UserPrompt, UserDocument, UserTokenUsage, TokenResetHistory,
+        LessonFAQ, LessonChatHistory
+    )
+    from sqlalchemy import inspect
+    import time
+    
     try:
         with app.app_context():
-            db = get_db()
+            engine = get_engine()
             
-            # Create users table with role column
-            db.execute('''
-                CREATE TABLE IF NOT EXISTS users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username TEXT NOT NULL UNIQUE,
-                    useremail TEXT NOT NULL UNIQUE,
-                    password TEXT NOT NULL,
-                    role TEXT NOT NULL DEFAULT 'student' CHECK(role IN ('student', 'teacher')),
-                    class_standard TEXT NOT NULL,
-                    medium TEXT NOT NULL,
-                    groq_api_key TEXT NOT NULL,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    last_login DATETIME
-                )
-            ''')
+            # Create all tables
+            Base.metadata.create_all(bind=engine)
+            logger.info("Database tables created/verified successfully")
             
-            # Create lessons table to store lessons created by teachers
-            db.execute('''
-                CREATE TABLE IF NOT EXISTS lessons (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    teacher_id INTEGER NOT NULL,
-                    title TEXT NOT NULL,
-                    summary TEXT,
-                    detailed_answer TEXT,
-                    learning_objectives TEXT,
-                    focus_area TEXT,
-                    grade_level TEXT,
-                    content TEXT NOT NULL,
-                    file_name TEXT,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    is_public BOOLEAN DEFAULT TRUE,
-                    has_child_version BOOLEAN DEFAULT FALSE,
-                    parent_lesson_id INTEGER,
-                    version INTEGER DEFAULT 1,
-                    FOREIGN KEY (teacher_id) REFERENCES users(id) ON DELETE CASCADE,
-                    FOREIGN KEY (parent_lesson_id) REFERENCES lessons(id) ON DELETE CASCADE
-                )
-            ''')
-            
-            # Add parent_lesson_id and version columns if they don't exist (for existing databases)
+            # Migration: Update existing lessons to have lesson_id if missing
             try:
-                db.execute('ALTER TABLE lessons ADD COLUMN parent_lesson_id INTEGER')
-            except:
-                pass  # Column already exists
+                db = get_db()
+                from app.models.database_models import Lesson
                 
-            try:
-                db.execute('ALTER TABLE lessons ADD COLUMN version INTEGER DEFAULT 1')
-            except:
-                pass  # Column already exists
-            
-            # Add has_child_version flag if it doesn't exist
-            try:
-                db.execute('ALTER TABLE lessons ADD COLUMN has_child_version BOOLEAN DEFAULT FALSE')
-            except:
-                pass  # Column already exists
-                
-            # Add detailed_answer column if it doesn't exist
-            try:
-                db.execute('ALTER TABLE lessons ADD COLUMN detailed_answer TEXT')
-            except:
-                pass  # Column already exists
-                
-                    # Add new columns for proper lesson versioning
-        try:
-            db.execute('ALTER TABLE lessons ADD COLUMN lesson_id TEXT')
-        except:
-            pass  # Column already exists
-            
-        try:
-            db.execute('ALTER TABLE lessons ADD COLUMN version_number INTEGER DEFAULT 1')
-        except:
-            pass  # Column already exists
-            
-        try:
-            db.execute('ALTER TABLE lessons ADD COLUMN parent_version_id INTEGER')
-        except:
-            pass  # Column already exists
-            
-        try:
-            db.execute('ALTER TABLE lessons ADD COLUMN original_content TEXT')
-        except:
-            pass  # Column already exists
-            
-        try:
-            db.execute('ALTER TABLE lessons ADD COLUMN draft_content TEXT')
-        except:
-            pass  # Column already exists
-            
-        try:
-            db.execute('ALTER TABLE lessons ADD COLUMN status TEXT DEFAULT "finalized"')
-        except:
-            pass  # Column already exists
-            
-        # Migrate existing lessons to new schema
-        try:
-            # Generate lesson_id for existing lessons that don't have one
-            existing_lessons = db.execute('SELECT id FROM lessons WHERE lesson_id IS NULL').fetchall()
-            for lesson in existing_lessons:
-                lesson_id = f"L{lesson['id']:06d}"  # Generate lesson_id like L000001
-                db.execute('UPDATE lessons SET lesson_id = ? WHERE id = ?', (lesson_id, lesson['id']))
-            
-            # Set original_content for existing lessons
-            db.execute('UPDATE lessons SET original_content = content WHERE original_content IS NULL')
-            
-            # Set version_number for existing lessons
-            db.execute('UPDATE lessons SET version_number = 1 WHERE version_number IS NULL')
-            
-            # Set status for existing lessons
-            db.execute('UPDATE lessons SET status = "finalized" WHERE status IS NULL')
-            
-            # Ensure has_child_version defaults are set (if the column exists)
-            try:
-                db.execute('UPDATE lessons SET has_child_version = COALESCE(has_child_version, FALSE)')
-            except:
-                pass
-            
-            # Add unique constraint to prevent duplicate version numbers for the same lesson_id
-            try:
-                # First, remove any existing duplicates by keeping only the one with the lowest ID
-                db.execute('''
-                    DELETE FROM lessons 
-                    WHERE id NOT IN (
-                        SELECT MIN(id) 
-                        FROM lessons 
-                        GROUP BY lesson_id, version_number
-                    )
-                ''')
-                
-                # Create unique index to prevent future duplicates
-                db.execute('''
-                    CREATE UNIQUE INDEX IF NOT EXISTS idx_lesson_version_unique 
-                    ON lessons(lesson_id, version_number)
-                ''')
-                logger.info("Added unique constraint on lesson_id and version_number")
+                # Check if lessons table exists and has data
+                inspector = inspect(engine)
+                if 'lessons' in inspector.get_table_names():
+                    # Get lessons without lesson_id
+                    existing_lessons = db.query(Lesson).filter(
+                        (Lesson.lesson_id == None) | (Lesson.lesson_id == '')
+                    ).all()
+                    
+                    for lesson in existing_lessons:
+                        if not lesson.lesson_id:
+                            # Generate lesson_id like L000001
+                            lesson.lesson_id = f"L{lesson.id:06d}"
+                        
+                        if not lesson.original_content and lesson.content:
+                            lesson.original_content = lesson.content
+                        
+                        if not lesson.version_number:
+                            lesson.version_number = 1
+                        
+                        if not lesson.status:
+                            lesson.status = 'finalized'
+                    
+                    db.commit()
+                    logger.info(f"Migrated {len(existing_lessons)} existing lessons")
             except Exception as e:
-                logger.warning(f"Could not add unique constraint: {e}")
-                pass
-
-            db.commit()
-        except Exception as e:
-            print(f"Migration error: {e}")
-            pass
+                logger.warning(f"Migration warning: {str(e)}")
+                db.rollback()
             
-            # Create conversations table
-            db.execute('''
-                CREATE TABLE IF NOT EXISTS conversations (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER NOT NULL,
-                    title TEXT NOT NULL,
-                    is_active BOOLEAN DEFAULT TRUE,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-                )
-            ''')
-            
-            # Create chat_history table
-            db.execute('''
-                CREATE TABLE IF NOT EXISTS chat_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    conversation_id INTEGER NOT NULL,
-                    message TEXT NOT NULL,
-                    role TEXT NOT NULL CHECK(role IN ('user', 'bot')),
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
-                )
-            ''')
-            
-            # create survey table
-            db.execute('''
-                CREATE TABLE IF NOT EXISTS survey_responses (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER NOT NULL,
-                    rating INTEGER NOT NULL CHECK(rating BETWEEN 1 AND 10),
-                    message TEXT,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-                )
-            ''')
-            
-            # Create user_prompts table
-            db.execute('''
-                CREATE TABLE IF NOT EXISTS user_prompts (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER NOT NULL,
-                    prompt TEXT NOT NULL,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-                )
-            ''')
-
-             # Create user_documents table
-            db.execute('''
-                CREATE TABLE IF NOT EXISTS user_documents (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER NOT NULL,
-                    file_name TEXT NOT NULL,
-                    file_path TEXT NOT NULL,
-                    file_size INTEGER NOT NULL,
-                    file_type TEXT NOT NULL,
-                    vector_db_ids TEXT,
-                    processed BOOLEAN DEFAULT FALSE,
-                    uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                    last_accessed_at DATETIME,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-                )
-            ''')
-             # Create user_token_usage table
-            db.execute('''
-                CREATE TABLE IF NOT EXISTS user_token_usage (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER NOT NULL,
-                    date DATE NOT NULL DEFAULT CURRENT_DATE,
-                    tokens_used INTEGER NOT NULL DEFAULT 0,
-                    last_updated DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    UNIQUE(user_id, date),
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-                )
-            ''')
-
-            # Create token_reset_history table
-            db.execute('''
-                CREATE TABLE IF NOT EXISTS token_reset_history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_id INTEGER NOT NULL,
-                    reset_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                    tokens_used INTEGER NOT NULL,
-                    was_limit_reached BOOLEAN NOT NULL DEFAULT FALSE,
-                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-                )
-            ''')
-
-            # Create index for token usage tracking
-            db.execute('CREATE INDEX IF NOT EXISTS idx_user_token_usage_user_id ON user_token_usage(user_id)')
-            db.execute('CREATE INDEX IF NOT EXISTS idx_user_token_usage_date ON user_token_usage(date)')
-
-            # Create indexes for lessons table
-            db.execute('CREATE INDEX IF NOT EXISTS idx_lessons_teacher_id ON lessons(teacher_id)')
-            db.execute('CREATE INDEX IF NOT EXISTS idx_lessons_grade_level ON lessons(grade_level)')
-            db.execute('CREATE INDEX IF NOT EXISTS idx_lessons_focus_area ON lessons(focus_area)')
-            db.execute('CREATE INDEX IF NOT EXISTS idx_lessons_is_public ON lessons(is_public)')
-
-            db.execute('CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id)')
-            db.execute('CREATE INDEX IF NOT EXISTS idx_chat_history_conversation_id ON chat_history(conversation_id)')
-            db.execute('CREATE INDEX IF NOT EXISTS idx_user_prompts_user_id ON user_prompts(user_id)')
-            db.execute('CREATE INDEX IF NOT EXISTS idx_user_documents_user_id ON user_documents(user_id)')
-            db.execute('CREATE INDEX IF NOT EXISTS idx_user_documents_file_type ON user_documents(file_type)')
-            
-            db.commit()
             logger.info("Database initialized successfully")
             
     except Exception as e:

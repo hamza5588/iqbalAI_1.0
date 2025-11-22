@@ -1,5 +1,6 @@
 from typing import Optional
 from app.utils.db import get_db
+from app.models.database_models import UserPrompt as DBUserPrompt
 import logging
 
 logger = logging.getLogger(__name__)
@@ -269,15 +270,12 @@ class PromptService:
         """Get user's custom prompt or default prompt"""
         try:
             db = get_db()
-            result = db.execute(
-                '''SELECT prompt FROM user_prompts 
-                   WHERE user_id = ? 
-                   ORDER BY updated_at DESC 
-                   LIMIT 1''',
-                (self.user_id,)
-            ).fetchone()
+            # Use ORM query instead of raw SQL
+            user_prompt = db.query(DBUserPrompt).filter(
+                DBUserPrompt.user_id == self.user_id
+            ).order_by(DBUserPrompt.updated_at.desc()).first()
             
-            return result['prompt'] if result else self.DEFAULT_PROMPT
+            return user_prompt.prompt if user_prompt else self.DEFAULT_PROMPT
             
         except Exception as e:
             logger.error(f"Error retrieving prompt: {str(e)}")
@@ -287,30 +285,30 @@ class PromptService:
         """Update user's custom prompt"""
         try:
             db = get_db()
-            db.execute('BEGIN')
             
             try:
                 # Remove old prompts
-                db.execute(
-                    'DELETE FROM user_prompts WHERE user_id = ?',
-                    (self.user_id,)
-                )
+                db.query(DBUserPrompt).filter(
+                    DBUserPrompt.user_id == self.user_id
+                ).delete()
                 
                 # Insert new prompt
-                db.execute(
-                    'INSERT INTO user_prompts (user_id, prompt) VALUES (?, ?)',
-                    (self.user_id, new_prompt)
+                new_user_prompt = DBUserPrompt(
+                    user_id=self.user_id,
+                    prompt=new_prompt
                 )
+                db.add(new_user_prompt)
                 
-                db.execute('COMMIT')
+                db.commit()
                 return True
                 
             except Exception as e:
-                db.execute('ROLLBACK')
+                db.rollback()
                 raise e
                 
         except Exception as e:
             logger.error(f"Error updating prompt: {str(e)}")
+            db.rollback()
             raise
 
     def reset_prompt(self) -> bool:

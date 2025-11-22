@@ -172,7 +172,7 @@ import os
 os.environ['TQDM_DISABLE'] = '1'
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 
-from app.utils.db import init_db
+from app.utils.db import init_db, close_db
 from flask_mail import Mail
 from app.config import Config
 
@@ -229,6 +229,9 @@ def create_app():
         print(f"Created template folder at: {app.template_folder}")
     else:
         print(f"Template folder exists at: {app.template_folder}")
+    
+    # Register database cleanup function
+    app.teardown_appcontext(close_db)
     
     # Initialize database
     with app.app_context():
