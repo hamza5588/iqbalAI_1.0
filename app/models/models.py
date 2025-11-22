@@ -6,11 +6,17 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 
 from langchain_community.vectorstores import FAISS
 from typing import Optional, List, Dict, Any
-import sqlite3
 from datetime import datetime
 import logging
 from app.utils.db import get_db
 from app.config import Config
+from app.models.database_models import (
+    User as DBUser, Lesson as DBLesson, Conversation as DBConversation, 
+    ChatHistory as DBChatHistory, SurveyResponse as DBSurveyResponse,
+    LessonFAQ as DBLessonFAQ, LessonChatHistory as DBLessonChatHistory
+)
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy import and_, or_, desc, func, text
 import pickle
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import httpx
@@ -51,23 +57,45 @@ class UserModel:
         self.user_id = user_id
     
     @staticmethod
+    def _model_to_dict(model_instance):
+        """Convert SQLAlchemy model instance to dictionary"""
+        if model_instance is None:
+            return None
+        result = {}
+        for key in model_instance.__table__.columns.keys():
+            value = getattr(model_instance, key)
+            # Convert datetime objects to ISO format strings
+            if isinstance(value, datetime):
+                value = value.isoformat()
+            result[key] = value
+        return result
+    
+    @staticmethod
     def create_user(username: str, useremail: str, password: str, 
                    class_standard: str, medium: str, groq_api_key: str, role: str = 'student') -> int:
         """Create a new user in the database"""
         try:
             db = get_db()
-            cursor = db.execute(
-                'INSERT INTO users (username, useremail, password, class_standard, medium, groq_api_key, role) '
-                'VALUES (?, ?, ?, ?, ?, ?, ?)',
-                (username, useremail, password, class_standard, medium, groq_api_key, role)
+            user = DBUser(
+                username=username,
+                useremail=useremail,
+                password=password,
+                class_standard=class_standard,
+                medium=medium,
+                groq_api_key=groq_api_key,
+                role=role
             )
+            db.add(user)
             db.commit()
-            return cursor.lastrowid
-        except sqlite3.IntegrityError as e:
+            db.refresh(user)
+            return user.id
+        except IntegrityError as e:
             logger.error(f"User creation failed - integrity error: {str(e)}")
+            db.rollback()
             raise ValueError("Username or email already exists")
         except Exception as e:
             logger.error(f"User creation failed: {str(e)}")
+            db.rollback()
             raise
 
     @staticmethod
@@ -75,11 +103,8 @@ class UserModel:
         """Retrieve user details by email"""
         try:
             db = get_db()
-            user = db.execute(
-                'SELECT * FROM users WHERE useremail = ?', 
-                (useremail,)
-            ).fetchone()
-            return dict(user) if user else None
+            user = db.query(DBUser).filter(DBUser.useremail == useremail).first()
+            return UserModel._model_to_dict(user)
         except Exception as e:
             logger.error(f"Error retrieving user by email: {str(e)}")
             raise
@@ -89,11 +114,8 @@ class UserModel:
         """Retrieve user details by ID"""
         try:
             db = get_db()
-            user = db.execute(
-                'SELECT * FROM users WHERE id = ?', 
-                (user_id,)
-            ).fetchone()
-            return dict(user) if user else None
+            user = db.query(DBUser).filter(DBUser.id == user_id).first()
+            return UserModel._model_to_dict(user)
         except Exception as e:
             logger.error(f"Error retrieving user by ID: {str(e)}")
             raise
@@ -102,25 +124,23 @@ class UserModel:
         """Update the user's API key"""
         try:
             db = get_db()
-            db.execute(
-                'UPDATE users SET groq_api_key = ? WHERE id = ?',
-                (new_api_key, self.user_id)
-            )
-            db.commit()
-            return True
+            user = db.query(DBUser).filter(DBUser.id == self.user_id).first()
+            if user:
+                user.groq_api_key = new_api_key
+                db.commit()
+                return True
+            return False
         except Exception as e:
             logger.error(f"Error updating API key: {str(e)}")
+            db.rollback()
             return False
 
     def get_role(self) -> str:
         """Get the user's role"""
         try:
             db = get_db()
-            result = db.execute(
-                'SELECT role FROM users WHERE id = ?',
-                (self.user_id,)
-            ).fetchone()
-            return result['role'] if result else 'student'
+            user = db.query(DBUser).filter(DBUser.id == self.user_id).first()
+            return user.role if user else 'student'
         except Exception as e:
             logger.error(f"Error getting user role: {str(e)}")
             return 'student'
@@ -139,6 +159,22 @@ class LessonModel:
     
     def __init__(self, lesson_id: Optional[int] = None):
         self.lesson_id = lesson_id
+    
+    @staticmethod
+    def _lesson_to_dict(lesson_instance, include_teacher_name=False):
+        """Convert SQLAlchemy lesson instance to dictionary"""
+        if lesson_instance is None:
+            return None
+        result = {}
+        for key in lesson_instance.__table__.columns.keys():
+            value = getattr(lesson_instance, key)
+            if isinstance(value, datetime):
+                value = value.isoformat()
+            result[key] = value
+        # Add teacher_name if requested and available
+        if include_teacher_name and hasattr(lesson_instance, 'teacher'):
+            result['teacher_name'] = lesson_instance.teacher.username if lesson_instance.teacher else None
+        return result
     
     @staticmethod
     def create_lesson(teacher_id: int, title: str, summary: str, learning_objectives: str,
@@ -162,64 +198,66 @@ class LessonModel:
             # If this is a new version of an existing lesson, get the next version number
             if parent_version_id:
                 # Get the parent lesson's lesson_id and version_number
-                parent_lesson = db.execute(
-                    'SELECT lesson_id, version_number FROM lessons WHERE id = ?',
-                    (parent_version_id,)
-                ).fetchone()
+                parent_lesson = db.query(DBLesson).filter(DBLesson.id == parent_version_id).first()
                 if parent_lesson:
-                    lesson_id = parent_lesson['lesson_id']  # Use same lesson_id as parent
+                    lesson_id = parent_lesson.lesson_id  # Use same lesson_id as parent
                     
-                    # Use atomic approach to get next version number
-                    # This ensures no race conditions by using a single query
-                    db.execute('BEGIN IMMEDIATE TRANSACTION')
-                    try:
-                        # Get the next available version number atomically
-                        next_version = db.execute(
-                            '''SELECT COALESCE(MAX(version_number), 0) + 1 as next_version 
-                               FROM lessons WHERE lesson_id = ?''',
-                            (lesson_id,)
-                        ).fetchone()
-                        
-                        version_number = next_version['next_version']
-                        logger.info(f"Creating new version {version_number} for lesson {lesson_id}")
-                        
-                        db.commit()
-                    except Exception as e:
-                        db.rollback()
-                        raise e
+                    # Get the next available version number atomically
+                    max_version = db.query(func.max(func.coalesce(DBLesson.version_number, 1))).filter(
+                        DBLesson.lesson_id == lesson_id
+                    ).scalar()
+                    version_number = (max_version or 0) + 1
+                    logger.info(f"Creating new version {version_number} for lesson {lesson_id}")
             
             # Retry logic for version number conflicts
             max_retries = 3
             for attempt in range(max_retries):
                 try:
-                    cursor = db.execute(
-                        '''INSERT INTO lessons 
-                        (teacher_id, title, summary, learning_objectives, focus_area, grade_level, content, file_name, is_public, parent_lesson_id, version, draft_content, lesson_id, version_number, parent_version_id, original_content, status) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-                        (teacher_id, title, summary, learning_objectives, focus_area, grade_level, content, file_name, is_public, parent_lesson_id, 1, draft_content, lesson_id, version_number, parent_version_id, original_content, status)
+                    lesson = DBLesson(
+                        teacher_id=teacher_id,
+                        title=title,
+                        summary=summary,
+                        learning_objectives=learning_objectives,
+                        focus_area=focus_area,
+                        grade_level=grade_level,
+                        content=content,
+                        file_name=file_name,
+                        is_public=is_public,
+                        parent_lesson_id=parent_lesson_id,
+                        version=1,
+                        draft_content=draft_content,
+                        lesson_id=lesson_id,
+                        version_number=version_number,
+                        parent_version_id=parent_version_id,
+                        original_content=original_content,
+                        status=status
                     )
+                    db.add(lesson)
                     db.commit()
-                    return cursor.lastrowid
-                except sqlite3.IntegrityError as e:
-                    if "UNIQUE constraint failed" in str(e) and "lesson_id" in str(e) and "version_number" in str(e):
+                    db.refresh(lesson)
+                    return lesson.id
+                except IntegrityError as e:
+                    error_msg = str(e.orig) if hasattr(e, 'orig') else str(e)
+                    if "UNIQUE constraint failed" in error_msg or "unique constraint" in error_msg.lower():
                         # Version number conflict, get next available number
                         if attempt < max_retries - 1:
                             db.rollback()
                             # Get the next available version number
-                            next_version = db.execute(
-                                '''SELECT COALESCE(MAX(version_number), 0) + 1 as next_version 
-                                   FROM lessons WHERE lesson_id = ?''',
-                                (lesson_id,)
-                            ).fetchone()
-                            version_number = next_version['next_version']
+                            max_version = db.query(func.max(func.coalesce(DBLesson.version_number, 1))).filter(
+                                DBLesson.lesson_id == lesson_id
+                            ).scalar()
+                            version_number = (max_version or 0) + 1
                             logger.warning(f"Version conflict detected, retrying with version {version_number}")
                             continue
                         else:
+                            db.rollback()
                             raise e
                     else:
+                        db.rollback()
                         raise e
         except Exception as e:
             logger.error(f"Error creating lesson: {str(e)}")
+            db.rollback()
             raise
 
     @staticmethod
@@ -227,15 +265,9 @@ class LessonModel:
         """Retrieve lesson details by ID"""
         try:
             db = get_db()
-            lesson = db.execute(
-                '''SELECT l.*, u.username as teacher_name 
-                   FROM lessons l 
-                   JOIN users u ON l.teacher_id = u.id 
-                   WHERE l.id = ?''',
-                (lesson_id,)
-            ).fetchone()
+            lesson = db.query(DBLesson).join(DBUser).filter(DBLesson.id == lesson_id).first()
             if lesson:
-                lesson_dict = dict(lesson)
+                lesson_dict = LessonModel._lesson_to_dict(lesson, include_teacher_name=True)
                 logger.info(f"Retrieved lesson ID {lesson_id} with title: '{lesson_dict.get('title', 'NO_TITLE')}'")
                 return lesson_dict
             else:
@@ -250,11 +282,8 @@ class LessonModel:
         """Get all versions of a lesson by lesson_id"""
         try:
             db = get_db()
-            results = db.execute(
-                'SELECT * FROM lessons WHERE lesson_id = ? ORDER BY version_number ASC',
-                (lesson_id,)
-            ).fetchall()
-            return [dict(row) for row in results]
+            results = db.query(DBLesson).filter(DBLesson.lesson_id == lesson_id).order_by(DBLesson.version_number.asc()).all()
+            return [LessonModel._lesson_to_dict(lesson) for lesson in results]
         except Exception as e:
             logger.error(f"Error getting lessons by lesson_id: {str(e)}")
             return []
@@ -264,11 +293,8 @@ class LessonModel:
         """Get the latest version of a lesson by lesson_id"""
         try:
             db = get_db()
-            result = db.execute(
-                'SELECT * FROM lessons WHERE lesson_id = ? ORDER BY version_number DESC LIMIT 1',
-                (lesson_id,)
-            ).fetchone()
-            return dict(result) if result else None
+            result = db.query(DBLesson).filter(DBLesson.lesson_id == lesson_id).order_by(desc(DBLesson.version_number)).first()
+            return LessonModel._lesson_to_dict(result) if result else None
         except Exception as e:
             logger.error(f"Error getting latest version by lesson_id: {str(e)}")
             return None
@@ -279,12 +305,8 @@ class LessonModel:
         try:
             db = get_db()
             # Get all lessons for this teacher (originals and all versions)
-            lessons = db.execute('''
-                SELECT l.* FROM lessons l
-                WHERE l.teacher_id = ?
-                ORDER BY l.created_at DESC
-            ''', (teacher_id,)).fetchall()
-            return [dict(lesson) for lesson in lessons]
+            lessons = db.query(DBLesson).filter(DBLesson.teacher_id == teacher_id).order_by(desc(DBLesson.created_at)).all()
+            return [LessonModel._lesson_to_dict(lesson) for lesson in lessons]
         except Exception as e:
             logger.error(f"Error retrieving lessons by teacher: {str(e)}")
             raise
@@ -294,24 +316,21 @@ class LessonModel:
         """Get all public lessons with optional filtering (including all versions)"""
         try:
             db = get_db()
-            query = '''SELECT l.*, u.username as teacher_name 
-                      FROM lessons l 
-                      JOIN users u ON l.teacher_id = u.id 
-                      WHERE l.is_public = TRUE'''
-            params = []
+            query = db.query(DBLesson).join(DBUser).filter(DBLesson.is_public == True)
             
             if grade_level:
-                query += ' AND l.grade_level = ?'
-                params.append(grade_level)
+                query = query.filter(DBLesson.grade_level == grade_level)
             
             if focus_area:
-                query += ' AND l.focus_area = ?'
-                params.append(focus_area)
+                query = query.filter(DBLesson.focus_area == focus_area)
             
-            query += ' ORDER BY l.created_at DESC'
-            
-            lessons = db.execute(query, params).fetchall()
-            return [dict(lesson) for lesson in lessons]
+            lessons = query.order_by(desc(DBLesson.created_at)).all()
+            result = []
+            for lesson in lessons:
+                lesson_dict = LessonModel._lesson_to_dict(lesson)
+                lesson_dict['teacher_name'] = lesson.teacher.username if lesson.teacher else None
+                result.append(lesson_dict)
+            return result
         except Exception as e:
             logger.error(f"Error retrieving public lessons: {str(e)}")
             raise
@@ -394,57 +413,48 @@ class LessonModel:
         """Update lesson details"""
         try:
             db = get_db()
-            updates = []
-            params = []
+            lesson = db.query(DBLesson).filter(DBLesson.id == self.lesson_id).first()
+            if not lesson:
+                return False
             
             if title is not None:
-                updates.append('title = ?')
-                params.append(title)
+                lesson.title = title
             if summary is not None:
-                updates.append('summary = ?')
-                params.append(summary)
+                lesson.summary = summary
             if learning_objectives is not None:
-                updates.append('learning_objectives = ?')
-                params.append(learning_objectives)
+                lesson.learning_objectives = learning_objectives
             if focus_area is not None:
-                updates.append('focus_area = ?')
-                params.append(focus_area)
+                lesson.focus_area = focus_area
             if grade_level is not None:
-                updates.append('grade_level = ?')
-                params.append(grade_level)
+                lesson.grade_level = grade_level
             if content is not None:
-                updates.append('content = ?')
-                params.append(content)
+                lesson.content = content
             if detailed_answer is not None:
-                updates.append('detailed_answer = ?')
-                params.append(detailed_answer)
+                lesson.detailed_answer = detailed_answer
             if is_public is not None:
-                updates.append('is_public = ?')
-                params.append(is_public)
+                lesson.is_public = is_public
             
-            if not updates:
-                return True
-            
-            updates.append('updated_at = CURRENT_TIMESTAMP')
-            params.append(self.lesson_id)
-            
-            query = f'UPDATE lessons SET {", ".join(updates)} WHERE id = ?'
-            db.execute(query, params)
+            lesson.updated_at = datetime.utcnow()
             db.commit()
             return True
         except Exception as e:
             logger.error(f"Error updating lesson: {str(e)}")
+            db.rollback()
             return False
 
     def delete_lesson(self) -> bool:
         """Delete a lesson"""
         try:
             db = get_db()
-            db.execute('DELETE FROM lessons WHERE id = ?', (self.lesson_id,))
-            db.commit()
-            return True
+            lesson = db.query(DBLesson).filter(DBLesson.id == self.lesson_id).first()
+            if lesson:
+                db.delete(lesson)
+                db.commit()
+                return True
+            return False
         except Exception as e:
             logger.error(f"Error deleting lesson: {str(e)}")
+            db.rollback()
             return False
 
     @staticmethod
@@ -485,14 +495,21 @@ class LessonModel:
             # Mark the specific source version (original_lesson_id) as having a child version
             try:
                 db = get_db()
-                db.execute('UPDATE lessons SET has_child_version = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = ?', (original_lesson_id,))
+                lesson = db.query(DBLesson).filter(DBLesson.id == original_lesson_id).first()
+                if lesson:
+                    lesson.has_child_version = True
+                    lesson.updated_at = datetime.utcnow()
                 # Also mark the root/original lesson as having a child (for UI consistency), if different
                 root_id = original_lesson.get('parent_lesson_id') or original_lesson_id
                 if root_id != original_lesson_id:
-                    db.execute('UPDATE lessons SET has_child_version = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = ?', (root_id,))
+                    root_lesson = db.query(DBLesson).filter(DBLesson.id == root_id).first()
+                    if root_lesson:
+                        root_lesson.has_child_version = True
+                        root_lesson.updated_at = datetime.utcnow()
                 db.commit()
             except Exception as flag_err:
                 logger.warning(f"Failed to set has_child_version flag for lesson {original_lesson_id}: {flag_err}")
+                db.rollback()
 
             return new_id
         except Exception as e:
@@ -556,17 +573,18 @@ class LessonModel:
         """Check if a lesson title already exists for a teacher"""
         try:
             db = get_db()
-            query = '''SELECT COUNT(*) as count FROM lessons 
-                      WHERE teacher_id = ? AND LOWER(title) = LOWER(?)'''
-            params = [teacher_id, title.strip()]
+            query = db.query(DBLesson).filter(
+                and_(
+                    DBLesson.teacher_id == teacher_id,
+                    func.lower(DBLesson.title) == func.lower(title.strip())
+                )
+            )
             
             # Exclude a specific lesson ID (useful for updates/edits)
             if exclude_lesson_id:
-                query += ' AND id != ?'
-                params.append(exclude_lesson_id)
+                query = query.filter(DBLesson.id != exclude_lesson_id)
             
-            result = db.execute(query, params).fetchone()
-            return result['count'] > 0
+            return query.count() > 0
         except Exception as e:
             logger.error(f"Error checking title existence: {str(e)}")
             raise
@@ -576,15 +594,16 @@ class LessonModel:
         """Save draft content for a lesson"""
         try:
             db = get_db()
-            db.execute(
-                'UPDATE lessons SET draft_content = ? WHERE id = ?',
-                (draft_content, lesson_id)
-            )
-            db.commit()
-            logger.info(f"Saved draft content for lesson {lesson_id}")
-            return True
+            lesson = db.query(DBLesson).filter(DBLesson.id == lesson_id).first()
+            if lesson:
+                lesson.draft_content = draft_content
+                db.commit()
+                logger.info(f"Saved draft content for lesson {lesson_id}")
+                return True
+            return False
         except Exception as e:
             logger.error(f"Error saving draft content: {str(e)}")
+            db.rollback()
             return False
 
     @staticmethod
@@ -592,11 +611,8 @@ class LessonModel:
         """Get draft content for a lesson"""
         try:
             db = get_db()
-            result = db.execute(
-                'SELECT draft_content FROM lessons WHERE id = ?',
-                (lesson_id,)
-            ).fetchone()
-            return result['draft_content'] if result and result['draft_content'] else ''
+            lesson = db.query(DBLesson).filter(DBLesson.id == lesson_id).first()
+            return lesson.draft_content if lesson and lesson.draft_content else ''
         except Exception as e:
             logger.error(f"Error getting draft content: {str(e)}")
             return ''
@@ -606,15 +622,16 @@ class LessonModel:
         """Clear draft content for a lesson"""
         try:
             db = get_db()
-            db.execute(
-                'UPDATE lessons SET draft_content = NULL WHERE id = ?',
-                (lesson_id,)
-            )
-            db.commit()
-            logger.info(f"Cleared draft content for lesson {lesson_id}")
-            return True
+            lesson = db.query(DBLesson).filter(DBLesson.id == lesson_id).first()
+            if lesson:
+                lesson.draft_content = None
+                db.commit()
+                logger.info(f"Cleared draft content for lesson {lesson_id}")
+                return True
+            return False
         except Exception as e:
             logger.error(f"Error clearing draft content: {str(e)}")
+            db.rollback()
             return False
 
     @staticmethod
@@ -656,13 +673,20 @@ class LessonModel:
             # Mark the source version as having a child version
             try:
                 db = get_db()
-                db.execute('UPDATE lessons SET has_child_version = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = ?', (original_lesson_id,))
+                lesson = db.query(DBLesson).filter(DBLesson.id == original_lesson_id).first()
+                if lesson:
+                    lesson.has_child_version = True
+                    lesson.updated_at = datetime.utcnow()
                 # Also mark the root lesson as having a child
                 if actual_original_id != original_lesson_id:
-                    db.execute('UPDATE lessons SET has_child_version = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = ?', (actual_original_id,))
+                    root_lesson = db.query(DBLesson).filter(DBLesson.id == actual_original_id).first()
+                    if root_lesson:
+                        root_lesson.has_child_version = True
+                        root_lesson.updated_at = datetime.utcnow()
                 db.commit()
             except Exception as flag_err:
                 logger.warning(f"Failed to set has_child_version flag for lesson {original_lesson_id}: {flag_err}")
+                db.rollback()
             return new_lesson_id
         except Exception as e:
             logger.error(f"Error creating new version from draft: {str(e)}")
@@ -1008,7 +1032,7 @@ class ChatModel:
         if not self._chat_model:
             try:
                 ollama_base_url = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
-                ollama_model = os.getenv('OLLAMA_MODEL', 'qwen2.5:3b')
+                ollama_model = os.getenv('OLLAMA_MODEL', 'qwen2.5:1.5b')
                 self._chat_model = ChatOllama(
                     model=ollama_model,
                     base_url=ollama_base_url
@@ -1419,35 +1443,59 @@ class ConversationModel:
     def __init__(self, user_id: int):
         self.user_id = user_id
     
+    @staticmethod
+    def _model_to_dict(model_instance):
+        """Convert SQLAlchemy model instance to dictionary"""
+        if model_instance is None:
+            return None
+        result = {}
+        for key in model_instance.__table__.columns.keys():
+            value = getattr(model_instance, key)
+            if isinstance(value, datetime):
+                value = value.isoformat()
+            result[key] = value
+        return result
+    
     def create_conversation(self, title: str) -> int:
         """Create a new conversation"""
         try:
             db = get_db()
-            cursor = db.execute(
-                'INSERT INTO conversations (user_id, title) VALUES (?, ?)',
-                (self.user_id, title)
-            )
+            conversation = DBConversation(user_id=self.user_id, title=title)
+            db.add(conversation)
             db.commit()
-            return cursor.lastrowid
+            db.refresh(conversation)
+            return conversation.id
         except Exception as e:
             logger.error(f"Error creating conversation: {str(e)}")
+            db.rollback()
             raise
     
     def get_conversations(self, limit: int = 4) -> List[Dict]:
         """Get user's recent conversations"""
         try:
             db = get_db()
-            conversations = db.execute(
-                '''SELECT c.id, c.title, MAX(ch.created_at) as last_message
-                   FROM conversations c
-                   LEFT JOIN chat_history ch ON c.id = ch.conversation_id
-                   WHERE c.user_id = ?
-                   GROUP BY c.id
-                   ORDER BY last_message DESC
-                   LIMIT ?''',
-                (self.user_id, limit)
-            ).fetchall()
-            return [dict(conv) for conv in conversations]
+            conversations = db.query(
+                DBConversation.id, 
+                DBConversation.title, 
+                func.max(DBChatHistory.created_at).label('last_message')
+            ).outerjoin(
+                DBChatHistory, DBConversation.id == DBChatHistory.conversation_id
+            ).filter(
+                DBConversation.user_id == self.user_id
+            ).group_by(
+                DBConversation.id
+            ).order_by(
+                desc('last_message')
+            ).limit(limit).all()
+            
+            result = []
+            for conv in conversations:
+                result.append({
+                    'id': conv.id,
+                    'title': conv.title,
+                    'last_message': conv.last_message.isoformat() if conv.last_message else None
+                })
+            return result
         except Exception as e:
             logger.error(f"Error retrieving conversations: {str(e)}")
             raise
@@ -1456,13 +1504,10 @@ class ConversationModel:
         """Get a specific conversation by ID"""
         try:
             db = get_db()
-            conversation = db.execute(
-                '''SELECT id, title, created_at 
-                   FROM conversations 
-                   WHERE id = ? AND user_id = ?''',
-                (conversation_id, self.user_id)
-            ).fetchone()
-            return dict(conversation) if conversation else None
+            conversation = db.query(DBConversation).filter(
+                and_(DBConversation.id == conversation_id, DBConversation.user_id == self.user_id)
+            ).first()
+            return ConversationModel._model_to_dict(conversation)
         except Exception as e:
             logger.error(f"Error retrieving conversation: {str(e)}")
             raise
@@ -1471,16 +1516,17 @@ class ConversationModel:
         """Update the title of a conversation"""
         try:
             db = get_db()
-            cursor = db.execute(
-                '''UPDATE conversations 
-                   SET title = ? 
-                   WHERE id = ? AND user_id = ?''',
-                (new_title, conversation_id, self.user_id)
-            )
-            db.commit()
-            return cursor.rowcount > 0
+            conversation = db.query(DBConversation).filter(
+                and_(DBConversation.id == conversation_id, DBConversation.user_id == self.user_id)
+            ).first()
+            if conversation:
+                conversation.title = new_title
+                db.commit()
+                return True
+            return False
         except Exception as e:
             logger.error(f"Error updating conversation title: {str(e)}")
+            db.rollback()
             raise
     
     def save_message(self, conversation_id: int, message: str, role: str) -> int:
@@ -1489,34 +1535,31 @@ class ConversationModel:
             db = get_db()
             
             # First verify that the conversation belongs to this user
-            conversation = db.execute(
-                '''SELECT id FROM conversations 
-                   WHERE id = ? AND user_id = ?''',
-                (conversation_id, self.user_id)
-            ).fetchone()
+            conversation = db.query(DBConversation).filter(
+                and_(DBConversation.id == conversation_id, DBConversation.user_id == self.user_id)
+            ).first()
             
             if not conversation:
-                # Conversation doesn't exist or doesn't belong to this user
                 logger.warning(f"User {self.user_id} attempted to save message to conversation {conversation_id} without ownership")
                 raise ValueError(f"Conversation {conversation_id} does not belong to user {self.user_id}")
             
             # Now safely save the message
-            cursor = db.execute(
-                'INSERT INTO chat_history (conversation_id, message, role) VALUES (?, ?, ?)',
-                (conversation_id, message, role)
+            chat_message = DBChatHistory(
+                conversation_id=conversation_id,
+                message=message,
+                role=role
             )
+            db.add(chat_message)
             
             # Update conversation's last activity
-            from datetime import datetime
-            db.execute(
-                'UPDATE conversations SET updated_at = ? WHERE id = ? AND user_id = ?',
-                (datetime.now().isoformat(), conversation_id, self.user_id)
-            )
+            conversation.updated_at = datetime.utcnow()
             
             db.commit()
-            return cursor.lastrowid
+            db.refresh(chat_message)
+            return chat_message.id
         except Exception as e:
             logger.error(f"Error saving message: {str(e)}")
+            db.rollback()
             raise
     
     def get_chat_history(self, conversation_id: int) -> List[Dict]:
@@ -1524,27 +1567,27 @@ class ConversationModel:
         try:
             db = get_db()
             # First verify that the conversation belongs to this user
-            conversation = db.execute(
-                '''SELECT id FROM conversations 
-                   WHERE id = ? AND user_id = ?''',
-                (conversation_id, self.user_id)
-            ).fetchone()
+            conversation = db.query(DBConversation).filter(
+                and_(DBConversation.id == conversation_id, DBConversation.user_id == self.user_id)
+            ).first()
             
             if not conversation:
-                # Conversation doesn't exist or doesn't belong to this user
                 logger.warning(f"User {self.user_id} attempted to access conversation {conversation_id} without ownership")
                 return []
             
             # Now safely retrieve messages for this conversation
-            messages = db.execute(
-                '''SELECT ch.message, ch.role, ch.created_at
-                   FROM chat_history ch
-                   INNER JOIN conversations c ON ch.conversation_id = c.id
-                   WHERE ch.conversation_id = ? AND c.user_id = ?
-                   ORDER BY ch.created_at''',
-                (conversation_id, self.user_id)
-            ).fetchall()
-            return [dict(msg) for msg in messages]
+            messages = db.query(DBChatHistory).filter(
+                DBChatHistory.conversation_id == conversation_id
+            ).order_by(DBChatHistory.created_at.asc()).all()
+            
+            result = []
+            for msg in messages:
+                result.append({
+                    'message': msg.message,
+                    'role': msg.role,
+                    'created_at': msg.created_at.isoformat() if msg.created_at else None
+                })
+            return result
         except Exception as e:
             logger.error(f"Error retrieving chat history: {str(e)}")
             raise
@@ -1553,29 +1596,27 @@ class ConversationModel:
         """Delete a conversation and its associated messages"""
         try:
             db = get_db()
-            # Delete the conversation (this will cascade delete chat_history due to foreign key constraint)
-            db.execute(
-                'DELETE FROM conversations WHERE id = ? AND user_id = ?',
-                (conversation_id, self.user_id)
-            )
-            db.commit()
+            conversation = db.query(DBConversation).filter(
+                and_(DBConversation.id == conversation_id, DBConversation.user_id == self.user_id)
+            ).first()
+            if conversation:
+                db.delete(conversation)  # Cascade delete will handle chat_history
+                db.commit()
         except Exception as e:
             logger.error(f"Error deleting conversation: {str(e)}")
+            db.rollback()
             raise
 
     def reset_all_chats(self) -> None:
         """Delete all conversations and chat history for the user"""
         try:
             db = get_db()
-            # Delete all conversations for the user (this will cascade delete all chat_history)
-            db.execute(
-                'DELETE FROM conversations WHERE user_id = ?',
-                (self.user_id,)
-            )
+            db.query(DBConversation).filter(DBConversation.user_id == self.user_id).delete()
             db.commit()
             logger.info(f"All chats reset for user {self.user_id}")
         except Exception as e:
             logger.error(f"Error resetting all chats: {str(e)}")
+            db.rollback()
             raise
 
 
@@ -1591,6 +1632,19 @@ class SurveyModel:
     def __init__(self, user_id: int):
         self.user_id = user_id
     
+    @staticmethod
+    def _model_to_dict(model_instance):
+        """Convert SQLAlchemy model instance to dictionary"""
+        if model_instance is None:
+            return None
+        result = {}
+        for key in model_instance.__table__.columns.keys():
+            value = getattr(model_instance, key)
+            if isinstance(value, datetime):
+                value = value.isoformat()
+            result[key] = value
+        return result
+    
     def save_survey_response(self, rating: int, message: str = None) -> int:
         """Save a survey response to the database"""
         try:
@@ -1598,29 +1652,36 @@ class SurveyModel:
                 raise ValueError("Rating must be an integer between 1 and 10")
 
             db = get_db()
-            cursor = db.execute(
-                '''INSERT INTO survey_responses (user_id, rating, message)
-                   VALUES (?, ?, ?)''',
-                (self.user_id, rating, message)
+            response = DBSurveyResponse(
+                user_id=self.user_id,
+                rating=rating,
+                message=message
             )
+            db.add(response)
             db.commit()
-            return cursor.lastrowid
+            db.refresh(response)
+            return response.id
         except Exception as e:
             logger.error(f"Error saving survey response: {str(e)}")
+            db.rollback()
             raise
     
     def get_user_survey_responses(self) -> List[Dict]:
         """Get all survey responses for a user"""
         try:
             db = get_db()
-            responses = db.execute(
-                '''SELECT rating, message, created_at
-                   FROM survey_responses
-                   WHERE user_id = ?
-                   ORDER BY created_at DESC''',
-                (self.user_id,)
-            ).fetchall()
-            return [dict(response) for response in responses]
+            responses = db.query(DBSurveyResponse).filter(
+                DBSurveyResponse.user_id == self.user_id
+            ).order_by(desc(DBSurveyResponse.created_at)).all()
+            
+            result = []
+            for resp in responses:
+                result.append({
+                    'rating': resp.rating,
+                    'message': resp.message,
+                    'created_at': resp.created_at.isoformat() if resp.created_at else None
+                })
+            return result
         except Exception as e:
             logger.error(f"Error retrieving survey responses: {str(e)}")
             raise
@@ -1630,11 +1691,9 @@ class SurveyModel:
         try:
             logger.info(f"Checking survey submission status for user_id: {self.user_id}")
             db = get_db()
-            result = db.execute(
-                'SELECT COUNT(*) as count FROM survey_responses WHERE user_id = ?',
-                (self.user_id,)
-            ).fetchone()
-            count = result['count']
+            count = db.query(DBSurveyResponse).filter(
+                DBSurveyResponse.user_id == self.user_id
+            ).count()
             
             status = "has" if count > 0 else "has not"
             logger.info(f"Survey check result: User {self.user_id} {status} submitted a survey (count: {count})")
@@ -1644,118 +1703,121 @@ class SurveyModel:
             logger.error(f"Error checking survey submission for user {self.user_id}: {str(e)}")
             raise
 
-import sqlite3
 
 class LessonFAQ:
     @staticmethod
     def log_question(lesson_id, question):
-        conn = sqlite3.connect('instance/chatbot.db')
-        c = conn.cursor()
-        c.execute('''CREATE TABLE IF NOT EXISTS lesson_faq (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            lesson_id INTEGER,
-            question TEXT,
-            count INTEGER DEFAULT 1,
-            canonical_question TEXT
-        )''')
-
-        # Ensure schema has canonical_question even if table existed
+        """Log a question for a lesson FAQ"""
         try:
-            c.execute('ALTER TABLE lesson_faq ADD COLUMN canonical_question TEXT')
-        except Exception:
-            pass
-
-        # Treat provided question as already canonicalized by service
-        canonical = question.strip()
-
-        # Check if a record with this canonical already exists for this lesson
-        c.execute('SELECT id, count FROM lesson_faq WHERE lesson_id=? AND COALESCE(canonical_question, question)=?', (lesson_id, canonical))
-        row = c.fetchone()
-        if row:
-            c.execute('UPDATE lesson_faq SET count = count + 1 WHERE id=?', (row[0],))
-        else:
-            c.execute('INSERT INTO lesson_faq (lesson_id, question, count, canonical_question) VALUES (?, ?, 1, ?)', (lesson_id, canonical, canonical))
-        conn.commit()
-        conn.close()
+            db = get_db()
+            canonical = question.strip()
+            
+            # Check if a record with this canonical already exists for this lesson
+            existing = db.query(DBLessonFAQ).filter(
+                and_(
+                    DBLessonFAQ.lesson_id == lesson_id,
+                    func.coalesce(DBLessonFAQ.canonical_question, DBLessonFAQ.question) == canonical
+                )
+            ).first()
+            
+            if existing:
+                existing.count += 1
+            else:
+                faq = DBLessonFAQ(
+                    lesson_id=lesson_id,
+                    question=canonical,
+                    canonical_question=canonical,
+                    count=1
+                )
+                db.add(faq)
+            
+            db.commit()
+        except Exception as e:
+            logger.error(f"Error logging FAQ question: {str(e)}")
+            db.rollback()
+            raise
 
     @staticmethod
     def get_top_faqs(lesson_id, limit=5):
-        conn = sqlite3.connect('instance/chatbot.db')
-        c = conn.cursor()
-        c.execute('''CREATE TABLE IF NOT EXISTS lesson_faq (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            lesson_id INTEGER,
-            question TEXT,
-            count INTEGER DEFAULT 1,
-            canonical_question TEXT
-        )''')
-        c.execute('SELECT COALESCE(canonical_question, question) as q, count FROM lesson_faq WHERE lesson_id=? ORDER BY count DESC LIMIT ?', (lesson_id, limit))
-        faqs = [{'question': row[0], 'count': row[1]} for row in c.fetchall()]
-        conn.close()
-        return faqs
+        """Get top FAQs for a lesson"""
+        try:
+            db = get_db()
+            faqs = db.query(
+                func.coalesce(DBLessonFAQ.canonical_question, DBLessonFAQ.question).label('question'),
+                DBLessonFAQ.count
+            ).filter(
+                DBLessonFAQ.lesson_id == lesson_id
+            ).order_by(
+                desc(DBLessonFAQ.count)
+            ).limit(limit).all()
+            
+            return [{'question': faq.question, 'count': faq.count} for faq in faqs]
+        except Exception as e:
+            logger.error(f"Error getting top FAQs: {str(e)}")
+            return []
+
 
 class LessonChatHistory:
     """Model for handling lesson-specific chat history"""
     
     @staticmethod
-    def create_table():
-        """Create the lesson_chat_history table if it doesn't exist"""
-        conn = sqlite3.connect('instance/chatbot.db')
-        c = conn.cursor()
-        c.execute('''CREATE TABLE IF NOT EXISTS lesson_chat_history (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            lesson_id INTEGER,
-            user_id INTEGER,
-            question TEXT,
-            answer TEXT,
-            canonical_question TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )''')
-        # Ensure canonical_question exists for older tables
-        try:
-            c.execute('ALTER TABLE lesson_chat_history ADD COLUMN canonical_question TEXT')
-        except Exception:
-            pass
-        conn.commit()
-        conn.close()
-    
-    @staticmethod
     def save_qa(lesson_id: int, user_id: int, question: str, answer: str, canonical_question: str | None = None) -> int:
         """Save a Q&A pair for a specific lesson and user"""
-        LessonChatHistory.create_table()
-        conn = sqlite3.connect('instance/chatbot.db')
-        c = conn.cursor()
-        c.execute('''INSERT INTO lesson_chat_history 
-                     (lesson_id, user_id, question, answer, canonical_question) 
-                     VALUES (?, ?, ?, ?, ?)''', 
-                  (lesson_id, user_id, question, answer, canonical_question))
-        conn.commit()
-        chat_id = c.lastrowid
-        conn.close()
-        return chat_id
+        try:
+            db = get_db()
+            chat_history = DBLessonChatHistory(
+                lesson_id=lesson_id,
+                user_id=user_id,
+                question=question,
+                answer=answer,
+                canonical_question=canonical_question
+            )
+            db.add(chat_history)
+            db.commit()
+            db.refresh(chat_history)
+            return chat_history.id
+        except Exception as e:
+            logger.error(f"Error saving lesson chat history: {str(e)}")
+            db.rollback()
+            raise
     
     @staticmethod
     def get_lesson_chat_history(lesson_id: int, user_id: int) -> List[Dict]:
         """Get chat history for a specific lesson and user"""
-        LessonChatHistory.create_table()
-        conn = sqlite3.connect('instance/chatbot.db')
-        c = conn.cursor()
-        c.execute('''SELECT question, answer, created_at 
-                     FROM lesson_chat_history 
-                     WHERE lesson_id = ? AND user_id = ?
-                     ORDER BY created_at ASC''', (lesson_id, user_id))
-        history = [{'question': row[0], 'answer': row[1], 'created_at': row[2]} 
-                  for row in c.fetchall()]
-        conn.close()
-        return history
+        try:
+            db = get_db()
+            history = db.query(DBLessonChatHistory).filter(
+                and_(
+                    DBLessonChatHistory.lesson_id == lesson_id,
+                    DBLessonChatHistory.user_id == user_id
+                )
+            ).order_by(DBLessonChatHistory.created_at.asc()).all()
+            
+            result = []
+            for record in history:
+                result.append({
+                    'question': record.question,
+                    'answer': record.answer,
+                    'created_at': record.created_at.isoformat() if record.created_at else None
+                })
+            return result
+        except Exception as e:
+            logger.error(f"Error getting lesson chat history: {str(e)}")
+            return []
     
     @staticmethod
     def clear_lesson_chat_history(lesson_id: int, user_id: int) -> None:
         """Clear chat history for a specific lesson and user"""
-        LessonChatHistory.create_table()
-        conn = sqlite3.connect('instance/chatbot.db')
-        c = conn.cursor()
-        c.execute('''DELETE FROM lesson_chat_history 
-                     WHERE lesson_id = ? AND user_id = ?''', (lesson_id, user_id))
-        conn.commit()
-        conn.close()
+        try:
+            db = get_db()
+            db.query(DBLessonChatHistory).filter(
+                and_(
+                    DBLessonChatHistory.lesson_id == lesson_id,
+                    DBLessonChatHistory.user_id == user_id
+                )
+            ).delete()
+            db.commit()
+        except Exception as e:
+            logger.error(f"Error clearing lesson chat history: {str(e)}")
+            db.rollback()
+            raise
