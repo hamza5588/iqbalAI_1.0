@@ -304,37 +304,81 @@ def get_token_status():
                 return jsonify(cached_data)
         
         # Cache miss or expired - fetch fresh data
-        # Initialize chat service
-        chat_service = ChatService(user_id, current_api_key)
-        
-        # Verify the API key matches what's being used
-        if chat_service.chat_model.api_key != current_api_key:
-            chat_service.chat_model.api_key = current_api_key  # This will trigger reset
+        # Try to get token usage directly from database first (faster)
+        try:
+            from app.utils.db import get_token_usage
+            db_usage = get_token_usage(user_id)
+            daily_limit = 100000  # Default limit
             
-        token_status = chat_service.chat_model.get_token_status()
-        
-        response_data = {
-            'used': token_status['used'],
-            'remaining': token_status['remaining'],
-            'limit': token_status['limit'],
-            'reset_in': token_status['reset_in'],
-            'api_key_changed': False  # Can be used by frontend if needed
-        }
-        
-        # Cache the response
-        _token_status_cache[cache_key] = (current_time, response_data)
-        
-        # Clean old cache entries (keep only last 100)
-        if len(_token_status_cache) > 100:
-            # Remove oldest entries
-            sorted_cache = sorted(_token_status_cache.items(), key=lambda x: x[1][0])
-            for key, _ in sorted_cache[:-100]:
-                del _token_status_cache[key]
-        
-        return jsonify(response_data)
+            used = db_usage['today']['tokens_used']
+            remaining = max(0, daily_limit - used)
+            
+            response_data = {
+                'used': used,
+                'remaining': remaining,
+                'limit': daily_limit,
+                'reset_in': 0,  # Will be calculated by frontend if needed
+                'api_key_changed': False
+            }
+            
+            # Cache the response
+            _token_status_cache[cache_key] = (current_time, response_data)
+            
+            # Clean old cache entries (keep only last 100)
+            if len(_token_status_cache) > 100:
+                # Remove oldest entries
+                sorted_cache = sorted(_token_status_cache.items(), key=lambda x: x[1][0])
+                for key, _ in sorted_cache[:-100]:
+                    del _token_status_cache[key]
+            
+            return jsonify(response_data)
+            
+        except Exception as db_error:
+            logger.warning(f"Direct DB query failed, falling back to ChatService: {str(db_error)}")
+            # Fallback to ChatService if direct DB query fails
+            chat_service = ChatService(user_id, current_api_key)
+            
+            # Verify the API key matches what's being used
+            if chat_service.chat_model.api_key != current_api_key:
+                chat_service.chat_model.api_key = current_api_key  # This will trigger reset
+                
+            token_status = chat_service.chat_model.get_token_status()
+            
+            response_data = {
+                'used': token_status['used'],
+                'remaining': token_status['remaining'],
+                'limit': token_status['limit'],
+                'reset_in': token_status['reset_in'],
+                'api_key_changed': False  # Can be used by frontend if needed
+            }
+            
+            # Cache the response
+            _token_status_cache[cache_key] = (current_time, response_data)
+            
+            # Clean old cache entries (keep only last 100)
+            if len(_token_status_cache) > 100:
+                # Remove oldest entries
+                sorted_cache = sorted(_token_status_cache.items(), key=lambda x: x[1][0])
+                for key, _ in sorted_cache[:-100]:
+                    del _token_status_cache[key]
+            
+            return jsonify(response_data)
+            
     except Exception as e:
-        logger.error(f"Error getting token status: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        logger.error(f"Error getting token status: {str(e)}", exc_info=True)
+        # Return cached data if available, even if expired
+        cache_key = f"{session.get('user_id')}_{session.get('groq_api_key')}"
+        if cache_key in _token_status_cache:
+            _, cached_data = _token_status_cache[cache_key]
+            return jsonify(cached_data)
+        # Return error response
+        return jsonify({
+            'error': 'Failed to get token status',
+            'used': 0,
+            'remaining': 0,
+            'limit': 100000,
+            'reset_in': 0
+        }), 500
 
 @bp.route('/user_info')
 def get_user_info():
