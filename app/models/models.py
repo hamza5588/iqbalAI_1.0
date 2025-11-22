@@ -1035,7 +1035,11 @@ class ChatModel:
                 ollama_model = os.getenv('OLLAMA_MODEL', 'qwen2.5:1.5b')
                 self._chat_model = ChatOllama(
                     model=ollama_model,
-                    base_url=ollama_base_url
+                    base_url=ollama_base_url,
+                    num_predict=1024,  # Optimized for faster responses
+                    num_thread=16,
+                    num_ctx=4096,  # Reduced context for faster CPU inference
+                    temperature=0.1
                 )
                 # self._chat_model = ChatGroq(
                 #     api_key=self.api_key,
