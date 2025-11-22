@@ -1,21 +1,19 @@
 from flask import Blueprint, request, session, redirect, url_for, render_template, jsonify
 from app.models import UserModel
 from app.utils.db import get_db
+from app.models.database_models import EmailVerificationToken as DBEmailVerificationToken, PasswordResetToken as DBPasswordResetToken
+from sqlalchemy import and_
 import logging
 import requests
 import secrets
 from datetime import datetime, timedelta
 from flask_mail import Message
 from app import mail
+from app.config import Config
 import os
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('auth', __name__)
-
-# Dictionary to store verification tokens
-verification_tokens = {}
-# Dictionary to store password reset tokens
-reset_tokens = {}
 
 @bp.route('/register_email', methods=['GET', 'POST'])
 def register_email():
@@ -29,24 +27,48 @@ def register_email():
             
             # Generate verification token
             token = secrets.token_urlsafe(32)
-            verification_tokens[token] = {
-                'email': email,
-                'expires': datetime.now() + timedelta(hours=24)
-            }
+            expires_at = datetime.utcnow() + timedelta(hours=24)
+            
+            # Store token in database
+            db = get_db()
+            
+            # Delete any existing tokens for this email
+            db.query(DBEmailVerificationToken).filter(
+                DBEmailVerificationToken.email == email
+            ).delete()
+            
+            # Create new token
+            verification_token = DBEmailVerificationToken(
+                token=token,
+                email=email,
+                expires_at=expires_at,
+                used=False
+            )
+            db.add(verification_token)
+            db.commit()
             
             # Send verification email
             msg = Message('Verify your email',
                         recipients=[email])
             
-            # Generate verification link using the request host
-            verification_link = url_for('auth.verify_email',
-                                      token=token,
-                                      _external=True,
-                                      _scheme=request.scheme)
+            # Generate verification link - handle production vs development
+            # Check for custom server URL in config or environment variable
+            server_url = os.getenv('SERVER_URL') or getattr(Config, 'SERVER_URL', None)
             
-            # If behind proxy, use X-Forwarded-Host
-            if 'X-Forwarded-Host' in request.headers:
-                verification_link = f"{request.scheme}://{request.headers['X-Forwarded-Host']}{url_for('auth.verify_email', token=token)}"
+            if server_url:
+                # Use configured server URL (for production)
+                verification_link = f"{server_url.rstrip('/')}/auth/verify_email/{token}"
+            elif 'X-Forwarded-Host' in request.headers:
+                # Behind reverse proxy (nginx, etc.)
+                scheme = request.headers.get('X-Forwarded-Proto', request.scheme)
+                host = request.headers['X-Forwarded-Host']
+                verification_link = f"{scheme}://{host}/auth/verify_email/{token}"
+            else:
+                # Development - use request host
+                verification_link = url_for('auth.verify_email',
+                                          token=token,
+                                          _external=True,
+                                          _scheme=request.scheme)
             
             msg.body = f'''Please click the following link to verify your email and complete registration:
 {verification_link}
@@ -71,24 +93,37 @@ def verify_email(token):
     try:
         logger.info(f"Verifying email with token: {token[:10]}...")  # Log only first 10 chars for security
         
-        if token not in verification_tokens:
+        db = get_db()
+        
+        # Query token from database
+        verification_token = db.query(DBEmailVerificationToken).filter(
+            and_(
+                DBEmailVerificationToken.token == token,
+                DBEmailVerificationToken.used == False
+            )
+        ).first()
+        
+        if not verification_token:
             logger.warning(f"Invalid token attempted: {token[:10]}...")
             return render_template('register.html', error="Invalid or expired verification link")
         
-        token_data = verification_tokens[token]
-        if datetime.now() > token_data['expires']:
-            verification_tokens.pop(token)
+        # Check if token has expired
+        if datetime.utcnow() > verification_token.expires_at:
+            # Mark as used to clean up
+            verification_token.used = True
+            db.commit()
             logger.warning(f"Expired token attempted: {token[:10]}...")
             return render_template('register.html', error="Verification link has expired")
         
-        email = token_data['email']
+        email = verification_token.email
         logger.info(f"Email verified successfully for: {email}")
         
-        # Keep the token valid until registration is complete
+        # Keep the token valid until registration is complete (don't mark as used yet)
         return render_template('register.html', email=email)
         
     except Exception as e:
         logger.error(f"Error in email verification: {str(e)}")
+        db.rollback()
         return render_template('register.html', error="An error occurred during verification. Please try again.")
 
 @bp.route('/register', methods=['GET', 'POST'])
@@ -98,13 +133,16 @@ def register():
             email = request.form['useremail']
             
             # Verify that email was previously verified
-            verified_email = None
-            for token_data in verification_tokens.values():
-                if token_data['email'] == email:
-                    verified_email = email
-                    break
+            db = get_db()
+            verification_token = db.query(DBEmailVerificationToken).filter(
+                and_(
+                    DBEmailVerificationToken.email == email,
+                    DBEmailVerificationToken.used == False,
+                    DBEmailVerificationToken.expires_at > datetime.utcnow()
+                )
+            ).first()
                     
-            if not verified_email:
+            if not verification_token:
                 return render_template('register.html', error="Email not verified")
             
             user_id = UserModel.create_user(
@@ -117,10 +155,11 @@ def register():
                 role=request.form['role']
             )
             
-            # Clean up verification token
-            for token, data in list(verification_tokens.items()):
-                if data['email'] == email:
-                    verification_tokens.pop(token)
+            # Mark verification token as used and clean up all tokens for this email
+            db.query(DBEmailVerificationToken).filter(
+                DBEmailVerificationToken.email == email
+            ).update({DBEmailVerificationToken.used: True})
+            db.commit()
                     
             return redirect(url_for('auth.login'))
         except ValueError as e:
@@ -372,10 +411,25 @@ def forgot_password():
             
             # Generate OTP
             otp = ''.join([str(secrets.randbelow(10)) for _ in range(6)])
-            reset_tokens[email] = {
-                'otp': otp,
-                'expires': datetime.now() + timedelta(minutes=15)
-            }
+            expires_at = datetime.utcnow() + timedelta(minutes=15)
+            
+            # Store OTP in database
+            db = get_db()
+            
+            # Delete any existing OTPs for this email
+            db.query(DBPasswordResetToken).filter(
+                DBPasswordResetToken.email == email
+            ).delete()
+            
+            # Create new OTP token
+            reset_token = DBPasswordResetToken(
+                email=email,
+                otp=otp,
+                expires_at=expires_at,
+                used=False
+            )
+            db.add(reset_token)
+            db.commit()
             
             # Send OTP email
             msg = Message('Password Reset OTP',
@@ -412,27 +466,37 @@ def reset_password():
                 return render_template('reset_password.html', email=email, error="Passwords do not match")
             
             # Check if OTP exists and is valid
-            if email not in reset_tokens:
+            db = get_db()
+            reset_token = db.query(DBPasswordResetToken).filter(
+                and_(
+                    DBPasswordResetToken.email == email,
+                    DBPasswordResetToken.used == False
+                )
+            ).first()
+            
+            if not reset_token:
                 return render_template('reset_password.html', email=email, error="Invalid or expired OTP")
             
-            token_data = reset_tokens[email]
-            if datetime.now() > token_data['expires']:
-                reset_tokens.pop(email)
+            # Check if expired
+            if datetime.utcnow() > reset_token.expires_at:
+                reset_token.used = True
+                db.commit()
                 return render_template('reset_password.html', email=email, error="OTP has expired")
             
-            if token_data['otp'] != otp:
+            # Verify OTP
+            if reset_token.otp != otp:
                 return render_template('reset_password.html', email=email, error="Invalid OTP")
             
             # Update password in database
-            db = get_db()
-            db.execute(
-                'UPDATE users SET password = ? WHERE useremail = ?',
-                (new_password, email)
-            )
-            db.commit()
+            from app.models.database_models import User as DBUser
+            user = db.query(DBUser).filter(DBUser.useremail == email).first()
+            if user:
+                user.password = new_password
+                db.commit()
             
-            # Clean up reset token
-            reset_tokens.pop(email)
+            # Mark reset token as used
+            reset_token.used = True
+            db.commit()
             
             return redirect(url_for('auth.login'))
             

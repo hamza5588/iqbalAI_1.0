@@ -51,4 +51,8 @@ class Config:
         DATABASE = None  # Not used for non-SQLite databases
     
     # Nomic API configuration
-    NOMIC_API_KEY = os.getenv('NOMIC_API_KEY', 'nk-7Em9YdxJJI09E4vXTxJ9VOC2zygDGWD9eGBYxDLuG0E')  # Replace with your Nomic API key 
+    NOMIC_API_KEY = os.getenv('NOMIC_API_KEY', 'nk-7Em9YdxJJI09E4vXTxJ9VOC2zygDGWD9eGBYxDLuG0E')  # Replace with your Nomic API key
+    
+    # Server URL for generating absolute URLs in production
+    # Set this to your production domain (e.g., 'https://iqbalai.com')
+    SERVER_URL = os.getenv('SERVER_URL', "https://iqbalai.com") 

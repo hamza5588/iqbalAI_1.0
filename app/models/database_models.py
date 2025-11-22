@@ -245,3 +245,36 @@ class LessonChatHistory(Base):
     canonical_question = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, server_default=func.now())
 
+
+class EmailVerificationToken(Base):
+    """Email verification token model"""
+    __tablename__ = 'email_verification_tokens'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    token = Column(String(255), nullable=False, unique=True, index=True)
+    email = Column(String(255), nullable=False, index=True)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, server_default=func.now())
+    used = Column(Boolean, default=False, server_default='0')
+    
+    __table_args__ = (
+        Index('idx_email_verification_token', 'token'),
+        Index('idx_email_verification_email', 'email'),
+    )
+
+
+class PasswordResetToken(Base):
+    """Password reset token model"""
+    __tablename__ = 'password_reset_tokens'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    email = Column(String(255), nullable=False, index=True)
+    otp = Column(String(10), nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, server_default=func.now())
+    used = Column(Boolean, default=False, server_default='0')
+    
+    __table_args__ = (
+        Index('idx_password_reset_email', 'email'),
+    )
+

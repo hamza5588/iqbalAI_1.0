@@ -187,7 +187,7 @@ def init_db(app):
     from app.models.database_models import (
         Base, User, Lesson, Conversation, ChatHistory, SurveyResponse,
         UserPrompt, UserDocument, UserTokenUsage, TokenResetHistory,
-        LessonFAQ, LessonChatHistory
+        LessonFAQ, LessonChatHistory, EmailVerificationToken, PasswordResetToken
     )
     from sqlalchemy import inspect
     import time
