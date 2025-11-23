@@ -89,9 +89,9 @@ def check_lesson_response(text: str, groq_api_key: str):
     #     temperature=0.1
     # )
     ollama_base_url = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
-    ollama_model = os.getenv('OLLAMA_MODEL', 'llama3.2-3b')
+    ollama_model = os.getenv('OLLAMA_MODEL', 'llama3.2:3b')
     llm = ChatOllama(
-        model="llama3.2-3b", 
+        model="llama3.2:3b", 
         base_url=ollama_base_url,
         num_predict=512,  # Reduced for faster responses
         num_thread=16,
