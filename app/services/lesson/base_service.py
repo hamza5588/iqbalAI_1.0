@@ -113,7 +113,7 @@ class BaseLessonService:
         
         # Get Ollama configuration from environment
         ollama_base_url = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
-        ollama_model = os.getenv('OLLAMA_MODEL', 'qwen2.5:1.5b')
+        ollama_model = os.getenv('OLLAMA_MODEL', 'llama3.2-3b')
         ollama_timeout = int(os.getenv('OLLAMA_TIMEOUT', 600))
         
         # Initialize Ollama client with optimized settings for CPU inference
@@ -320,6 +320,6 @@ class BaseLessonService:
             'active_requests': ollama_limiter.get_active_count(),
             'max_concurrent': ollama_limiter.max_concurrent,
             'base_url': os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434'),
-            'model': os.getenv('OLLAMA_MODEL', 'qwen2.5:3b'),
+            'model': os.getenv('OLLAMA_MODEL', 'llama3.2-3b'),
             'timeout': int(os.getenv('OLLAMA_TIMEOUT', 600))
         }
