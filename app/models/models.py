@@ -1032,7 +1032,7 @@ class ChatModel:
         if not self._chat_model:
             try:
                 ollama_base_url = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
-                ollama_model = os.getenv('OLLAMA_MODEL', 'qwen2.5:1.5b')
+                ollama_model = os.getenv('OLLAMA_MODEL', 'llama3.2-3b')
                 self._chat_model = ChatOllama(
                     model=ollama_model,
                     base_url=ollama_base_url,
