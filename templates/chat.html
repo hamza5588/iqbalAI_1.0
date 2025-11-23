@@ -6186,34 +6186,11 @@ async function initializeApp() {
     async function handleStreamingLessonChat(message) {
         hideTypingIndicator();
         
-        // Create a placeholder message div for streaming
-        const chatMessages = document.getElementById('chatMessages');
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'flex items-start gap-3 mb-2 message-container';
-        const messageId = 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        messageDiv.id = messageId;
-        
-        // Create the message structure
-        messageDiv.innerHTML = `
-            <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
-                AI
-            </div>
-            <div class="bg-gray-100 rounded-2xl px-4 py-3 w-full message-bubble">
-                <div class="text-gray-700 leading-relaxed prose max-w-none" id="${messageId}_content">
-                    <span class="typing-indicator">▋</span>
-                </div>
-            </div>
-        `;
-        
-        chatMessages.appendChild(messageDiv);
-        smoothScrollToBottom(chatMessages);
-        
-        const contentDiv = document.getElementById(messageId + '_content');
-        let fullResponse = '';
-        let completeLessonStatus = 'no';
+        // Show typing indicator while waiting for response
+        showTypingIndicator();
         
         try {
-            const response = await authenticatedFetch(`/api/lessons/lesson/${currentLessonChatId}/interactive_chat_stream`, {
+            const response = await authenticatedFetch(`/api/lessons/lesson/${currentLessonChatId}/interactive_chat`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -6223,97 +6200,58 @@ async function initializeApp() {
                 })
             });
             
+            hideTypingIndicator();
+            
             if (!response) {
                 // Authentication error handled by authenticatedFetch
-                contentDiv.innerHTML = '<span class="text-red-600">Authentication error. Please login again.</span>';
+                addMessageToChat('ai', 'Authentication error. Please login again.');
                 return;
             }
             
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const errorData = await response.json().catch(() => ({ error: 'Failed to get response' }));
+                addMessageToChat('ai', `Error: ${errorData.error || `HTTP error! status: ${response.status}`}`);
+                return;
             }
             
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
+            const data = await response.json();
             
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop() || ''; // Keep incomplete line in buffer
-                
-                for (const line of lines) {
-                    if (line.startsWith('data: ')) {
-                        try {
-                            const data = JSON.parse(line.slice(6));
-                            
-                            if (data.chunk) {
-                                fullResponse += data.chunk;
-                                // Update the message content incrementally
-                                const formattedChunk = formatMessageContent(fullResponse);
-                                contentDiv.innerHTML = formattedChunk;
-                                
-                                // Auto-scroll to bottom as content streams
-                                smoothScrollToBottom(chatMessages);
-                            }
-                            
-                            if (data.is_complete) {
-                                completeLessonStatus = data.complete_lesson || 'no';
-                                
-                                // Use full_response if available, otherwise use accumulated response
-                                if (data.full_response) {
-                                    fullResponse = data.full_response;
-                                }
-                                
-                                // Final update with complete formatted message
-                                const formattedResponse = formatMessageContent(fullResponse);
-                                contentDiv.innerHTML = formattedResponse;
-                                
-                                // Store the last AI message for finalization
-                                lastAIMessage = fullResponse;
-                                
-                                // Update lesson content if complete lesson is generated
-                                if (completeLessonStatus === 'yes' && currentLessonData) {
-                                    currentLessonData.content = fullResponse;
-                                    generatedLessonContent = fullResponse;
-                                    saveLessonData();
-                                }
-                                
-                                // Handle scrolling for long messages
-                                setTimeout(() => {
-                                    handleLongMessageScrolling(messageDiv, chatMessages);
-                                    highlightNewMessage(messageDiv);
-                                }, 100);
-                                
-                                // Automatically speak the response if voice output is enabled
-                                if (isVoiceOutputEnabled || isRecording) {
-                                    speakText(fullResponse);
-                                }
-                                
-                                // Focus back to input after AI response
-                                setTimeout(() => {
-                                    focusMessageInput();
-                                }, 500);
-                                
-                                return; // Exit the function
-                            }
-                            
-                            if (data.error) {
-                                throw new Error(data.error);
-                            }
-                        } catch (e) {
-                            console.error('Error parsing SSE data:', e);
-                        }
-                    }
-                }
+            if (data.error) {
+                addMessageToChat('ai', `Error: ${data.error}`);
+                return;
             }
+            
+            // Get the AI response
+            const aiResponse = data.ai_response || '';
+            const completeLessonStatus = data.complete_lesson || 'no';
+            
+            // Add the AI message to chat
+            addMessageToChat('ai', aiResponse);
+            
+            // Store the last AI message for finalization
+            lastAIMessage = aiResponse;
+            
+            // Update lesson content if complete lesson is generated
+            if (completeLessonStatus === 'yes' && currentLessonData) {
+                currentLessonData.content = aiResponse;
+                generatedLessonContent = aiResponse;
+                saveLessonData();
+            }
+            
+            // Automatically speak the response if voice output is enabled
+            if (isVoiceOutputEnabled || isRecording) {
+                speakText(aiResponse);
+            }
+            
+            // Focus back to input after AI response
+            setTimeout(() => {
+                focusMessageInput();
+            }, 500);
             
         } catch (error) {
-            console.error('Error in streaming chat:', error);
-            contentDiv.innerHTML = `<span class="text-red-600">Error: ${error.message || 'Failed to get streaming response'}</span>`;
+            hideTypingIndicator();
+            console.error('Error in lesson chat:', error);
+            addMessageToChat('ai', `Error: ${error.message || 'Failed to get response'}`);
         }
     }
 
@@ -6344,7 +6282,7 @@ async function initializeApp() {
                 
                 // Check if we're in lesson chat mode
                 if (isLessonChatMode && currentLessonChatId) {
-                    // Use streaming interactive chat API for lesson
+                    // Use interactive chat API for lesson
                     await handleStreamingLessonChat(message);
                 } else {
                     // Use regular chat API
