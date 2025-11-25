@@ -74,17 +74,17 @@ services:
       - GROQ_API_KEY=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
       - NOMIC_APIC_KEY=nk-7Ad201NonNkEv_pYdRwb-EkNjf84mVLW205ihoE7RyU
 
-      # Ollama
-      - OLLAMA_BASE_URL=http://ollama:11434
-      - OLLAMA_MODEL=llama3.2:3b
+      # vLLM API
+      - VLLM_API_BASE=http://69.28.92.113:8000/v1
+      - VLLM_MODEL=meta-llama/Llama-3.1-8B-Instruct
 
-      - OLLAMA_TIMEOUT=600
+      - VLLM_TIMEOUT=600
 
     volumes:
       - .:/app
     depends_on:
       - postgres
-      - ollama
+      # - ollama  # Removed - using external vLLM API instead
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
       interval: 30s

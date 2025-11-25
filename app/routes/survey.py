@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from flask_cors import cross_origin
 from app.models.models import SurveyModel
+from app.models.database_models import SurveyResponse as DBSurveyResponse
 from app.utils.auth import login_required
 # from app.utils.decorators import login_required
 from app.utils.logger import logger
@@ -182,12 +183,8 @@ def reset_survey():
     try:
         logger.info(f"Resetting survey responses for user_id: {request.user_id}")
         
-        # Delete all survey responses for the user
         db = get_db()
-        db.execute(
-            'DELETE FROM survey_responses WHERE user_id = ?',
-            (request.user_id,)
-        )
+        db.query(DBSurveyResponse).filter(DBSurveyResponse.user_id == request.user_id).delete()
         db.commit()
         
         logger.info(f"Survey responses reset for user {request.user_id}")

@@ -1,11 +1,13 @@
-from typing import Dict
+from typing import Dict, List
 import logging
 from app.utils.db import get_db
+from app.models.database_models import ChatHistory as DBChatHistory
 
 logger = logging.getLogger(__name__)
 
+
 class Message:
-    """Model for handling message-related database operations"""
+    """Model for handling message-related database operations using ORM"""
     
     def __init__(self, conversation_id: int):
         self.conversation_id = conversation_id
@@ -14,30 +16,38 @@ class Message:
         """Save a message to the database"""
         try:
             db = get_db()
-            cursor = db.execute(
-                '''INSERT INTO messages (conversation_id, content, role)
-                   VALUES (?, ?, ?)''',
-                (self.conversation_id, content, role)
+            chat_message = DBChatHistory(
+                conversation_id=self.conversation_id,
+                message=content,
+                role=role
             )
+            db.add(chat_message)
             db.commit()
-            return cursor.lastrowid
+            db.refresh(chat_message)
+            return chat_message.id
         except Exception as e:
             logger.error(f"Error saving message: {str(e)}")
+            db.rollback()
             raise
     
     @staticmethod
-    def get_messages(conversation_id: int) -> list[Dict]:
+    def get_messages(conversation_id: int) -> List[Dict]:
         """Get all messages for a conversation"""
         try:
             db = get_db()
-            messages = db.execute(
-                '''SELECT id, content, role, created_at
-                   FROM messages
-                   WHERE conversation_id = ?
-                   ORDER BY created_at ASC''',
-                (conversation_id,)
-            ).fetchall()
-            return [dict(msg) for msg in messages]
+            messages = db.query(DBChatHistory).filter(
+                DBChatHistory.conversation_id == conversation_id
+            ).order_by(DBChatHistory.created_at.asc()).all()
+            
+            result = []
+            for msg in messages:
+                result.append({
+                    'id': msg.id,
+                    'content': msg.message,
+                    'role': msg.role,
+                    'created_at': msg.created_at.isoformat() if msg.created_at else None
+                })
+            return result
         except Exception as e:
             logger.error(f"Error retrieving messages: {str(e)}")
-            raise 
+            raise

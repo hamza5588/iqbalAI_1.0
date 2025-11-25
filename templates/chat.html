@@ -6215,7 +6215,7 @@ async function initializeApp() {
             }
             
             const data = await response.json();
-            
+                            
             if (data.error) {
                 addMessageToChat('ai', `Error: ${data.error}`);
                 return;
@@ -6224,29 +6224,29 @@ async function initializeApp() {
             // Get the AI response
             const aiResponse = data.ai_response || '';
             const completeLessonStatus = data.complete_lesson || 'no';
-            
+                                
             // Add the AI message to chat
             addMessageToChat('ai', aiResponse);
-            
-            // Store the last AI message for finalization
+                                
+                                // Store the last AI message for finalization
             lastAIMessage = aiResponse;
-            
-            // Update lesson content if complete lesson is generated
-            if (completeLessonStatus === 'yes' && currentLessonData) {
+                                
+                                // Update lesson content if complete lesson is generated
+                                if (completeLessonStatus === 'yes' && currentLessonData) {
                 currentLessonData.content = aiResponse;
                 generatedLessonContent = aiResponse;
-                saveLessonData();
-            }
-            
-            // Automatically speak the response if voice output is enabled
-            if (isVoiceOutputEnabled || isRecording) {
+                                    saveLessonData();
+                                }
+                                
+                                // Automatically speak the response if voice output is enabled
+                                if (isVoiceOutputEnabled || isRecording) {
                 speakText(aiResponse);
-            }
-            
-            // Focus back to input after AI response
-            setTimeout(() => {
-                focusMessageInput();
-            }, 500);
+                                }
+                                
+                                // Focus back to input after AI response
+                                setTimeout(() => {
+                                    focusMessageInput();
+                                }, 500);
             
         } catch (error) {
             hideTypingIndicator();
@@ -7319,91 +7319,55 @@ async function initializeApp() {
     }
 
     function formatMessageContent(message) {
-        // Function to format markdown-like text to HTML
+        // Function to format markdown text to HTML using marked.js
         // Note: This is for AI-generated content, so we don't escape HTML as it's relatively safe
         
         if (!message) return '';
         
-        // Split into lines for processing
-        const lines = message.split('\n');
-        const processedLines = [];
-        let inList = false;
-        let listType = ''; // 'numbered' or 'bullet'
-        
-        for (let i = 0; i < lines.length; i++) {
-            const originalLine = lines[i];
-            const line = originalLine.trim();
+        try {
+            // Preprocess: Convert common AI-generated patterns to proper markdown
+            let processedMessage = message;
             
-            // Check for numbered lists (1. 2. 3. etc.)
-            const numberedMatch = line.match(/^(\d+)\.\s+(.+)$/);
-            if (numberedMatch) {
-                if (!inList || listType !== 'numbered') {
-                    if (inList) processedLines.push('</div>');
-                    inList = true;
-                    listType = 'numbered';
-                    processedLines.push('<div class="mb-2">');
-                }
-                processedLines.push(`<div class="flex items-start mb-2 pl-4"><span class="font-semibold mr-3 min-w-[2rem]">${numberedMatch[1]}.</span><span>${numberedMatch[2]}</span></div>`);
-                continue;
-            }
+            // Split into lines for processing
+            const lines = processedMessage.split('\n');
+            const processedLines = [];
             
-            // Check for bullet points (- or •)
-            const bulletMatch = line.match(/^[-•]\s+(.+)$/);
-            if (bulletMatch) {
-                if (!inList || listType !== 'bullet') {
-                    if (inList) processedLines.push('</div>');
-                    inList = true;
-                    listType = 'bullet';
-                    processedLines.push('<div class="mb-2">');
-                }
-                processedLines.push(`<div class="flex items-start mb-2 pl-4"><span class="mr-3 min-w-[1rem]">•</span><span>${bulletMatch[1]}</span></div>`);
-                continue;
-            }
-            
-            // End list if we hit a non-list line
-            if (inList && line) {
-                inList = false;
-                listType = '';
-                processedLines.push('</div>');
-            }
-            
-            // Check for section headings (lines with title followed by colon on next line or short lines ending with colon)
-            if (line.includes(':')) {
-                const parts = line.split(':');
-                // If the part after colon is mostly empty or short, treat as heading
-                if (parts.length > 1) {
-                    const afterColon = parts.slice(1).join(':').trim();
-                    if (afterColon === '' || afterColon.length < 30) {
-                        processedLines.push(`<div class="font-semibold text-base mt-4 mb-2">${parts[0]}</div>`);
-                        if (afterColon) {
-                            processedLines.push(`<div class="mb-2 pl-4 text-gray-600">${afterColon}</div>`);
-                        }
-                        continue;
-                    }
+            for (let i = 0; i < lines.length; i++) {
+                let line = lines[i];
+                const trimmed = line.trim();
+                
+                // Check if line is a standalone **Heading** pattern (likely a heading)
+                // Pattern: **text** with optional whitespace, no other content
+                if (trimmed.match(/^\*\*[^*]+\*\*$/)) {
+                    // Extract the text between the asterisks
+                    const headingText = trimmed.replace(/^\*\*|\*\*$/g, '').trim();
+                    // Convert to markdown heading (## for h2)
+                    processedLines.push(`## ${headingText}`);
+                } else {
+                    // Keep the line as-is
+                    processedLines.push(line);
                 }
             }
             
-            // Format markdown-style bold text (**text**)
-            let formattedLine = line.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+            processedMessage = processedLines.join('\n');
             
-            // Format markdown-style italic text (*text*)
-            formattedLine = formattedLine.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>');
+            // Configure marked.js options for better rendering
+            marked.setOptions({
+                breaks: true,      // Convert line breaks to <br>
+                gfm: true,        // GitHub Flavored Markdown
+                headerIds: false, // Disable header IDs for cleaner output
+                mangle: false     // Don't mangle email addresses
+            });
             
-            // Add the line
-            if (formattedLine) {
-                processedLines.push(`<div class="mb-2">${formattedLine}</div>`);
-            } else {
-                // Empty line for spacing between paragraphs
-                processedLines.push('<div class="mb-1"></div>');
-            }
+            // Parse markdown to HTML
+            const htmlContent = marked.parse(processedMessage);
+            
+            return htmlContent;
+        } catch (error) {
+            console.error('Error rendering markdown:', error);
+            // Fallback to plain text with basic HTML escaping
+            return escapeHtml(message).replace(/\n/g, '<br>');
         }
-        
-        // Close any open list
-        if (inList) {
-            processedLines.push('</div>');
-        }
-        
-        return processedLines.join('');
     }
 
     function escapeHtml(text) {
@@ -7441,7 +7405,7 @@ async function initializeApp() {
                     AI
                 </div>
                 <div class="bg-gray-100 rounded-2xl px-4 py-3 w-full message-bubble">
-                    <div class="text-gray-700 leading-relaxed prose max-w-none">${formattedMessage}</div>
+                    <div class="text-gray-700 leading-relaxed prose max-w-none markdown-content">${formattedMessage}</div>
                 </div>
             `;
         }
@@ -10111,33 +10075,73 @@ async function initializeApp() {
         /* Markdown content styling */
         .markdown-content h1, .markdown-content h2, .markdown-content h3, 
         .markdown-content h4, .markdown-content h5, .markdown-content h6 {
-            font-weight: 600;
-            margin-top: 0.5rem;
-            margin-bottom: 0.25rem;
+            font-weight: 700;
+            margin-top: 1rem;
+            margin-bottom: 0.5rem;
             color: #1f2937;
+            line-height: 1.3;
         }
 
-        .markdown-content h1 { font-size: 1.25rem; }
-        .markdown-content h2 { font-size: 1.125rem; }
-        .markdown-content h3 { font-size: 1rem; }
-        .markdown-content h4 { font-size: 0.875rem; }
-        .markdown-content h5 { font-size: 0.875rem; }
-        .markdown-content h6 { font-size: 0.875rem; }
+        .markdown-content h1 { 
+            font-size: 1.5rem; 
+            margin-top: 1.5rem;
+            border-bottom: 2px solid #e5e7eb;
+            padding-bottom: 0.5rem;
+        }
+        .markdown-content h2 { 
+            font-size: 1.25rem; 
+            margin-top: 1.25rem;
+        }
+        .markdown-content h3 { 
+            font-size: 1.125rem; 
+            margin-top: 1rem;
+        }
+        .markdown-content h4 { 
+            font-size: 1rem; 
+            font-weight: 600;
+        }
+        .markdown-content h5 { 
+            font-size: 0.9375rem; 
+            font-weight: 600;
+        }
+        .markdown-content h6 { 
+            font-size: 0.875rem; 
+            font-weight: 600;
+        }
 
         .markdown-content p {
-            margin-bottom: 0.5rem;
-            line-height: 1.4;
-            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+            line-height: 1.6;
+            font-size: 0.9375rem;
         }
 
         .markdown-content ul, .markdown-content ol {
-            margin-bottom: 0.5rem;
-            padding-left: 1rem;
+            margin-bottom: 0.75rem;
+            padding-left: 1.5rem;
+            margin-top: 0.5rem;
         }
 
         .markdown-content li {
-            margin-bottom: 0.125rem;
-            font-size: 0.875rem;
+            margin-bottom: 0.375rem;
+            font-size: 0.9375rem;
+            line-height: 1.5;
+        }
+
+        .markdown-content ul li {
+            list-style-type: disc;
+        }
+
+        .markdown-content ol li {
+            list-style-type: decimal;
+        }
+
+        .markdown-content strong {
+            font-weight: 700;
+            color: #111827;
+        }
+
+        .markdown-content em {
+            font-style: italic;
         }
 
         .markdown-content code {

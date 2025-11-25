@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, session, send_file, after_this_request, render_template
 from app.models.models import UserModel, LessonModel
+from app.models.database_models import Lesson as DBLesson
 from app.services.lesson_service import LessonService
 from app.utils.decorators import login_required, teacher_required, student_required
 from app.utils.db import get_db
@@ -390,14 +391,13 @@ def update_lesson(lesson_id):
             # Check if original_content is empty, if so, set it to the content being saved
             lesson = LessonModel.get_lesson_by_id(lesson_id)
             if lesson and (not lesson.get('original_content') or lesson.get('original_content').strip() == ''):
-                # Update original_content as well if it's empty
+                # Update original_content as well if it's empty using ORM
                 db = get_db()
-                db.execute(
-                    'UPDATE lessons SET original_content = ? WHERE id = ?',
-                    (content_to_save, lesson_id)
-                )
-                db.commit()
-                logger.info(f"Updated original_content for lesson {lesson_id} since it was empty")
+                lesson_obj = db.query(DBLesson).filter(DBLesson.id == lesson_id).first()
+                if lesson_obj:
+                    lesson_obj.original_content = content_to_save
+                    db.commit()
+                    logger.info(f"Updated original_content for lesson {lesson_id} since it was empty")
         
         success = lesson_model.update_lesson(
             title=data.get('title'),
@@ -1307,15 +1307,15 @@ def get_lesson_draft(lesson_id):
         # Get the original content from the first version of this lesson
         original_content = lesson.get('original_content', '')
         if lesson.get('lesson_id'):
-            # Get the first version (version_number = 1) to get true original content
+            # Get the first version (version_number = 1) to get true original content using ORM
             db = get_db()
-            first_version = db.execute(
-                'SELECT original_content, content FROM lessons WHERE lesson_id = ? AND version_number = 1',
-                (lesson['lesson_id'],)
-            ).fetchone()
+            first_version = db.query(DBLesson).filter(
+                DBLesson.lesson_id == lesson['lesson_id'],
+                DBLesson.version_number == 1
+            ).first()
             if first_version:
                 # Use content if original_content is empty, otherwise use original_content
-                original_content = first_version['original_content'] or first_version['content'] or ''
+                original_content = first_version.original_content or first_version.content or ''
         
         # Log for debugging
         logger.info(f"get_draft for lesson {lesson_id}: current_content length={len(current_content)}, original_content length={len(original_content)}")

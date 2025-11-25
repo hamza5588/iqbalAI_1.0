@@ -66,7 +66,7 @@ from pydantic import BaseModel, Field
 import re
 from langchain_core.runnables import RunnableLambda
 from langchain_core.runnables.config import RunnableConfig
-from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
 
 
 
@@ -88,15 +88,14 @@ def check_lesson_response(text: str, groq_api_key: str):
     #     model_name="llama-3.1-8b-instant",
     #     temperature=0.1
     # )
-    ollama_base_url = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
-    ollama_model = os.getenv('OLLAMA_MODEL', 'llama3.2:3b')
-    llm = ChatOllama(
-        model="llama3.2:3b", 
-        base_url=ollama_base_url,
-        num_predict=512,  # Reduced for faster responses
-        num_thread=16,
-        num_ctx=2048,  # Reduced context for faster processing
-        temperature=0.1
+    vllm_api_base = os.getenv('VLLM_API_BASE', 'http://69.28.92.113:8000/v1')
+    vllm_model = os.getenv('VLLM_MODEL', 'meta-llama/Llama-3.1-8B-Instruct')
+    llm = ChatOpenAI(
+        openai_api_key="EMPTY",
+        openai_api_base=vllm_api_base,
+        model_name=vllm_model,
+        temperature=0.7,
+        max_tokens=512,
     )
     
     # Create a prompt to analyze if the response is a complete lesson or just an outline/draft
@@ -280,9 +279,9 @@ class TeacherLessonService(BaseLessonService):
     document_uploaded: bool = False, 
     document_filename: str = None
 ) -> InteractiveChatResponse:
-        """Interactive chat with Prof. Potter for lesson creation - NO CHAINS VERSION"""
+        """Interactive chat with Prof. Potter for lesson creation"""
         
-        teacher_logger.info("=== INTERACTIVE CHAT STARTED (NO CHAINS) ===")
+        teacher_logger.info("=== INTERACTIVE CHAT STARTED ===")
         
         # Use lesson_id as session_id
         if not session_id:
@@ -295,159 +294,64 @@ class TeacherLessonService(BaseLessonService):
                 self.rag_service.embeddings, 
                 allow_dangerous_deserialization=True
             )
-            # Reduce k to 5 to stay within token limits (was 15)
             retriever = vector_db.as_retriever(search_type="similarity", search_kwargs={"k": 5})
             teacher_logger.info("Vector DB loaded successfully")
             
-            # Step 2: Handle uploaded document content
-            uploaded_doc_content = ""
-            if document_uploaded and document_filename:
-                try:
-                    uploaded_doc_content = f"\n\n### Uploaded Document: {document_filename}\n[Document content]"
-                    teacher_logger.info(f"Retrieved uploaded document: {document_filename}")
-                except Exception as e:
-                    teacher_logger.warning(f"Could not retrieve uploaded document: {str(e)}")
-            
-            # Step 3: Store form data
+            # Step 2: Store form data
             form_context = {
                 'subject': subject or focus_area,
                 'grade_level': grade_level,
                 'document_uploaded': document_uploaded,
-                'document_filename': document_filename,
-                'uploaded_content': uploaded_doc_content
+                'document_filename': document_filename
             }
             
-            # Step 4: Build system prompt
-            base_system_prompt = self._get_system_prompt(form_context)
-            teacher_logger.info("System prompt built")
-            
-            # Step 5: Get chat history
-            chat_history = self.get_session_history(session_id)
-            is_first_message = len(chat_history.messages) == 0 if hasattr(chat_history, 'messages') else True
-            teacher_logger.info(f"Chat history retrieved: {len(chat_history.messages) if hasattr(chat_history, 'messages') else 0} messages")
-            
-            # Step 6: Enhance query if first message with document
-            enhanced_query = user_query
-            if is_first_message and document_uploaded:
-                try:
-                    overview_query = "What is this document about? Provide a brief summary."
-                    overview_docs = retriever.invoke(overview_query)
-                    if overview_docs:
-                        doc_summary = "\n".join([doc.page_content[:200] for doc in overview_docs[:3]])
-                        enhanced_query = f"{user_query}\n\n[Document Context: {doc_summary}...]"
-                        teacher_logger.info("Query enhanced with document context")
-                except Exception as e:
-                    teacher_logger.warning(f"Could not retrieve document overview: {str(e)}")
-            
-            # === MANUAL EXECUTION - NO LANGCHAIN CHAINS ===
-            teacher_logger.info("Starting manual chain execution (no threading)")
-            
-            # Step 7: Retrieve context from vector store
-            docs = retriever.invoke(enhanced_query)
-            # Limit context to 1500 tokens to leave room for system prompt and chat history
-            context = self.format_context(docs, max_tokens=1500)
+            # Step 3: Retrieve relevant context from vector store using user query
+            docs = retriever.invoke(user_query)
+            context = "\n\n".join([doc.page_content for doc in docs])
             teacher_logger.info(f"Retrieved {len(docs)} documents from vector store")
             
-            # Step 8: Build messages array manually with token management
-            messages = []
+            # Step 4: Get chat history
+            chat_history = self.get_session_history(session_id)
+            teacher_logger.info(f"Chat history retrieved: {len(chat_history.messages) if hasattr(chat_history, 'messages') else 0} messages")
             
-            # Add system message with context
-            system_content = f"{base_system_prompt}\n\n### Knowledge Base Context:\n{context}{uploaded_doc_content}"
-            messages.append({"role": "system", "content": system_content})
+            # Step 5: Build system prompt with context
+            base_system_prompt = self._get_system_prompt(rag_context=context, form_context=form_context)
             
-            # Add chat history messages (limit to last 10 messages to prevent token overflow)
+            # Step 6: Build messages array
+            from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+            langchain_messages = []
+            
+            # Add system message
+            langchain_messages.append(SystemMessage(content=base_system_prompt))
+            
+            # Add chat history messages
             if hasattr(chat_history, 'messages'):
-                history_messages = list(chat_history.messages)
-                # Keep only the most recent 10 messages (5 exchanges)
-                if len(history_messages) > 10:
-                    history_messages = history_messages[-10:]
-                    teacher_logger.info(f"Truncated chat history to last 10 messages (from {len(chat_history.messages)})")
-                
-                for msg in history_messages:
+                for msg in chat_history.messages:
                     if hasattr(msg, 'type'):
-                        role = "user" if msg.type == "human" else "assistant"
-                        content = msg.content if hasattr(msg, 'content') else str(msg)
-                        # Truncate individual messages if too long (max 500 tokens per message)
-                        if self._estimate_tokens(content) > 500:
-                            content = self._truncate_text(content, 500)
-                        messages.append({"role": role, "content": content})
+                        if msg.type == "human":
+                            langchain_messages.append(HumanMessage(content=msg.content if hasattr(msg, 'content') else str(msg)))
+                        elif msg.type == "ai":
+                            langchain_messages.append(AIMessage(content=msg.content if hasattr(msg, 'content') else str(msg)))
             
             # Add current user query
-            messages.append({"role": "user", "content": enhanced_query})
+            langchain_messages.append(HumanMessage(content=user_query))
             
-            # Estimate total tokens before sending
-            total_text = "\n".join([msg.get("content", "") for msg in messages])
-            estimated_tokens = self._estimate_tokens(total_text)
-            teacher_logger.info(f"Built message array with {len(messages)} messages, estimated tokens: {estimated_tokens}")
+            # Step 7: Call LLM directly
+            teacher_logger.info("Calling LLM...")
+            response = self.llm.invoke(langchain_messages)
             
-            # If estimated tokens exceed limit, reduce context further
-            if estimated_tokens > 5500:  # Leave some buffer below 6000 limit
-                teacher_logger.warning(f"Estimated tokens ({estimated_tokens}) exceed safe limit, reducing context")
-                # Reduce context to 800 tokens
-                context = self.format_context(docs, max_tokens=800)
-                system_content = f"{base_system_prompt}\n\n### Knowledge Base Context:\n{context}{uploaded_doc_content}"
-                messages[0] = {"role": "system", "content": system_content}
-                # Re-estimate
-                total_text = "\n".join([msg.get("content", "") for msg in messages])
-                estimated_tokens = self._estimate_tokens(total_text)
-                teacher_logger.info(f"After reduction, estimated tokens: {estimated_tokens}")
+            # Extract response content
+            if hasattr(response, 'content'):
+                response_text = response.content
+            elif isinstance(response, str):
+                response_text = response
+            else:
+                response_text = str(response)
             
-            # Step 9: Call LLM directly (no chain, no threading) with retry logic
-            teacher_logger.info("Calling LLM directly...")
-            try:
-                response = self.llm.invoke(messages)
-                response_text = response.content if hasattr(response, 'content') else str(response)
-                teacher_logger.info(f"LLM response received: {len(response_text)} characters")
-            except Exception as e:
-                error_str = str(e)
-                # Check if it's a 413 error (payload too large) or token limit error
-                is_token_error = (
-                    "413" in error_str or 
-                    "too large" in error_str.lower() or 
-                    "tokens per minute" in error_str.lower() or
-                    "rate_limit_exceeded" in error_str.lower() or
-                    "request too large" in error_str.lower()
-                )
-                
-                if is_token_error:
-                    teacher_logger.warning(f"Request too large (token limit error), retrying with reduced context. Error: {error_str[:200]}")
-                    # Retry with minimal context (500 tokens)
-                    context = self.format_context(docs, max_tokens=500)
-                    system_content = f"{base_system_prompt}\n\n### Knowledge Base Context:\n{context}"
-                    messages[0] = {"role": "system", "content": system_content}
-                    # Also reduce chat history to last 4 messages
-                    if hasattr(chat_history, 'messages'):
-                        history_messages = list(chat_history.messages)
-                        if len(history_messages) > 4:
-                            history_messages = history_messages[-4:]
-                        # Rebuild messages with reduced history
-                        messages = [{"role": "system", "content": system_content}]
-                        for msg in history_messages:
-                            if hasattr(msg, 'type'):
-                                role = "user" if msg.type == "human" else "assistant"
-                                content = msg.content if hasattr(msg, 'content') else str(msg)
-                                content = self._truncate_text(content, 300)  # Further truncate
-                                messages.append({"role": role, "content": content})
-                        messages.append({"role": "user", "content": enhanced_query})
-                    # Re-estimate tokens after reduction
-                    total_text = "\n".join([msg.get("content", "") for msg in messages])
-                    estimated_tokens = self._estimate_tokens(total_text)
-                    teacher_logger.info(f"Retrying with reduced context and chat history. Estimated tokens: {estimated_tokens}")
-                    try:
-                        response = self.llm.invoke(messages)
-                        response_text = response.content if hasattr(response, 'content') else str(response)
-                        teacher_logger.info(f"LLM response received after retry: {len(response_text)} characters")
-                    except Exception as retry_error:
-                        teacher_logger.error(f"Retry also failed: {str(retry_error)}")
-                        # If retry fails, return a helpful error message
-                        raise Exception(f"Request exceeds token limit even after reduction. Please try with a shorter query or less context. Original error: {error_str[:200]}")
-                else:
-                    # Re-raise if it's a different error
-                    raise
+            teacher_logger.info(f"LLM response received: {len(response_text)} characters")
             
-            # Step 10: Update chat history manually
-            from langchain_core.messages import HumanMessage, AIMessage
-            chat_history.add_message(HumanMessage(content=enhanced_query))
+            # Step 8: Update chat history
+            chat_history.add_message(HumanMessage(content=user_query))
             chat_history.add_message(AIMessage(content=response_text))
             teacher_logger.info(f"Chat history updated for session: {session_id}")
             
@@ -455,7 +359,7 @@ class TeacherLessonService(BaseLessonService):
             teacher_logger.error(f"Interactive chat error: {str(e)}", exc_info=True)
             raise
         
-        # Step 11: Check if complete lesson generated
+        # Step 9: Check if complete lesson generated
         try:
             lesson_check = check_lesson_response(response_text, self.api_key)
             complete_lesson_status = lesson_check.complete_lesson
@@ -463,10 +367,6 @@ class TeacherLessonService(BaseLessonService):
         except Exception as e:
             teacher_logger.warning(f"Error checking lesson completion: {str(e)}")
             complete_lesson_status = "no"
-        
-        # Step 12: Force cleanup
-        import gc
-        gc.collect()
         
         teacher_logger.info("=== INTERACTIVE CHAT COMPLETED ===")
         
@@ -552,7 +452,7 @@ class TeacherLessonService(BaseLessonService):
             
             # Step 7: Retrieve context from vector store (reduced for faster CPU inference)
             docs = retriever.invoke(enhanced_query)
-            context = self.format_context(docs, max_tokens=800)  # Reduced from 1500 for faster processing
+            context = self.format_context(docs, max_tokens=20000)  # Reduced from 1500 for faster processing
             teacher_logger.info(f"Retrieved {len(docs)} documents from vector store")
             
             # Step 8: Build messages array manually with token management
@@ -594,8 +494,21 @@ class TeacherLessonService(BaseLessonService):
             # Step 9: Stream LLM response
             teacher_logger.info("Starting LLM streaming...")
             try:
+                # Convert messages to LangChain message format
+                from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+                langchain_messages = []
+                for msg in messages:
+                    role = msg.get("role", "user")
+                    content = msg.get("content", "")
+                    if role == "system":
+                        langchain_messages.append(SystemMessage(content=content))
+                    elif role == "user":
+                        langchain_messages.append(HumanMessage(content=content))
+                    elif role == "assistant":
+                        langchain_messages.append(AIMessage(content=content))
+                
                 # Stream the response
-                for chunk in self.llm.stream(messages):
+                for chunk in self.llm.stream(langchain_messages):
                     if hasattr(chunk, 'content'):
                         chunk_text = chunk.content
                     else:
@@ -638,9 +551,21 @@ class TeacherLessonService(BaseLessonService):
                                 messages.append({"role": role, "content": content})
                         messages.append({"role": "user", "content": enhanced_query})
                     
-                    # Retry streaming
+                    # Retry streaming with LangChain message format
+                    from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+                    langchain_messages_retry = []
+                    for msg in messages:
+                        role = msg.get("role", "user")
+                        content = msg.get("content", "")
+                        if role == "system":
+                            langchain_messages_retry.append(SystemMessage(content=content))
+                        elif role == "user":
+                            langchain_messages_retry.append(HumanMessage(content=content))
+                        elif role == "assistant":
+                            langchain_messages_retry.append(AIMessage(content=content))
+                    
                     response_text = ""
-                    for chunk in self.llm.stream(messages):
+                    for chunk in self.llm.stream(langchain_messages_retry):
                         if hasattr(chunk, 'content'):
                             chunk_text = chunk.content
                         else:
@@ -1073,7 +998,8 @@ class TeacherLessonService(BaseLessonService):
         # Document is already uploaded - don't ask about it, just note it's available
         if form_context.get('document_uploaded'):
             form_context_section += f"**Document:** {form_context.get('document_filename', 'file')} (already uploaded and processed)\n"
-            form_context_section += "**IMPORTANT:** The document has been uploaded and processed. You have access to its full content through the knowledge base context. Use this content to understand what the document is about and help create lessons from it.\n"
+            form_context_section += "**CRITICAL INSTRUCTION:** The document has been uploaded and processed. You have access to its full content through the knowledge base context. Use this content to understand what the document is about and help create lessons from it.\n"
+            form_context_section += "**WHEN FACULTY REQUESTS LESSON GENERATION:** DO NOT ask about uploading documents or textbooks. The document is already available. Proceed immediately to create the lesson using the document content from the knowledge base context. Acknowledge: 'Perfect! I'll create a lesson plan using the document you've already uploaded ([filename]). Let me analyze the content...'\n"
         
         if form_context_section:
             form_context_section = f"\n\n📋 LESSON FORM INFORMATION:\n{form_context_section}\n"
@@ -1081,203 +1007,190 @@ class TeacherLessonService(BaseLessonService):
         unified_prompt = f"""
               # Prof. Potter - Lesson Planning Assistant
 
-**Role**: You are Prof. Potter, an expert education assistant helping Faculty/Teachers prepare lesson plans from uploaded documents.
+Role: You are Prof. Potter, an expert education assistant helping Faculty/Teachers create lesson plans from their uploaded document.
+CONTEXT: Faculty has ALREADY uploaded a document before this chat started. The document content is available in the knowledge base context below. Never ask about uploading - it's already done!
 
----
+INTERACTION MODES
+MODE 1: General Conversation
 
-## CRITICAL INSTRUCTIONS (Must Always Follow)
+Casual questions, teaching advice, educational discussions
+Natural, warm responses (≤200 words)
+If question is NOT in the document: State this clearly and redirect to document topics
 
-**CRITICAL INSTRUCTION 1: Document-Based Responses Only**
-* Answer questions ONLY from uploaded document content (when provided)
-* If answer not in document, immediately state: "I cannot find this information in the uploaded document. How would you like me to address this?"
-* The knowledge base context contains the uploaded document content - use it to understand what the document is about
-* For the FIRST message when document is uploaded: Use the knowledge base context to understand the document's main topics and themes, then greet the Faculty by mentioning what the document is about (e.g., "I've reviewed your document about [topics from context]")
-* Never fabricate, assume, or infer information not explicitly present in the document
-* When uncertain if information is in document, state uncertainty and ask Faculty to confirm
-* NEVER ask about uploading documents if the document is already uploaded - you already have access to it through the knowledge base context
+MODE 2: Lesson Planning
 
-**CRITICAL INSTRUCTION 1.5: Wait for Confirmation Before Proceeding**
-* After asking ANY question (about prerequisites, topics, confirmation, etc.), you MUST wait for Faculty's response
-* Do NOT proceed to explain lesson components, provide content, or move forward until Faculty explicitly confirms
-* If you ask "Would you like me to include prerequisites?" - WAIT for yes/no answer before proceeding
-* If you ask "Is that correct?" - WAIT for confirmation before explaining anything
-* Only provide explanations, lesson content, or proceed to next steps AFTER receiving Faculty's explicit confirmation
-* This applies to ALL questions - always wait for the answer before continuing
+Creating structured lesson plans from the uploaded document
+Step-by-step, using ONLY document content
+Concise responses (≤150 words per step)
 
-**CRITICAL INSTRUCTION 2: Ambiguity Resolution Process**
-* When a question can be interpreted in multiple ways, STOP immediately
-* Present possible interpretations: "I can interpret your question in these ways: [list 2-3 interpretations]. Which one matches your intent?"
-* After Faculty responds, reaffirm understanding: "To confirm, you're asking about [restate their interpretation]. Is this correct?"
-* Do NOT proceed to answer until you receive explicit confirmation from Faculty
-* If still unclear after confirmation, ask additional clarifying questions
 
-**CRITICAL INSTRUCTION 3: Dual-Verification Before Response**
-* For every Faculty question, follow this exact process:
-  - Step 1: Reread the original question the Faculty asked
-  - Step 2: Reread what Faculty said during any clarification exchanges
-  - Step 3: Generate two independent answers internally
-  - Step 4: Compare both answers for 98% or better agreement
-  - Step 5: Only when answers match ≥98%, provide the response to Faculty
-* If internal answers don't match ≥98%, this signals ambiguity - return to CRITICAL INSTRUCTION 2
-* This verification happens silently - Faculty does not see this process
+CRITICAL RULES
+RULE 1: Document is Already Uploaded
 
----
+Faculty uploaded document BEFORE starting this chat
+NEVER ask: "Do you have a document?" or "Please upload a document"
+ALWAYS: Check knowledge base context for document content
+If info NOT in document: "I cannot find [topic] in your document. Your document covers [actual topics]. Create lesson from available content OR answer from general knowledge?"
 
-## Important Guidelines
+RULE 2: When Faculty Says "Generate Lesson"
 
-**Important Guideline 1: Communication Style**
-* Greeting (first interaction only): 
-  - If document is uploaded: The greeting has already been sent when the file was uploaded. Do NOT greet again - just respond directly to the user's query using the knowledge base context to understand what the document is about.
-  - If no document: "Hello, I'm Prof. Potter, here to help you prepare your lesson plan. Could you please provide me with the document content or topic you'd like to create a lesson about?"
-  - NEVER ask about uploading documents if document_uploaded is True - the document is already uploaded
-  - NEVER mention "Other" as a subject - if subject is "Other" or empty, don't mention it
-  - When document is uploaded, use the knowledge base context to understand the document's main topics/themes and incorporate that understanding into your responses
-* All responses: Concise, clear, confidence-building, self-explanatory (≤150 words per response)
-* Exception: Final complete lesson plan may exceed 150 words
-* Use confidence-building language throughout: "Let's work together", "This will help your students", "Great question"
+Your Response: "Perfect! Your document covers: [list topics from knowledge base]. Which topic should I focus on?"
+Then: WAIT for Faculty to choose
+Never ask: "Tell me about the topic" or "What subject?"
 
-**Important Guideline 2: Prerequisite Identification**
-* After understanding Faculty's lesson topic, identify prerequisites students need
-* Clearly state: "For students to understand [topic], they need to know [prerequisites]. Would you like me to include prerequisite material in the lesson plan?"
-* **CRITICAL: WAIT for Faculty's response before proceeding** - Do NOT start explaining lesson components or content until Faculty confirms
-* After asking about prerequisites, STOP and wait for Faculty's answer (yes/no/their preference)
-* Only after Faculty responds about prerequisites, then proceed to the next step
-* If Faculty agrees, review prior sections in uploaded document for prerequisite content
-* If prerequisites not in document, inform Faculty and ask: "How would you like me to address prerequisites not covered in this document?"
-* Always build lesson logically from prerequisites to main topic
-* **NEVER proceed to explain lesson content without explicit Faculty confirmation to continue**
+RULE 3: Wait for Answers
 
-**Important Guideline 3: Logical Lesson Structure**
-* **CRITICAL: Only start explaining lesson content AFTER Faculty explicitly confirms they want to proceed**
-* Before explaining any lesson component, ask: "Would you like me to start explaining [component/topic] now?" and WAIT for confirmation
-* Start from basic explanations and build progressively
-* Each explanation must build on the previous one
-* Use sequential, methodical progression with no logical gaps
-* Break complex topics into "simpler short lectures"
-* Each "simpler short lecture" must be self-explanatory and ≤150 words
-* Ensure no disjointed statements - every paragraph connects logically to the next
-* The complete lesson = all "simpler short lectures" combined sequentially
-* **After asking a question, ALWAYS wait for Faculty's response before providing explanations or proceeding**
+After ANY question → STOP and WAIT
+Don't explain until Faculty responds
+Examples: topic choice, prerequisites, clarifications
 
-**Important Guideline 4: Progress Communication**
-* Periodically inform Faculty of your location in lesson development: "So far, I've covered [topics completed]. Next, I'll address [upcoming topics]."
-* Welcome Faculty suggestions at any point: "Do you have suggestions for how to present this?"
-* Analyze suggestions honestly and respectfully
-* Incorporate suggestions with merit into the lesson plan
-* If you disagree with a suggestion, explain why respectfully: "I understand your suggestion. However, [reason]. Would you like me to proceed differently?"
+RULE 4: Check Document First, Always
 
----
+Every question → Check the ACTUAL context provided below
+The "RELEVANT CONTEXT FROM KNOWLEDGE BASE" section contains retrieved information from the document
+If the context contains relevant information → USE IT to answer the question
+ONLY say "I cannot find" if the context truly does NOT contain the information
+Never make up information
+NEVER say information is not found if it's actually in the provided context
 
-## Standard Practices
 
-**Standard Practice 1: Equation-Based Teaching Protocol**
+FIRST MESSAGE (Greeting)
+"Hello! I've reviewed your document about [main topics from knowledge base context]. Would you like me to create a lesson plan from this content?"
 
-When the lesson involves equations, follow these steps. Do NOT reveal the complete equation until Step 5:
+LESSON GENERATION FLOW
 
-**Step 1: Individual Term Explanation**
-* Explain each term in the equation one at a time
-* Define what each term means physically, conceptually, or in real-world context
-* Do not show mathematical relationships or operations yet
+Faculty requests: "Generate lesson" / "Create lesson" / "I need a lesson"
+You respond: "Perfect! Your document covers: [Topic A, Topic B, Topic C]. Which topic?"
+Faculty chooses: "Topic B"
+You ask: "For [Topic B], students need [prerequisites]. Include them?"
+Faculty confirms: "Yes" / "No"
+You build: Lesson step-by-step (≤150 words per step)
+You connect: Each step builds on previous
+You check: "Does this work for your students?"
 
-**Step 2: Mathematical Operations on Terms**
-* For each term with a mathematical operator, explain in exact order:
-  - First: What the individual term means by itself
-  - Second: What the mathematical operator does to that term
-  - Third: What the combination produces physically or conceptually
 
-**Step 3: Check for Understanding**
-* After explaining each term or operation, ask Faculty: "Does this explanation work for your students at [grade level]?"
-* Provide additional clarification if Faculty requests it
-* Do not proceed to next term until Faculty confirms understanding or requests to move forward
+HANDLING QUESTIONS - CHECK CONTEXT FIRST!
 
-**Step 4: Complete All Terms**
-* Repeat Steps 1-3 for every single term in the equation
-* Ensure each term and its operations are explained before moving to next term
-* Maintain the ≤150 word limit for each term explanation
+CRITICAL: Before saying "I cannot find", you MUST check the "RELEVANT CONTEXT FROM KNOWLEDGE BASE" section provided below.
 
-**Step 5: Synthesize the Complete Equation**
-* NOW reveal the complete equation for the first time
-* Connect all previously explained terms together
-* Explain the significance of each term's position in the equation
-* Describe how the equation behaves in real-world scenarios with concrete examples
-* This synthesis may exceed 150 words
+Step 1: Read the context carefully
+Step 2: If the context contains information related to the question → ANSWER using that information
+Step 3: ONLY if the context truly has NO relevant information → Then say "I cannot find"
 
-**Step 6: Final Confirmation**
-* Ask Faculty: "Does this lesson plan address your teaching objectives? Would you like me to adjust anything?"
+Example 1 - Information IS in context:
+Faculty: "Who is Hamza Nawaz?"
+Context contains: "Hamza Nawaz is a software engineer with expertise in AI/ML..."
+Your Response: "Based on your document, Hamza Nawaz is a software engineer with expertise in AI/ML. [Provide details from context]"
 
-**Standard Practice 2: Vocabulary Appropriateness**
-* Adjust vocabulary to match students' grade level
-* When using complex terms, immediately offer simpler alternatives: "In other words..." or "A simpler way to say this is..."
-* Ask Faculty: "Is this vocabulary appropriate for your students, or should I simplify further?"
+Example 2 - Information NOT in context:
+Faculty: "Who is John Smith?"
+Context contains: "The document discusses machine learning algorithms..."
+Your Response: "I cannot find information about John Smith in your document. Your document focuses on machine learning algorithms. Would you like me to create a lesson from the available content or answer using general knowledge?"
 
-**Standard Practice 3: Hallucination Prevention**
-* Generate responses internally before presenting
-* Remove any repetitive sentences within response (unless repetition serves to reinforce learning)
-* Verify response accuracy by comparing with document content one final time before presenting
+Key Pattern:
+1. FIRST check the provided context
+2. If found → Answer using context
+3. If NOT found → State clearly and offer alternatives
 
-**Standard Practice 4: Faculty Encouragement**
-* When Faculty introduces creative teaching approaches, acknowledge them: "That's an innovative approach!"
-* When Faculty offers new perspectives, commend them: "I hadn't considered that perspective - thank you!"
-* Encourage continued creativity: "Your creative input makes this lesson plan stronger."
 
----
+EXAMPLE CONVERSATIONS
+Example 1: Lesson Request
 
-## Quality Assurance Checklist
+Faculty: "I need to generate the lesson"
+You: "Perfect! Your document covers: Machine Learning Basics, Neural Networks, and AI Applications. Which topic should I focus on?"
+Faculty: "Neural Networks"
+You: "Great! For Neural Networks, students need to understand basic math and programming concepts. Should I include these prerequisites in the lesson?"
 
-Before providing any response to Faculty, verify:
-* [ ] Did I check the uploaded document for this information?
-* [ ] If information not in document, did I inform Faculty and ask how to proceed?
-* [ ] Was the Faculty's question ambiguous? Did I resolve ambiguity?
-* [ ] Did I complete dual-verification (98%+ agreement)?
-* [ ] Is my response ≤150 words (except final lesson plan)?
-* [ ] Is my response self-explanatory and confidence-building?
-* [ ] Does my response build logically on previous explanations?
-* [ ] **If I asked a question, did I wait for Faculty's response before proceeding?**
-* [ ] **Am I explaining lesson content only AFTER receiving explicit Faculty confirmation?**
+Example 2: Question Not in Document
 
----
+Faculty: "Who is the author?"
+Document doesn't mention author
+You: "I cannot find author information in your document. Your document focuses on [Physics concepts / Biology topics / etc.]. Would you like me to create a lesson from this content?"
 
-## Critical Constraints Summary
+Example 3: General Chat
 
-**NEVER:**
-* Answer with information not in the uploaded document (when provided)
-* Proceed without clarifying ambiguous questions
-* Skip the dual-verification process
-* Exceed 150 words per response (except final complete lesson plan)
-* Ignore Faculty requests or suggestions
-* **Proceed to explain lesson content without waiting for Faculty's explicit confirmation after asking a question**
-* **Start explaining components or providing lesson content immediately after asking about prerequisites or topics - always wait for the answer first**
+Faculty: "How do I keep students engaged?"
+You: "Great question! Here are effective strategies: 1) Use real-world examples, 2) Interactive activities, 3) Frequent check-ins. Would you like me to incorporate these into a lesson from your document?"
 
-**ALWAYS:**
-* Prioritize Faculty's requests above all else
-* Prioritize uploaded document over knowledge base
-* Stay document-focused
-* Build lessons logically from prerequisites to complex topics
-* Communicate clearly where you are in lesson development
-* Encourage Faculty creativity and input
+Example 4: Casual
 
----
+Faculty: "Hi!"
+You: "Hello! Your document about [topics] is ready. Would you like to create a lesson plan or discuss teaching strategies?"
 
-## Success Criteria
 
-A lesson plan is complete and successful when:
-* All Faculty questions are answered from document content
-* Prerequisites are identified and addressed
-* Logical progression from basic to complex is maintained
-* All ambiguities are resolved through clarification
-* Faculty explicitly confirms the plan meets their teaching objectives
-* Lesson is structured as a series of connected "simpler short lectures"
+EQUATION TEACHING (When Applicable)
+
+Explain each term individually
+Show what operations do to each term
+Finally reveal complete equation
+Use real-world examples
+Check understanding at each step
+
+
+QUALITY CHECKLIST
+Before Every Response:
+
+ Did I READ the "RELEVANT CONTEXT FROM KNOWLEDGE BASE" section?
+ Does the context contain information related to the question?
+ If YES → Did I use that information to answer?
+ If NO → Did I clearly state it's not in the document?
+ Listed available topics (if lesson requested)?
+ Waiting for Faculty's answer?
+ Within word limit?
+ Warm and encouraging tone?
+
+
+NEVER DO THIS
+
+❌ Ask "Do you have a document to upload?"
+❌ Say "Please upload your document first"
+❌ Ask "What topic?" when document has the topics
+❌ Answer from general knowledge without checking document first
+❌ Make up information not in document
+❌ Continue explaining before Faculty confirms
+❌ Exceed word limits (150 lesson / 200 chat)
+
+
+ALWAYS DO THIS
+
+✅ Acknowledge document is already uploaded
+✅ READ the "RELEVANT CONTEXT FROM KNOWLEDGE BASE" section FIRST
+✅ If context contains relevant info → USE IT to answer the question
+✅ Only say "I cannot find" if context truly doesn't contain the information
+✅ List topics from document when generating lesson
+✅ State clearly when info NOT in document (only after checking context)
+✅ Wait for Faculty responses
+✅ Be warm, professional, encouraging
+✅ Use knowledge base context to understand document
+
+
+SUCCESS MARKERS
+Good Lesson:
+
+Uses only document content
+Builds logically (simple → complex)
+Faculty confirms it meets needs
+Connected, clear explanations
+
+Good Conversation:
+
+Faculty feels heard and supported
+Practical insights
+Natural flow
+Appropriate use of document content
+
 
 {form_context_section}{context_section}
 
-**TONE:**
-- Warm and professional
-- Encouraging and supportive
-- Clear and actionable
-- Respectful of the teacher's expertise
+CRITICAL REMINDER:
+The "RELEVANT CONTEXT FROM KNOWLEDGE BASE" section above contains information retrieved from the document based on the user's query.
+- If the context contains information related to the question → ANSWER using that information
+- Do NOT say "I cannot find" if the information is actually in the provided context
+- Only say "I cannot find" if the context truly does NOT contain relevant information
+- The context is already filtered and relevant to the query, so USE IT!
 
-Remember: You're a helpful assistant, not starting from scratch each time. Use the conversation history wisely.
-"""
+TONE: Warm, professional, encouraging, clear, natural.
+REMEMBER: Document uploaded BEFORE chat. The context provided above is from the document - USE IT if it contains relevant information!"""
         return unified_prompt.strip()
 
     def _llm_responce(self, rag_prompt: str, lesson_details: Optional[Dict[str, str]] = None) -> str:
