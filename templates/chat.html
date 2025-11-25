@@ -923,6 +923,42 @@
                                             </div>
                                         </div>
                                     </div>
+                                    
+                                    <!-- Extraction Options Toggles -->
+                                    <div class="mt-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                                        <p class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                                            <i class="fas fa-cog text-[#05B0FC] text-xs"></i>
+                                            Extraction Options
+                                        </p>
+                                        <div class="space-y-3">
+                                            <!-- Table Extraction Toggle -->
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex items-center gap-2">
+                                                    <i class="fas fa-table text-gray-600 text-sm"></i>
+                                                    <label for="tableExtractionToggle" class="text-sm text-gray-700 font-medium cursor-pointer">
+                                                        Extract Tables
+                                                    </label>
+                                                </div>
+                                                <label class="relative inline-flex items-center cursor-pointer">
+                                                    <input type="checkbox" id="tableExtractionToggle" class="sr-only peer" checked>
+                                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#05B0FC]"></div>
+                                                </label>
+                                            </div>
+                                            <!-- Image Extraction Toggle -->
+                                            <div class="flex items-center justify-between">
+                                                <div class="flex items-center gap-2">
+                                                    <i class="fas fa-image text-gray-600 text-sm"></i>
+                                                    <label for="imageExtractionToggle" class="text-sm text-gray-700 font-medium cursor-pointer">
+                                                        Extract Images & Generate Descriptions
+                                                    </label>
+                                                </div>
+                                                <label class="relative inline-flex items-center cursor-pointer">
+                                                    <input type="checkbox" id="imageExtractionToggle" class="sr-only peer" checked>
+                                                    <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#05B0FC]"></div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <!-- Enhanced Lesson Details Section -->
@@ -3796,6 +3832,12 @@ async function initializeApp() {
         formData.append('gradeLevel', form.gradeLevel.value);
         formData.append('additionalNotes', form.additionalNotes.value);
         
+        // Add extraction toggles
+        const tableExtractionToggle = document.getElementById('tableExtractionToggle');
+        const imageExtractionToggle = document.getElementById('imageExtractionToggle');
+        formData.append('tableExtraction', tableExtractionToggle ? tableExtractionToggle.checked : false);
+        formData.append('imageExtraction', imageExtractionToggle ? imageExtractionToggle.checked : false);
+        
         // Add file
         if (currentLessonFile) {
             formData.append('file', currentLessonFile);
@@ -3834,6 +3876,8 @@ async function initializeApp() {
                     method = 'POST';
                 
                     // Convert FormData to JSON for POST request
+                const tableExtractionToggle = document.getElementById('tableExtractionToggle');
+                const imageExtractionToggle = document.getElementById('imageExtractionToggle');
                 const jsonData = {
                     title: form.lessonTitle.value,
                     lesson_prompt: '', // No longer needed - using interactive chat
@@ -3841,7 +3885,9 @@ async function initializeApp() {
                     grade_level: form.gradeLevel.value,
                     summary: form.additionalNotes.value,
                         content: generatedLessonContent || currentLessonData?.content || '',
-                        file_name: currentLessonFile ? currentLessonFile.name : null
+                        file_name: currentLessonFile ? currentLessonFile.name : null,
+                    table_extraction: tableExtractionToggle ? tableExtractionToggle.checked : false,
+                    image_extraction: imageExtractionToggle ? imageExtractionToggle.checked : false
                 };
                 
                 // Debug logging

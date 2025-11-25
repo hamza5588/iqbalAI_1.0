@@ -113,7 +113,7 @@ class BaseLessonService:
         
         # Get vLLM configuration from environment
         vllm_api_base = os.getenv('VLLM_API_BASE', 'http://69.28.92.113:8000/v1')
-        vllm_model = os.getenv('VLLM_MODEL', 'meta-llama/Llama-3.1-8B-Instruct')
+        vllm_model = os.getenv('VLLM_MODEL', 'Qwen/Qwen2-VL-2B-Instruct')
         vllm_timeout = int(os.getenv('VLLM_TIMEOUT', 600))
         
         # Initialize vLLM client using ChatOpenAI (OpenAI-compatible API)
@@ -309,6 +309,6 @@ class BaseLessonService:
         """
         return {
             'base_url': os.getenv('VLLM_API_BASE', 'http://69.28.92.113:8000/v1'),
-            'model': os.getenv('VLLM_MODEL', 'meta-llama/Llama-3.1-8B-Instruct'),
+            'model': os.getenv('VLLM_MODEL', 'Qwen/Qwen2-VL-2B-Instruct'),
             'timeout': int(os.getenv('VLLM_TIMEOUT', 600))
         }

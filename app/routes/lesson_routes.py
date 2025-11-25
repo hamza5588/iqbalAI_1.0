@@ -70,13 +70,19 @@ def create_lesson():
             if file_ext not in allowed_extensions:
                 return jsonify({'error': 'File type not supported. Please upload PDF, DOC, DOCX, or TXT files.'}), 400
             
+            # Get extraction toggle values
+            table_extraction = request.form.get('tableExtraction', 'false').lower() == 'true'
+            image_extraction = request.form.get('imageExtraction', 'false').lower() == 'true'
+            
             # Prepare lesson details
             lesson_details = {
                 'lesson_title': lesson_title,
                 'lesson_prompt': lesson_prompt,
                 'focus_area': focus_area,
                 'grade_level': grade_level,
-                'additional_notes': additional_notes
+                'additional_notes': additional_notes,
+                'table_extraction': table_extraction,
+                'image_extraction': image_extraction
             }
             
             # Process the file first to create vector store

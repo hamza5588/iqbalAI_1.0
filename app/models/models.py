@@ -1034,7 +1034,7 @@ class ChatModel:
         if not self._chat_model:
             try:
                 vllm_api_base = os.getenv('VLLM_API_BASE', 'http://69.28.92.113:8000/v1')
-                vllm_model = os.getenv('VLLM_MODEL', 'meta-llama/Llama-3.1-8B-Instruct')
+                vllm_model = os.getenv('VLLM_MODEL', 'Qwen/Qwen2-VL-2B-Instruct')
                 self._chat_model = ChatOpenAI(
                     openai_api_key="EMPTY",
                     openai_api_base=vllm_api_base,
