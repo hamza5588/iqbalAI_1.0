@@ -249,7 +249,7 @@ from urllib.parse import quote
 from pathlib import Path
 from typing import Optional, Union
 # from langchain_groq import ChatGroq
-from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.prompts import ChatPromptTemplate
@@ -286,15 +286,14 @@ class DocumentChatBot:
             raise ValueError("NOMIC_API_KEY environment variable not set")
             
         # self.llm = ChatGroq(groq_api_key=self.groq_api_key, model_name="llama-3.3-70b-versatile")
-        ollama_base_url = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
-        ollama_model = os.getenv('OLLAMA_MODEL', 'llama3.2:3b')
-        self.llm = ChatOllama(
-            model="llama3.2:3b", 
-            base_url=ollama_base_url,
-            num_predict=1024,  # Optimized for faster responses
-            num_thread=16,
-            num_ctx=4096,  # Reduced context for faster CPU inference
-            temperature=0.1
+        vllm_api_base = os.getenv('VLLM_API_BASE', 'http://69.28.92.113:8000/v1')
+        vllm_model = os.getenv('VLLM_MODEL', 'meta-llama/Llama-3.1-8B-Instruct')
+        self.llm = ChatOpenAI(
+            openai_api_key="EMPTY",
+            openai_api_base=vllm_api_base,
+            model_name=vllm_model,
+            temperature=0.7,
+            max_tokens=1024,
         )
         self.prompt = self._create_prompt()
         self.vectors = None

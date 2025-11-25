@@ -16,7 +16,8 @@ from app.models.database_models import (
     LessonFAQ as DBLessonFAQ, LessonChatHistory as DBLessonChatHistory
 )
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy import and_, or_, desc, func, text
+from sqlalchemy import and_, or_, desc, func
+from sqlalchemy.orm import joinedload
 import pickle
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 import httpx
@@ -340,45 +341,36 @@ class LessonModel:
         """Get only the latest public version per logical lesson (grouped by lesson_id)"""
         try:
             db = get_db()
-            # Handle both old lessons (without lesson_id/version_number) and new lessons (with versioning)
-            # For lessons with lesson_id: get latest version per lesson_id
-            # For lessons without lesson_id: include them as-is (they're standalone)
-            query = '''
-                SELECT l.*, u.username as teacher_name
-                FROM lessons l
-                JOIN users u ON l.teacher_id = u.id
-                WHERE l.is_public = TRUE
-                AND (
-                    -- Lessons with lesson_id: only include if it's the latest version
-                    -- Treat NULL version_number as version 1 for comparison
-                    (l.lesson_id IS NOT NULL AND l.lesson_id != '' 
-                     AND COALESCE(l.version_number, 1) = (
-                         SELECT MAX(COALESCE(version_number, 1))
-                         FROM lessons l2
-                         WHERE l2.lesson_id = l.lesson_id 
-                         AND l2.is_public = TRUE
-                         AND l2.lesson_id IS NOT NULL 
-                         AND l2.lesson_id != ''
-                     ))
-                    OR
-                    -- Lessons without lesson_id or with empty lesson_id: include all (they're standalone, not versioned)
-                    (l.lesson_id IS NULL OR l.lesson_id = '')
-                )
-            '''
-            params = []
-
+            lessons_query = db.query(DBLesson).options(
+                joinedload(DBLesson.teacher)
+            ).filter(DBLesson.is_public.is_(True))
+            
             if grade_level:
-                query += ' AND l.grade_level = ?'
-                params.append(grade_level)
-
+                lessons_query = lessons_query.filter(DBLesson.grade_level == grade_level)
+            
             if focus_area:
-                query += ' AND l.focus_area = ?'
-                params.append(focus_area)
-
-            query += ' ORDER BY l.created_at DESC'
-
-            lessons = db.execute(query, params).fetchall()
-            return [dict(lesson) for lesson in lessons]
+                lessons_query = lessons_query.filter(DBLesson.focus_area == focus_area)
+            
+            # Order by created_at descending so the first occurrence of a lesson_id is the latest version
+            lessons = lessons_query.order_by(DBLesson.created_at.desc()).all()
+            
+            latest_version_map = {}
+            unversioned_lessons = []
+            
+            for lesson in lessons:
+                lesson_dict = LessonModel._lesson_to_dict(lesson, include_teacher_name=True)
+                logical_id = (lesson.lesson_id or '').strip()
+                
+                if logical_id:
+                    if logical_id not in latest_version_map:
+                        latest_version_map[logical_id] = (lesson.created_at, lesson_dict)
+                else:
+                    unversioned_lessons.append((lesson.created_at, lesson_dict))
+            
+            combined = unversioned_lessons + list(latest_version_map.values())
+            combined.sort(key=lambda x: x[0] or datetime.min, reverse=True)
+            
+            return [entry[1] for entry in combined]
         except Exception as e:
             logger.error(f"Error retrieving latest public lessons: {str(e)}")
             raise
@@ -388,21 +380,25 @@ class LessonModel:
         """Search lessons by title, content, or focus area (including all versions)"""
         try:
             db = get_db()
-            query = '''SELECT l.*, u.username as teacher_name 
-                      FROM lessons l 
-                      JOIN users u ON l.teacher_id = u.id 
-                      WHERE l.is_public = TRUE 
-                      AND (l.title LIKE ? OR l.content LIKE ? OR l.focus_area LIKE ?)'''
-            params = [f'%{search_term}%', f'%{search_term}%', f'%{search_term}%']
+            lessons_query = db.query(DBLesson).options(
+                joinedload(DBLesson.teacher)
+            ).filter(
+                DBLesson.is_public.is_(True),
+                or_(
+                    DBLesson.title.ilike(f'%{search_term}%'),
+                    DBLesson.content.ilike(f'%{search_term}%'),
+                    DBLesson.focus_area.ilike(f'%{search_term}%')
+                )
+            )
             
             if grade_level:
-                query += ' AND l.grade_level = ?'
-                params.append(grade_level)
+                lessons_query = lessons_query.filter(DBLesson.grade_level == grade_level)
             
-            query += ' ORDER BY l.created_at DESC'
-            
-            lessons = db.execute(query, params).fetchall()
-            return [dict(lesson) for lesson in lessons]
+            lessons = lessons_query.order_by(DBLesson.created_at.desc()).all()
+            return [
+                LessonModel._lesson_to_dict(lesson, include_teacher_name=True)
+                for lesson in lessons
+            ]
         except Exception as e:
             logger.error(f"Error searching lessons: {str(e)}")
             raise
@@ -521,25 +517,29 @@ class LessonModel:
         """Get all versions of a lesson (including the original and all versions)"""
         try:
             db = get_db()
-            # Get the original lesson and all its versions
-            lessons = db.execute(
-                '''SELECT l.*, u.username as teacher_name 
-                   FROM lessons l 
-                   JOIN users u ON l.teacher_id = u.id 
-                   WHERE l.id = ? OR l.parent_lesson_id = ?
-                   ORDER BY l.version ASC, l.id ASC''',
-                (lesson_id, lesson_id)
-            ).fetchall()
+            lessons = (
+                db.query(DBLesson)
+                .filter(
+                    or_(
+                        DBLesson.id == lesson_id,
+                        DBLesson.parent_lesson_id == lesson_id
+                    )
+                )
+                .order_by(DBLesson.version.asc(), DBLesson.id.asc())
+                .all()
+            )
             
-            result = [dict(lesson) for lesson in lessons]
-            
-            # Ensure the original lesson (id = lesson_id) is treated as version 1
-            for lesson in result:
-                if lesson['id'] == lesson_id and lesson['parent_lesson_id'] is None:
-                    lesson['version'] = 1
-                    lesson['is_original'] = True
-                elif lesson['parent_lesson_id'] == lesson_id:
-                    lesson['is_original'] = False
+            result = []
+            for lesson in lessons:
+                lesson_dict = LessonModel._lesson_to_dict(lesson, include_teacher_name=True)
+                
+                if lesson_dict['id'] == lesson_id and lesson_dict.get('parent_lesson_id') is None:
+                    lesson_dict['version'] = 1
+                    lesson_dict['is_original'] = True
+                else:
+                    lesson_dict['is_original'] = False
+                
+                result.append(lesson_dict)
             
             logger.info(f"get_lesson_versions for lesson {lesson_id}: found {len(result)} versions")
             logger.info(f"Versions data: {result}")
@@ -553,17 +553,19 @@ class LessonModel:
         """Get the latest version of a lesson"""
         try:
             db = get_db()
-            # Get the lesson with the highest version number
-            lesson = db.execute(
-                '''SELECT l.*, u.username as teacher_name 
-                   FROM lessons l 
-                   JOIN users u ON l.teacher_id = u.id 
-                   WHERE l.id = ? OR l.parent_lesson_id = ?
-                   ORDER BY l.version DESC
-                   LIMIT 1''',
-                (lesson_id, lesson_id)
-            ).fetchone()
-            return dict(lesson) if lesson else None
+            lesson = (
+                db.query(DBLesson)
+                .options(joinedload(DBLesson.teacher))
+                .filter(
+                    or_(
+                        DBLesson.id == lesson_id,
+                        DBLesson.parent_lesson_id == lesson_id
+                    )
+                )
+                .order_by(DBLesson.version.desc())
+                .first()
+            )
+            return LessonModel._lesson_to_dict(lesson, include_teacher_name=True) if lesson else None
         except Exception as e:
             logger.error(f"Error retrieving latest version: {str(e)}")
             raise
@@ -694,7 +696,7 @@ class LessonModel:
 
 # app/models/models.py (ChatModel part)
 # from langchain_groq import ChatGroq
-from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
 
 from typing import Optional, List, Dict, Any
 import logging
@@ -1031,15 +1033,14 @@ class ChatModel:
         """Lazy initialization of chat model"""
         if not self._chat_model:
             try:
-                ollama_base_url = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
-                ollama_model = os.getenv('OLLAMA_MODEL', 'llama3.2:3b')
-                self._chat_model = ChatOllama(
-                    model=ollama_model,
-                    base_url=ollama_base_url,
-                    num_predict=1024,  # Optimized for faster responses
-                    num_thread=16,
-                    num_ctx=4096,  # Reduced context for faster CPU inference
-                    temperature=0.1
+                vllm_api_base = os.getenv('VLLM_API_BASE', 'http://69.28.92.113:8000/v1')
+                vllm_model = os.getenv('VLLM_MODEL', 'meta-llama/Llama-3.1-8B-Instruct')
+                self._chat_model = ChatOpenAI(
+                    openai_api_key="EMPTY",
+                    openai_api_base=vllm_api_base,
+                    model_name=vllm_model,
+                    temperature=0.7,
+                    max_tokens=1024,
                 )
                 # self._chat_model = ChatGroq(
                 #     api_key=self.api_key,

@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify, session
 from app.models import UserModel
+from app.models.database_models import User as DBUser
 from app.services import ChatService
 from app.utils.db import get_db
 import logging
@@ -38,12 +39,9 @@ def update_api_key():
         
         # Verify the update by checking the database directly
         db = get_db()
-        updated_user = db.execute(
-            'SELECT groq_api_key FROM users WHERE id = ?',
-            (session['user_id'],)
-        ).fetchone()
+        updated_user = db.query(DBUser).filter(DBUser.id == session['user_id']).first()
         
-        if not updated_user or updated_user['groq_api_key'] != new_api_key:
+        if not updated_user or updated_user.groq_api_key != new_api_key:
             logger.error("Failed to verify API key update in database")
             return jsonify({'error': 'Failed to verify API key update'}), 500
 

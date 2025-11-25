@@ -91,7 +91,7 @@ from typing import Any, Dict, List, Optional
 import os
 import tempfile
 
-from langchain_ollama import ChatOllama
+from langchain_openai import ChatOpenAI
 from langchain_core.documents import Document
 from langchain_community.document_loaders import PyMuPDFLoader, UnstructuredWordDocumentLoader, TextLoader
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -111,27 +111,22 @@ class BaseLessonService:
         """Initialize the base service with API key"""
         self.api_key = groq_api_key
         
-        # Get Ollama configuration from environment
-        ollama_base_url = os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434')
-        ollama_model = os.getenv('OLLAMA_MODEL', 'llama3.2:3b')
-        ollama_timeout = int(os.getenv('OLLAMA_TIMEOUT', 600))
+        # Get vLLM configuration from environment
+        vllm_api_base = os.getenv('VLLM_API_BASE', 'http://69.28.92.113:8000/v1')
+        vllm_model = os.getenv('VLLM_MODEL', 'meta-llama/Llama-3.1-8B-Instruct')
+        vllm_timeout = int(os.getenv('VLLM_TIMEOUT', 600))
         
-        # Initialize Ollama client with optimized settings for CPU inference
-        self.llm = ChatOllama(
-            model=ollama_model,
-            base_url=ollama_base_url,
-            timeout=ollama_timeout,
-            num_predict=1024,  # Reduced from 2048 for faster responses
-            temperature=0.1,
-            # Use all available threads for this request (16 CPUs available)
-            num_thread=16,
-            # Reduce context window to speed up processing
-            num_ctx=4096,  # Reduced from default 8192 for faster CPU inference
-            # Enable repeat penalty to avoid repetition
-            repeat_penalty=1.1,
+        # Initialize vLLM client using ChatOpenAI (OpenAI-compatible API)
+        self.llm = ChatOpenAI(
+            openai_api_key="EMPTY",
+            openai_api_base=vllm_api_base,
+            model_name=vllm_model,
+            temperature=0.7,
+            max_tokens=1024,
+            timeout=vllm_timeout,
         )
         
-        logger.info(f"Base lesson service initialized with Ollama at {ollama_base_url} using model {ollama_model}")
+        logger.info(f"Base lesson service initialized with vLLM at {vllm_api_base} using model {vllm_model}")
 
     def allowed_file(self, filename: str) -> bool:
         """Check if file extension is supported"""
@@ -179,8 +174,7 @@ class BaseLessonService:
 
     def invoke_llm(self, prompt: str) -> str:
         """
-        Invoke Ollama LLM with rate limiting.
-        This method is rate-limited to prevent overwhelming Ollama.
+        Invoke vLLM LLM.
         
         Args:
             prompt: The prompt to send to the LLM
@@ -189,7 +183,7 @@ class BaseLessonService:
             The LLM response as a string
         """
         try:
-            logger.info(f"[OLLAMA] Invoking LLM (active: {ollama_limiter.get_active_count()}/2)")
+            logger.info(f"[VLLM] Invoking LLM")
             response = self.llm.invoke(prompt)
             
             # Handle different response types
@@ -200,7 +194,7 @@ class BaseLessonService:
             else:
                 result = str(response)
             
-            logger.info(f"[OLLAMA] LLM invocation completed (active: {ollama_limiter.get_active_count()}/2)")
+            logger.info(f"[VLLM] LLM invocation completed")
             return result
             
         except Exception as e:
@@ -209,7 +203,7 @@ class BaseLessonService:
 
     def stream_llm(self, prompt: str):
         """
-        Stream responses from Ollama LLM with rate limiting.
+        Stream responses from vLLM LLM.
         
         Args:
             prompt: The prompt to send to the LLM
@@ -218,7 +212,7 @@ class BaseLessonService:
             Chunks of the LLM response
         """
         try:
-            logger.info(f"[OLLAMA] Starting LLM stream (active: {ollama_limiter.get_active_count()}/2)")
+            logger.info(f"[VLLM] Starting LLM stream")
             
             for chunk in self.llm.stream(prompt):
                 if hasattr(chunk, 'content'):
@@ -228,14 +222,11 @@ class BaseLessonService:
                 else:
                     yield str(chunk)
             
-            logger.info(f"[OLLAMA] LLM stream completed (active: {ollama_limiter.get_active_count()}/2)")
+            logger.info(f"[VLLM] LLM stream completed")
             
         except Exception as e:
             logger.error(f"Error streaming from LLM: {str(e)}")
             raise
-        finally:
-            # Limiter is automatically released by the decorator
-            pass
 
     def create_prompt(self, template: str, **kwargs) -> str:
         """
@@ -309,17 +300,15 @@ class BaseLessonService:
             logger.error(f"Error chunking text: {str(e)}")
             return [text]  # Return original text as single chunk on error
 
-    def get_ollama_status(self) -> Dict[str, Any]:
+    def get_vllm_status(self) -> Dict[str, Any]:
         """
-        Get current Ollama service status.
+        Get current vLLM service status.
         
         Returns:
             Dictionary with status information
         """
         return {
-            'active_requests': ollama_limiter.get_active_count(),
-            'max_concurrent': ollama_limiter.max_concurrent,
-            'base_url': os.getenv('OLLAMA_BASE_URL', 'http://localhost:11434'),
-            'model': os.getenv('OLLAMA_MODEL', 'llama3.2-3b'),
-            'timeout': int(os.getenv('OLLAMA_TIMEOUT', 600))
+            'base_url': os.getenv('VLLM_API_BASE', 'http://69.28.92.113:8000/v1'),
+            'model': os.getenv('VLLM_MODEL', 'meta-llama/Llama-3.1-8B-Instruct'),
+            'timeout': int(os.getenv('VLLM_TIMEOUT', 600))
         }
