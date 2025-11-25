@@ -76,7 +76,7 @@ services:
 
       # vLLM API
       - VLLM_API_BASE=http://69.28.92.113:8000/v1
-      - VLLM_MODEL=meta-llama/Llama-3.1-8B-Instruct
+      - VLLM_MODEL=Qwen/Qwen2-VL-2B-Instruct
 
       - VLLM_TIMEOUT=600
 

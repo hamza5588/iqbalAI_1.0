@@ -5,6 +5,8 @@ import os
 import logging
 import tempfile
 from typing import Any, Dict, List, Optional
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import base64
 
 # Disable tqdm threading to prevent "cannot start new thread" errors
 os.environ['TQDM_DISABLE'] = '1'
@@ -19,6 +21,22 @@ from docx.shared import Inches
 from io import BytesIO
 from datetime import datetime
 import json
+
+# Try to import optional dependencies
+try:
+    import camelot
+    CAMELOT_AVAILABLE = True
+except ImportError:
+    CAMELOT_AVAILABLE = False
+
+try:
+    from PIL import Image
+    import fitz  # PyMuPDF for image extraction
+    PIL_AVAILABLE = True
+    PYMUPDF_AVAILABLE = True
+except ImportError:
+    PIL_AVAILABLE = False
+    PYMUPDF_AVAILABLE = False
 
 from .base_service import BaseLessonService
 from .models import LessonResponse, LessonPlan
@@ -89,7 +107,7 @@ def check_lesson_response(text: str, groq_api_key: str):
     #     temperature=0.1
     # )
     vllm_api_base = os.getenv('VLLM_API_BASE', 'http://69.28.92.113:8000/v1')
-    vllm_model = os.getenv('VLLM_MODEL', 'meta-llama/Llama-3.1-8B-Instruct')
+    vllm_model = os.getenv('VLLM_MODEL', 'Qwen/Qwen2-VL-2B-Instruct')
     llm = ChatOpenAI(
         openai_api_key="EMPTY",
         openai_api_base=vllm_api_base,
@@ -144,16 +162,310 @@ class TeacherLessonService(BaseLessonService):
         teacher_logger.info("RAG service initialized")
         # Use class-level chat_histories to persist across instances
         teacher_logger.info("RAG service initialized with persistent memory")
+        
+        # Initialize separate multimodal LLM for image descriptions
+        vllm_api_base = os.getenv('VLLM_API_BASE', 'http://69.28.92.113:8000/v1')
+        vllm_multimodal_model = os.getenv('VLLM_MULTIMODAL_MODEL', 'Qwen/Qwen2-VL-2B-Instruct')
+        vllm_timeout = int(os.getenv('VLLM_TIMEOUT', 600))
+        
+        self.multimodal_llm = ChatOpenAI(
+            openai_api_key="EMPTY",
+            openai_api_base=vllm_api_base,
+            model_name=vllm_multimodal_model,
+            temperature=0.7,
+            max_tokens=1024,
+            timeout=vllm_timeout,
+        )
+        teacher_logger.info(f"Multimodal LLM initialized for image descriptions: {vllm_multimodal_model}")
+    
+    def _extract_tables_from_pdf(self, file_path: str, filename: str) -> str:
+        """Extract tables from PDF using Camelot and return as Markdown"""
+        if not CAMELOT_AVAILABLE:
+            teacher_logger.warning("Camelot not available, skipping table extraction")
+            return ""
+        
+        if not filename.lower().endswith('.pdf'):
+            teacher_logger.info(f"Table extraction only supported for PDF files, got {filename}")
+            return ""
+        
+        try:
+            teacher_logger.info(f"Extracting tables from {filename}")
+            # Use camelot to extract tables
+            tables = camelot.read_pdf(file_path, pages='all', flavor='lattice')
+            
+            if len(tables) == 0:
+                teacher_logger.info("No tables found in PDF")
+                return ""
+            
+            teacher_logger.info(f"Found {len(tables)} tables in PDF")
+            
+            # Convert tables to markdown format
+            markdown_tables = []
+            for i, table in enumerate(tables, 1):
+                df = table.df
+                markdown_tables.append(f"\n### Table {i}\n\n")
+                # Convert DataFrame to markdown table
+                markdown_table = df.to_markdown(index=False)
+                markdown_tables.append(markdown_table)
+                markdown_tables.append("\n")
+            
+            result = "\n".join(markdown_tables)
+            teacher_logger.info(f"Extracted {len(tables)} tables as markdown")
+            return result
+            
+        except Exception as e:
+            teacher_logger.error(f"Error extracting tables: {str(e)}")
+            return ""
+    
+    def _extract_images_and_describe(self, file_path: str, filename: str) -> str:
+        """Extract images from PDF and generate descriptions using LLM"""
+        if not PYMUPDF_AVAILABLE:
+            teacher_logger.warning("PyMuPDF not available, skipping image extraction")
+            return ""
+        
+        if not filename.lower().endswith('.pdf'):
+            teacher_logger.info(f"Image extraction only supported for PDF files, got {filename}")
+            return ""
+        
+        try:
+            teacher_logger.info(f"Extracting images from {filename}")
+            import fitz  # PyMuPDF
+            
+            doc = fitz.open(file_path)
+            image_descriptions = []
+            
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+                image_list = page.get_images()
+                
+                for img_index, img in enumerate(image_list):
+                    try:
+                        # Get image data
+                        xref = img[0]
+                        base_image = doc.extract_image(xref)
+                        image_bytes = base_image["image"]
+                        image_ext = base_image["ext"]
+                        
+                        # Convert to base64 for LLM
+                        image_base64 = base64.b64encode(image_bytes).decode('utf-8')
+                        
+                        # Get surrounding text context from the page (if available)
+                        page_text = page.get_text("text")
+                        context_snippet = ""
+                        if page_text:
+                            # Get first 200 characters of page text as context
+                            context_snippet = page_text[:200].strip().replace('\n', ' ')
+                        
+                        # Generate description using LLM with context
+                        description = self._describe_image_with_llm(
+                            image_base64, 
+                            image_ext, 
+                            page_num=page_num + 1,
+                            image_index=img_index + 1,
+                            context=context_snippet
+                        )
+                        
+                        if description:
+                            # Extract image type from description for better searchability
+                            image_type_keywords = ""
+                            description_lower = description.lower()
+                            if any(word in description_lower for word in ['pie chart', 'piechart']):
+                                image_type_keywords = "pie chart, chart, graph, visualization, data visualization"
+                            elif any(word in description_lower for word in ['bar chart', 'bar graph', 'barchart']):
+                                image_type_keywords = "bar chart, bar graph, chart, graph, visualization, data visualization"
+                            elif any(word in description_lower for word in ['line graph', 'line chart']):
+                                image_type_keywords = "line graph, line chart, chart, graph, visualization, data visualization"
+                            elif any(word in description_lower for word in ['diagram', 'flowchart']):
+                                image_type_keywords = "diagram, flowchart, illustration, visual"
+                            elif any(word in description_lower for word in ['table', 'data table']):
+                                image_type_keywords = "table, data table, information table"
+                            else:
+                                image_type_keywords = "image, picture, visual, illustration"
+                            
+                            # Create a comprehensive image entry with context and searchable keywords
+                            image_entry = f"""
+### Image on Page {page_num + 1} (Image {img_index + 1})
+
+**Location:** Page {page_num + 1} of the document
+**Image Type:** {image_type_keywords}
+
+**Description:**
+{description}
+
+**Context:** This image appears on page {page_num + 1} of the document. {f"Surrounding context: {context_snippet}" if context_snippet else ""}
+
+**Searchable Keywords:** image, picture, visual, page {page_num + 1}, {image_type_keywords}
+"""
+                            image_descriptions.append(image_entry)
+                            teacher_logger.info(f"Generated description for image {page_num + 1}-{img_index + 1}")
+                    
+                    except Exception as e:
+                        teacher_logger.warning(f"Error processing image {img_index} on page {page_num}: {str(e)}")
+                        continue
+            
+            doc.close()
+            
+            if not image_descriptions:
+                teacher_logger.info("No images found in PDF")
+                return ""
+            
+            result = "\n".join(image_descriptions)
+            teacher_logger.info(f"Extracted and described {len(image_descriptions)} images")
+            return result
+            
+        except Exception as e:
+            teacher_logger.error(f"Error extracting images: {str(e)}")
+            return ""
+    
+    def _describe_image_with_llm(self, image_base64: str, image_ext: str, page_num: int = None, image_index: int = None, context: str = "") -> str:
+        """Generate description of image using multimodal LLM with enhanced context and retry logic"""
+        import time
+        max_retries = 3
+        retry_delay = 2  # seconds
+        
+        # Check image size - if too large, it might cause connection issues
+        image_size_mb = len(image_base64) * 3 / 4 / 1024 / 1024  # Approximate size in MB
+        if image_size_mb > 10:  # If image is larger than 10MB, skip description
+            teacher_logger.warning(f"Image too large ({image_size_mb:.2f}MB), skipping description")
+            return f"[Image extracted from document on page {page_num if page_num else 'unknown'} - image too large for description]"
+        
+        for attempt in range(max_retries):
+            try:
+                from langchain_core.messages import HumanMessage
+                
+                # Build context information
+                context_info = ""
+                if page_num:
+                    context_info += f"This image appears on page {page_num} of the document. "
+                if context:
+                    context_info += f"The surrounding text context: {context[:150]}... "
+                
+                # Create enhanced prompt for image description that includes context references
+                prompt_text = f"""Please describe this image in detail. IMPORTANT: Start your description by clearly identifying what TYPE of image this is using phrases like:
+- "This is a pie chart showing..." or "This pie chart is telling us that..."
+- "This is a bar graph displaying..." or "The bar graph shows that..."
+- "This is a line graph illustrating..." or "The line graph indicates that..."
+- "This is a diagram demonstrating..." or "This diagram illustrates..."
+- "This image shows..." or "This picture depicts..."
+
+Then provide a comprehensive description covering:
+
+1. **Image Type and What It's Telling**: 
+   - Clearly state what type of visualization or image this is (pie chart, bar graph, line graph, diagram, photograph, illustration, table, etc.)
+   - Use phrases like "This [image type] is telling us that..." or "This [image type] shows that..." or "What this [image type] is telling:"
+   - Explicitly state what the image is communicating
+
+2. **Data and Information** (for charts/graphs): 
+   - What data is being presented
+   - What the chart/graph is telling or showing (use phrases like "The chart is telling us that...", "This graph shows that...", "The data indicates that...")
+   - Key values, percentages, trends, or patterns visible
+   - What insights can be drawn from the data
+   - What story or message the visualization is conveying
+
+3. **Visual Elements**: 
+   - Colors, labels, legends, axes, titles
+   - Any text, numbers, or annotations visible
+   - Structure and layout of the image
+
+4. **What's Happening in the Image**: 
+   - If it's a scene or action image, describe what is happening
+   - Use phrases like "What is happening in this image: ..." or "This image shows the following: ..."
+   - Describe any actions, processes, or events depicted
+
+5. **Context and Purpose**: 
+   - What this image is communicating or illustrating
+   - How it relates to educational content
+   - What information or concept it helps explain
+
+6. **Answer Format**: Structure your description to directly answer these types of questions:
+   - "What is the pie chart telling?" → Answer: "This pie chart is telling us that [specific information]..."
+   - "What is happening in this image?" → Answer: "What is happening in this image: [description of events/actions]..."
+   - "What does this graph show?" → Answer: "This graph shows that [specific data/trends]..."
+   - "What data is presented in this chart?" → Answer: "The data presented in this chart includes [specific data points]..."
+
+{context_info}
+
+Provide a detailed, comprehensive description that explicitly answers questions about what the image is telling, showing, or what is happening in it. Use natural, conversational language that makes it easy to understand and query the image content."""
+                
+                # Format image extension (remove leading dot if present)
+                img_ext = image_ext.lstrip('.') if image_ext else 'png'
+                
+                # Create multimodal message with text and image
+                message = HumanMessage(
+                    content=[
+                        {"type": "text", "text": prompt_text},
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/{img_ext};base64,{image_base64}"
+                            }
+                        }
+                    ]
+                )
+                
+                teacher_logger.info(f"Requesting image description from multimodal LLM (attempt {attempt + 1}/{max_retries}, format: {img_ext}, page: {page_num}, size: {image_size_mb:.2f}MB)")
+                
+                # Invoke multimodal LLM (separate instance for image descriptions)
+                response = self.multimodal_llm.invoke([message])
+                
+                if hasattr(response, 'content'):
+                    description = response.content.strip()
+                    teacher_logger.info(f"Generated image description: {len(description)} characters")
+                    return description
+                else:
+                    description = str(response).strip()
+                    teacher_logger.info(f"Generated image description: {len(description)} characters")
+                    return description
+                    
+            except Exception as e:
+                error_str = str(e)
+                
+                # Check if it's a "not multimodal model" error - don't retry for this
+                is_not_multimodal_error = 'not a multimodal model' in error_str.lower() or 'not multimodal' in error_str.lower()
+                if is_not_multimodal_error:
+                    teacher_logger.error(f"Model does not support multimodal requests: {error_str[:200]}")
+                    fallback_msg = f"[Image extracted from document on page {page_num if page_num else 'unknown'}"
+                    if context:
+                        fallback_msg += f" - Context: {context[:100]}..."
+                    fallback_msg += " - Image description unavailable: model does not support multimodal requests]"
+                    return fallback_msg
+                
+                # Check for connection errors that can be retried
+                is_connection_error = any(keyword in error_str.lower() for keyword in [
+                    'connection', 'refused', 'timeout', 'connect', 'network', '10061'
+                ])
+                
+                if attempt < max_retries - 1 and is_connection_error:
+                    wait_time = retry_delay * (attempt + 1)  # Exponential backoff
+                    teacher_logger.warning(f"Connection error on attempt {attempt + 1}/{max_retries}: {error_str[:200]}. Retrying in {wait_time}s...")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    teacher_logger.error(f"Error generating image description (attempt {attempt + 1}/{max_retries}): {error_str}", exc_info=True)
+                    # Return a fallback message that still provides some value
+                    fallback_msg = f"[Image extracted from document on page {page_num if page_num else 'unknown'}"
+                    if context:
+                        fallback_msg += f" - Context: {context[:100]}..."
+                    fallback_msg += " - Description generation unavailable due to error]"
+                    return fallback_msg
+        
+        # If all retries failed
+        return f"[Image extracted from document on page {page_num if page_num else 'unknown'} - description generation failed after {max_retries} attempts]"
 
     def process_file(self, file: FileStorage, lesson_details: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """
         Process an uploaded file and create vector DB for RAG.
+        Supports parallel extraction of text, tables, and images.
         Returns a greeting message instead of generating lesson immediately.
         Lesson generation happens only when user sends a query via interactive_chat.
         """
         teacher_logger.info(f"=== TEACHER FILE PROCESSING STARTED ===")
         teacher_logger.info(f"File: {file.filename if file else 'None'}")
         teacher_logger.info(f"Lesson details: {json.dumps(lesson_details, indent=2) if lesson_details else 'None'}")
+        
+        # Get extraction flags
+        table_extraction = lesson_details.get('table_extraction', False) if lesson_details else False
+        image_extraction = lesson_details.get('image_extraction', False) if lesson_details else False
         
         temp_path = None
         try:
@@ -165,6 +477,7 @@ class TeacherLessonService(BaseLessonService):
                 return {"error": "File type not supported. Please upload PDF, DOC, DOCX, or TXT files."}
             
             teacher_logger.info(f"File validation passed: {file.filename}")
+            teacher_logger.info(f"Table extraction: {table_extraction}, Image extraction: {image_extraction}")
             
             with tempfile.NamedTemporaryFile(delete=False, suffix=f"_{secure_filename(file.filename)}") as temp_file:
                 temp_path = temp_file.name
@@ -172,22 +485,63 @@ class TeacherLessonService(BaseLessonService):
             
             teacher_logger.info(f"File saved to temporary path: {temp_path}")
             
-            documents = self._load_document(temp_path, file.filename)
-            if not documents:
-                teacher_logger.error("Could not extract content from the file")
-                return {"error": "Could not extract content from the file"}
+            # Run extractions in parallel
+            text_content = ""
+            table_content = ""
+            image_content = ""
             
-            teacher_logger.info(f"Document loaded successfully: {len(documents)} pages/sections")
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                futures = {}
+                
+                # Always extract text
+                futures['text'] = executor.submit(self._load_document, temp_path, file.filename)
+                
+                # Extract tables if enabled
+                if table_extraction:
+                    futures['tables'] = executor.submit(self._extract_tables_from_pdf, temp_path, file.filename)
+                
+                # Extract images if enabled
+                if image_extraction:
+                    futures['images'] = executor.submit(self._extract_images_and_describe, temp_path, file.filename)
+                
+                # Wait for all extractions to complete
+                for key, future in futures.items():
+                    try:
+                        result = future.result()
+                        if key == 'text':
+                            documents = result
+                            if documents:
+                                text_content = "\n".join([doc.page_content for doc in documents])
+                        elif key == 'tables':
+                            table_content = result if result else ""
+                        elif key == 'images':
+                            image_content = result if result else ""
+                    except Exception as e:
+                        teacher_logger.error(f"Error in {key} extraction: {str(e)}")
+                        if key == 'text':
+                            return {"error": f"Could not extract content from the file: {str(e)}"}
             
-            full_text = "\n".join([doc.page_content for doc in documents])
-            if not full_text.strip():
+            if not text_content.strip():
                 teacher_logger.error("No readable content found in the file")
                 return {"error": "No readable content found in the file"}
             
-            teacher_logger.info(f"Text extracted successfully: {len(full_text)} characters")
+            # Concatenate all extracted content
+            all_content = text_content
+            if table_content:
+                all_content += "\n\n## Extracted Tables\n" + table_content
+                teacher_logger.info(f"Added {len(table_content)} characters of table content")
+            if image_content:
+                all_content += "\n\n## Image Descriptions\n" + image_content
+                teacher_logger.info(f"Added {len(image_content)} characters of image descriptions")
+            
+            teacher_logger.info(f"Total content extracted: {len(all_content)} characters")
+            teacher_logger.info(f"Text: {len(text_content)}, Tables: {len(table_content)}, Images: {len(image_content)}")
+            
+            # Create documents from combined content
+            combined_documents = [Document(page_content=all_content, metadata={"source": file.filename})]
             
             # Process document with RAG service to create vector DB
-            rag_result = self.rag_service.process_document(documents, file.filename)
+            rag_result = self.rag_service.process_document(combined_documents, file.filename)
             if 'error' in rag_result:
                 teacher_logger.error(f"RAG processing failed: {rag_result['error']}")
                 return rag_result
