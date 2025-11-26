@@ -172,30 +172,6 @@
             <div id="medium-error" class="error-message hidden">Please select medium</div>
           </div>
 
-          <!-- GROQ API Key -->
-          <div>
-            <label for="groq_api_key" class="block text-sm font-medium text-iqbal-primary mb-1">GROQ API Key *</label>
-            <div class="flex gap-2">
-              <input 
-                type="password" 
-                id="groq_api_key" 
-                name="groq_api_key" 
-                required
-                placeholder="Enter your GROQ API Key"
-                class="flex-1 px-4 py-2 border border-[#05B0FC] rounded-lg focus:ring-2 focus:ring-iqbal-primary focus:border-iqbal-primary placeholder-gray-400"
-              >
-              <button 
-                type="button" 
-                onclick="openGroqModal()"
-                class="bg-iqbal-primary text-white px-3 py-2 rounded hover:bg-[#049CDE] transition"
-              >
-                Get Key
-              </button>
-            </div>
-            <div id="groq-api-key-error" class="error-message hidden">GROQ API Key is required</div>
-            <small class="text-gray-500 block mt-1">Get your API key from <a href="https://console.groq.com/" target="_blank" class="text-iqbal-primary underline">Groq Console</a></small>
-          </div>
-
           <!-- Submit -->
           <button 
             type="submit"
@@ -215,74 +191,8 @@
     </div>
   </div>
 
-  <!-- GROQ Modal -->
-  <div id="groqModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-xl shadow-lg p-4 w-full max-w-lg transition-all duration-300" id="groqModalContent">
-      <div class="flex justify-between items-center mb-3">
-        <h2 class="text-xl font-bold text-iqbal-primary">Get GROQ API Key</h2>
-        <div class="flex items-center gap-2">
-          <button onclick="toggleModalFullscreen('groqModal')" class="text-gray-500 hover:text-gray-700 p-1 rounded" title="Toggle Fullscreen">
-            <i class="fas fa-expand text-lg" id="groqModalFullscreenIcon"></i>
-          </button>
-        </div>
-      </div>
-      <div id="groqStep1" class="space-y-3">
-        <p class="text-gray-600">Sign in with Google to get your GROQ API key.</p>
-        <button class="w-full bg-red-500 hover:bg-red-600 text-white py-2 rounded flex items-center justify-center gap-2" onclick="openGroqAuth()">
-          <i class="fab fa-google"></i> Continue with Google
-        </button>
-      </div>
-      <div id="groqStep2" class="hidden text-center">
-        <div class="animate-spin w-8 h-8 border-4 border-iqbal-primary border-t-transparent rounded-full mx-auto"></div>
-        <p class="text-gray-600 mt-2">Waiting for authentication...</p>
-      </div>
-      <div id="groqStep3" class="hidden space-y-3">
-        <p class="text-green-600 font-medium"><i class="fas fa-check-circle"></i> Successfully signed in!</p>
-        <button class="w-full bg-green-500 hover:bg-green-600 text-white py-2 rounded" onclick="createApiKey()">
-          <i class="fas fa-key"></i> Create API Key
-        </button>
-        <button class="w-full bg-iqbal-primary hover:bg-[#049CDE] text-white py-2 rounded" onclick="pasteApiKey()">
-          <i class="fas fa-paste"></i> Paste API Key
-        </button>
-      </div>
-      <div class="mt-3 text-right">
-        <button onclick="closeGroqModal()" class="text-gray-500 hover:text-gray-700">Close</button>
-      </div>
-    </div>
-  </div>
 
   <script>
-    // Toggle modal fullscreen
-    function toggleModalFullscreen(modalId) {
-        const modal = document.getElementById(modalId);
-        const modalContent = document.getElementById(modalId + 'Content');
-        const fullscreenIcon = document.getElementById(modalId + 'FullscreenIcon');
-        
-        if (!modal || !modalContent) return;
-        
-        const isFullscreen = modalContent.classList.contains('fullscreen');
-        
-        if (isFullscreen) {
-            // Exit fullscreen
-            modalContent.classList.remove('fullscreen');
-            modalContent.classList.remove('w-screen', 'h-screen', 'max-w-none', 'max-h-none', 'mx-0', 'rounded-none');
-            modalContent.classList.add('w-full', 'max-w-lg');
-            
-            if (fullscreenIcon) {
-                fullscreenIcon.className = 'fas fa-expand text-lg';
-            }
-        } else {
-            // Enter fullscreen
-            modalContent.classList.add('fullscreen');
-            modalContent.classList.remove('w-full', 'max-w-lg');
-            modalContent.classList.add('w-screen', 'h-screen', 'max-w-none', 'max-h-none', 'mx-0', 'rounded-none');
-            
-            if (fullscreenIcon) {
-                fullscreenIcon.className = 'fas fa-compress text-lg';
-            }
-        }
-    }
-
     function handleRoleChange() {
       const role = document.getElementById('role').value;
       const classStandardSection = document.getElementById('class-standard-section');
@@ -312,8 +222,7 @@
         { id: 'username', name: 'Username' },
         { id: 'password', name: 'Password' },
         { id: 'role', name: 'Role' },
-        { id: 'medium', name: 'Medium' },
-        { id: 'groq_api_key', name: 'GROQ API Key' }
+        { id: 'medium', name: 'Medium' }
       ];
 
       // Check if role is selected and add class standard if needed
@@ -340,7 +249,7 @@
     }
 
     function clearAllErrors() {
-      const errorFields = ['username', 'password', 'role', 'class_standard', 'medium', 'groq_api_key'];
+      const errorFields = ['username', 'password', 'role', 'class_standard', 'medium'];
       errorFields.forEach(fieldId => {
         const element = document.getElementById(fieldId);
         const errorElement = document.getElementById(fieldId + '-error');
@@ -368,71 +277,6 @@
       });
     });
 
-    function openGroqModal() {
-      document.getElementById('groqModal').classList.remove('hidden');
-    }
-    function closeGroqModal() {
-      // Exit fullscreen if active
-      const modalContent = document.getElementById('groqModalContent');
-      if (modalContent && modalContent.classList.contains('fullscreen')) {
-        toggleModalFullscreen('groqModal');
-      }
-      
-      document.getElementById('groqModal').classList.add('hidden');
-      resetGroqSteps();
-    }
-    function resetGroqSteps() {
-      document.getElementById('groqStep1').classList.remove('hidden');
-      document.getElementById('groqStep2').classList.add('hidden');
-      document.getElementById('groqStep3').classList.add('hidden');
-    }
-
-    let groqWindow = null;
-    let checkWindowInterval = null;
-
-    function openGroqAuth() {
-      document.getElementById('groqStep1').classList.add('hidden');
-      document.getElementById('groqStep2').classList.remove('hidden');
-
-      const width = 600, height = 700;
-      const left = (window.innerWidth - width) / 2 + window.screenX;
-      const top = (window.innerHeight - height) / 2 + window.screenY;
-
-      groqWindow = window.open('https://console.groq.com/keys', 'GroqAuth',
-        `width=${width},height=${height},left=${left},top=${top},toolbar=0,location=0,menubar=0`);
-
-      checkWindowInterval = setInterval(checkAuthWindow, 1000);
-    }
-
-    function checkAuthWindow() {
-      if (groqWindow && groqWindow.closed) {
-        clearInterval(checkWindowInterval);
-        document.getElementById('groqStep2').classList.add('hidden');
-        document.getElementById('groqStep3').classList.remove('hidden');
-      }
-    }
-
-    function createApiKey() {
-      const width = 600, height = 700;
-      const left = (window.innerWidth - width) / 2 + window.screenX;
-      const top = (window.innerHeight - height) / 2 + window.screenY;
-      window.open('https://console.groq.com/keys/new', 'GroqCreateKey',
-        `width=${width},height=${height},left=${left},top=${top},toolbar=0,location=0,menubar=0`);
-    }
-
-    async function pasteApiKey() {
-      try {
-        const text = await navigator.clipboard.readText();
-        if (text && text.trim().startsWith('gsk_')) {
-          document.getElementById('groq_api_key').value = text.trim();
-          closeGroqModal();
-        } else {
-          alert('Invalid GROQ API key. Please copy it correctly.');
-        }
-      } catch (err) {
-        alert('Clipboard access denied. Please paste manually.');
-      }
-    }
   </script>
 </body>
 </html>
