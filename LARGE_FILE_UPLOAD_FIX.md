@@ -16,9 +16,11 @@
 ✅ Added `client_body_in_file_only clean` to use temp files instead of memory
 ✅ These are set at both server level and location level
 
-### 2. Frontend Timeout (`templates/chat.html`)
-✅ Added AbortController with 30-minute timeout for fetch requests
-✅ Added better error handling for timeout scenarios
+### 2. Frontend Upload (`templates/chat.html`)
+✅ **Replaced fetch with XMLHttpRequest** - Better for large file uploads
+✅ Added 30-minute timeout (1800000ms) for uploads
+✅ Added upload progress tracking (shows percentage and speed)
+✅ Added better error handling for timeout and network errors
 
 ## REQUIRED STEPS TO APPLY FIX
 
@@ -93,7 +95,9 @@ Watch for these common issues:
 - `MAX_CONTENT_LENGTH`: 100MB (already configured in `app/__init__.py`)
 
 ### Frontend Settings
-- Fetch timeout: 30 minutes (1800000ms)
+- **XMLHttpRequest** (replaced fetch for better large file handling)
+- Upload timeout: 30 minutes (1800000ms)
+- Upload progress tracking enabled
 
 ## Troubleshooting
 
@@ -116,6 +120,15 @@ Watch for these common issues:
 
 ## Notes
 - The `client_body_timeout` is the **most critical** setting - without it, nginx will close the connection after 60 seconds by default
+- **XMLHttpRequest is used instead of fetch** for better reliability with large file uploads
 - Large files are written to temp files (not memory) to prevent memory issues
 - All timeouts are set to 30 minutes to handle even very slow connections
+- Upload progress is shown in the browser console (percentage, speed, ETA)
+
+## Why XMLHttpRequest instead of Fetch?
+- Better timeout handling for large uploads
+- Upload progress tracking (onprogress event)
+- More reliable for large file transfers
+- Better browser compatibility
+- Can show real-time upload progress to users
 
