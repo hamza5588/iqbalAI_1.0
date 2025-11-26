@@ -677,30 +677,40 @@ Provide a detailed, comprehensive description that explicitly answers questions 
             text_content = ""
             table_content = ""
             
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                futures = {}
-                
-                # Always extract text
-                futures['text'] = executor.submit(self._load_document, temp_path, file.filename)
-                
-                # Extract tables if enabled
-                if table_extraction:
-                    futures['tables'] = executor.submit(self._extract_tables_from_pdf, temp_path, file.filename)
-                
-                # Wait for text and tables to complete
-                for key, future in futures.items():
-                    try:
-                        result = future.result()
-                        if key == 'text':
-                            documents = result
-                            if documents:
-                                text_content = "\n".join([doc.page_content for doc in documents])
-                        elif key == 'tables':
-                            table_content = result if result else ""
-                    except Exception as e:
-                        teacher_logger.error(f"Error in {key} extraction: {str(e)}")
-                        if key == 'text':
-                            return {"error": f"Could not extract content from the file: {str(e)}"}
+            teacher_logger.info("Starting text and table extraction...")
+            try:
+                with ThreadPoolExecutor(max_workers=2) as executor:
+                    futures = {}
+                    
+                    # Always extract text
+                    teacher_logger.info("Submitting text extraction task...")
+                    futures['text'] = executor.submit(self._load_document, temp_path, file.filename)
+                    
+                    # Extract tables if enabled
+                    if table_extraction:
+                        teacher_logger.info("Submitting table extraction task...")
+                        futures['tables'] = executor.submit(self._extract_tables_from_pdf, temp_path, file.filename)
+                    
+                    # Wait for text and tables to complete
+                    for key, future in futures.items():
+                        try:
+                            teacher_logger.info(f"Waiting for {key} extraction to complete...")
+                            result = future.result(timeout=600)  # 10 minute timeout per task
+                            if key == 'text':
+                                documents = result
+                                if documents:
+                                    text_content = "\n".join([doc.page_content for doc in documents])
+                                    teacher_logger.info(f"Text extraction completed: {len(text_content)} characters from {len(documents)} pages")
+                            elif key == 'tables':
+                                table_content = result if result else ""
+                                teacher_logger.info(f"Table extraction completed: {len(table_content)} characters")
+                        except Exception as e:
+                            teacher_logger.error(f"Error in {key} extraction: {str(e)}", exc_info=True)
+                            if key == 'text':
+                                return {"error": f"Could not extract content from the file: {str(e)}"}
+            except Exception as e:
+                teacher_logger.error(f"Error during text/table extraction: {str(e)}", exc_info=True)
+                return {"error": f"Failed to extract content from file: {str(e)}"}
             
             if not text_content.strip():
                 teacher_logger.error("No readable content found in the file")
@@ -715,11 +725,17 @@ Provide a detailed, comprehensive description that explicitly answers questions 
             teacher_logger.info(f"Initial content extracted: {len(initial_content)} characters (Text: {len(text_content)}, Tables: {len(table_content)})")
             
             # Step 3: Create initial vector DB with text and tables
-            initial_documents = [Document(page_content=initial_content, metadata={"source": file.filename})]
-            rag_result = self.rag_service.process_document(initial_documents, file.filename)
-            if 'error' in rag_result:
-                teacher_logger.error(f"RAG processing failed: {rag_result['error']}")
-                return rag_result
+            teacher_logger.info("Starting RAG processing (this may take several minutes for large files)...")
+            try:
+                initial_documents = [Document(page_content=initial_content, metadata={"source": file.filename})]
+                rag_result = self.rag_service.process_document(initial_documents, file.filename)
+                if 'error' in rag_result:
+                    teacher_logger.error(f"RAG processing failed: {rag_result['error']}")
+                    return rag_result
+                teacher_logger.info("RAG processing completed successfully")
+            except Exception as e:
+                teacher_logger.error(f"RAG processing exception: {str(e)}", exc_info=True)
+                return {"error": f"Failed to process document with RAG: {str(e)}"}
             
             # Store the original document's RAG service
             if rag_result['use_rag']:
