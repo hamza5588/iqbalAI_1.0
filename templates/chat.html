@@ -940,7 +940,7 @@
                                                     </label>
                                                 </div>
                                                 <label class="relative inline-flex items-center cursor-pointer">
-                                                    <input type="checkbox" id="tableExtractionToggle" class="sr-only peer" checked>
+                                                    <input type="checkbox" id="tableExtractionToggle" class="sr-only peer">
                                                     <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#05B0FC]"></div>
                                                 </label>
                                             </div>
@@ -953,7 +953,7 @@
                                                     </label>
                                                 </div>
                                                 <label class="relative inline-flex items-center cursor-pointer">
-                                                    <input type="checkbox" id="imageExtractionToggle" class="sr-only peer" checked>
+                                                    <input type="checkbox" id="imageExtractionToggle" class="sr-only peer">
                                                     <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#05B0FC]"></div>
                                                 </label>
                                             </div>
@@ -3958,8 +3958,14 @@ async function initializeApp() {
                         saveLessonData();
                         
                         // Show chatbot interface instead of displayGeneratedLesson
-                        showLessonChatInterface(data.lesson_id, data.ai_response);
+                        const imagesProcessing = data.images_processing || false;
+                        showLessonChatInterface(data.lesson_id, data.ai_response, imagesProcessing);
                         showNotification('Chatbot interface ready! Start chatting with Prof. Potter to refine your lesson.', 'success');
+                        
+                        // Show image processing notification if applicable
+                        if (imagesProcessing) {
+                            showImageProcessingNotification();
+                        }
                     } else {
                         showNotification('Failed to fetch full lesson content', 'error');
                     }
@@ -4016,7 +4022,7 @@ async function initializeApp() {
     }
 
     // Show chatbot interface for interactive lesson creation
-    function showLessonChatInterface(lessonId, initialMessage) {
+    function showLessonChatInterface(lessonId, initialMessage, imagesProcessing = false) {
         // Set lesson chat mode
         isLessonChatMode = true;
         currentLessonChatId = lessonId;
@@ -7037,6 +7043,52 @@ async function initializeApp() {
                 }
             }, 300);
         }, 3000);
+    }
+
+    // Function to show image processing notification
+    function showImageProcessingNotification() {
+        // Check if notification already exists
+        let existingNotification = document.getElementById('imageProcessingNotification');
+        if (existingNotification) {
+            return; // Already showing
+        }
+        
+        const notification = document.createElement('div');
+        notification.id = 'imageProcessingNotification';
+        notification.className = 'fixed top-20 right-4 z-50 max-w-md bg-blue-500 text-white px-6 py-4 rounded-lg shadow-lg transform transition-all duration-300 translate-x-full';
+        notification.innerHTML = `
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <i class="fas fa-spinner fa-spin text-white text-lg mr-3"></i>
+                </div>
+                <div class="flex-1">
+                    <p class="font-semibold mb-1">Image Processing in Progress</p>
+                    <p class="text-sm text-blue-100">You can ask questions from the text and tables. Once images are completed, you can also ask image-related questions.</p>
+                </div>
+                <button onclick="this.parentElement.parentElement.remove()" class="ml-4 text-white hover:text-blue-200">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `;
+        
+        document.body.appendChild(notification);
+        
+        // Animate in
+        setTimeout(() => {
+            notification.classList.remove('translate-x-full');
+        }, 10);
+        
+        // Auto-remove after 30 seconds (user can still manually close it)
+        setTimeout(() => {
+            if (notification.parentElement) {
+                notification.classList.add('translate-x-full');
+                setTimeout(() => {
+                    if (notification.parentElement) {
+                        notification.remove();
+                    }
+                }, 300);
+            }
+        }, 30000);
     }
 
     function showTypingIndicator() {
@@ -10319,6 +10371,8 @@ async function initializeApp() {
       <span id="globalSpinnerText" class="text-gray-700">Loading...</span>
     </div>
   </div>
+
+  </script>
 
 </body>
 
