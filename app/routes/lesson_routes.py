@@ -74,6 +74,7 @@ def create_lesson():
             table_extraction = request.form.get('tableExtraction', 'false').lower() == 'true'
             image_extraction = request.form.get('imageExtraction', 'false').lower() == 'true'
             
+
             # Prepare lesson details
             lesson_details = {
                 'lesson_title': lesson_title,
@@ -88,6 +89,7 @@ def create_lesson():
             # Process the file first to create vector store
             process_result = lesson_service.process_file(file, lesson_details)
             
+
             if 'error' in process_result:
                 return jsonify({'error': process_result['error']}), 400
             
@@ -123,6 +125,7 @@ def create_lesson():
             
             # Return greeting message without calling LLM
             # LLM will only be called when user sends a query via interactive_chat endpoint
+            images_processing = process_result.get('images_processing', False)
             return jsonify({
                 'success': True,
                 'response_type': 'file_uploaded',
@@ -132,8 +135,9 @@ def create_lesson():
                 'complete_lesson': 'no',
                 'message': 'File uploaded successfully! You can now start chatting to create your lesson.',
                 'file_processed': True,
-                'filename': process_result.get('filename_processed', file.filename)
-            })
+                'filename': process_result.get('filename_processed', file.filename),
+                'images_processing': images_processing  # Flag to indicate images are processing in background
+            })   
         
         else:
             # No file uploaded - use additional_notes or lesson_prompt if provided, otherwise require file

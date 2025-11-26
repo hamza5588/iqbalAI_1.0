@@ -7,6 +7,7 @@ import tempfile
 from typing import Any, Dict, List, Optional
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import base64
+import threading
 
 # Disable tqdm threading to prevent "cannot start new thread" errors
 os.environ['TQDM_DISABLE'] = '1'
@@ -178,8 +179,66 @@ class TeacherLessonService(BaseLessonService):
         )
         teacher_logger.info(f"Multimodal LLM initialized for image descriptions: {vllm_multimodal_model}")
     
+    def _detect_pages_with_tables(self, file_path: str) -> List[int]:
+        """Quickly detect which pages likely contain tables by scanning for table-like structures"""
+        pages_with_tables = []
+        
+        try:
+            if not PYMUPDF_AVAILABLE:
+                teacher_logger.warning("PyMuPDF not available for table detection, will process all pages")
+                return []
+            
+            import fitz  # PyMuPDF
+            
+            doc = fitz.open(file_path)
+            teacher_logger.info(f"Scanning {len(doc)} pages for table detection...")
+            
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+                
+                # Get drawings (lines) on the page - tables typically have many horizontal/vertical lines
+                drawings = page.get_drawings()
+                
+                # Count horizontal and vertical lines (indicators of tables)
+                horizontal_lines = 0
+                vertical_lines = 0
+                
+                for drawing in drawings:
+                    # Check if it's a line (has a path with 2 points)
+                    if 'rect' in drawing:
+                        rect = drawing['rect']
+                        width = abs(rect.x1 - rect.x0)
+                        height = abs(rect.y1 - rect.y0)
+                        
+                        # Horizontal line (width >> height)
+                        if width > height * 3 and height < 5:
+                            horizontal_lines += 1
+                        # Vertical line (height >> width)
+                        elif height > width * 3 and width < 5:
+                            vertical_lines += 1
+                
+                # If we find multiple horizontal and vertical lines, likely a table
+                # Threshold: at least 3 horizontal and 2 vertical lines suggests a table
+                if horizontal_lines >= 3 and vertical_lines >= 2:
+                    pages_with_tables.append(page_num + 1)  # Camelot uses 1-based page numbers
+                    teacher_logger.info(f"Page {page_num + 1} likely contains tables (found {horizontal_lines} horizontal, {vertical_lines} vertical lines)")
+            
+            doc.close()
+            
+            if pages_with_tables:
+                teacher_logger.info(f"Detected potential tables on pages: {pages_with_tables}")
+            else:
+                teacher_logger.info("No pages with table-like structures detected")
+            
+            return pages_with_tables
+            
+        except Exception as e:
+            teacher_logger.warning(f"Error detecting pages with tables: {str(e)}. Will process all pages.")
+            return []
+    
     def _extract_tables_from_pdf(self, file_path: str, filename: str) -> str:
-        """Extract tables from PDF using Camelot and return as Markdown"""
+        """Extract tables from PDF using Camelot and return as Markdown.
+        First detects which pages contain tables, then only processes those pages."""
         if not CAMELOT_AVAILABLE:
             teacher_logger.warning("Camelot not available, skipping table extraction")
             return ""
@@ -190,27 +249,42 @@ class TeacherLessonService(BaseLessonService):
         
         try:
             teacher_logger.info(f"Extracting tables from {filename}")
-            # Use camelot to extract tables
-            tables = camelot.read_pdf(file_path, pages='all', flavor='lattice')
             
-            if len(tables) == 0:
-                teacher_logger.info("No tables found in PDF")
+            # Step 1: Detect which pages contain tables
+            pages_with_tables = self._detect_pages_with_tables(file_path)
+            
+            if not pages_with_tables:
+                teacher_logger.info("No pages with tables detected, skipping table extraction")
                 return ""
             
-            teacher_logger.info(f"Found {len(tables)} tables in PDF")
+            # Step 2: Only process pages that likely contain tables
+            # Convert list to comma-separated string for Camelot (e.g., "1,3,5")
+            pages_str = ','.join(map(str, pages_with_tables))
+            teacher_logger.info(f"Processing only pages with detected tables: {pages_str}")
+            
+            # Use camelot to extract tables from specific pages only
+            tables = camelot.read_pdf(file_path, pages=pages_str, flavor='lattice')
+            
+            if len(tables) == 0:
+                teacher_logger.info("No tables found in detected pages")
+                return ""
+            
+            teacher_logger.info(f"Found {len(tables)} tables in pages {pages_str}")
             
             # Convert tables to markdown format
             markdown_tables = []
             for i, table in enumerate(tables, 1):
                 df = table.df
-                markdown_tables.append(f"\n### Table {i}\n\n")
+                # Include page number in table header if available
+                page_info = f" (Page {table.page})" if hasattr(table, 'page') else ""
+                markdown_tables.append(f"\n### Table {i}{page_info}\n\n")
                 # Convert DataFrame to markdown table
                 markdown_table = df.to_markdown(index=False)
                 markdown_tables.append(markdown_table)
                 markdown_tables.append("\n")
             
             result = "\n".join(markdown_tables)
-            teacher_logger.info(f"Extracted {len(tables)} tables as markdown")
+            teacher_logger.info(f"Extracted {len(tables)} tables as markdown from {len(pages_with_tables)} pages")
             return result
             
         except Exception as e:
@@ -218,7 +292,7 @@ class TeacherLessonService(BaseLessonService):
             return ""
     
     def _extract_images_and_describe(self, file_path: str, filename: str) -> str:
-        """Extract images from PDF and generate descriptions using LLM"""
+        """Extract images from PDF and generate descriptions using LLM in parallel batches"""
         if not PYMUPDF_AVAILABLE:
             teacher_logger.warning("PyMuPDF not available, skipping image extraction")
             return ""
@@ -232,8 +306,9 @@ class TeacherLessonService(BaseLessonService):
             import fitz  # PyMuPDF
             
             doc = fitz.open(file_path)
-            image_descriptions = []
             
+            # First, collect all images with their metadata
+            image_tasks = []
             for page_num in range(len(doc)):
                 page = doc[page_num]
                 image_list = page.get_images()
@@ -256,57 +331,59 @@ class TeacherLessonService(BaseLessonService):
                             # Get first 200 characters of page text as context
                             context_snippet = page_text[:200].strip().replace('\n', ' ')
                         
-                        # Generate description using LLM with context
-                        description = self._describe_image_with_llm(
-                            image_base64, 
-                            image_ext, 
-                            page_num=page_num + 1,
-                            image_index=img_index + 1,
-                            context=context_snippet
-                        )
-                        
-                        if description:
-                            # Extract image type from description for better searchability
-                            image_type_keywords = ""
-                            description_lower = description.lower()
-                            if any(word in description_lower for word in ['pie chart', 'piechart']):
-                                image_type_keywords = "pie chart, chart, graph, visualization, data visualization"
-                            elif any(word in description_lower for word in ['bar chart', 'bar graph', 'barchart']):
-                                image_type_keywords = "bar chart, bar graph, chart, graph, visualization, data visualization"
-                            elif any(word in description_lower for word in ['line graph', 'line chart']):
-                                image_type_keywords = "line graph, line chart, chart, graph, visualization, data visualization"
-                            elif any(word in description_lower for word in ['diagram', 'flowchart']):
-                                image_type_keywords = "diagram, flowchart, illustration, visual"
-                            elif any(word in description_lower for word in ['table', 'data table']):
-                                image_type_keywords = "table, data table, information table"
-                            else:
-                                image_type_keywords = "image, picture, visual, illustration"
-                            
-                            # Create a comprehensive image entry with context and searchable keywords
-                            image_entry = f"""
-### Image on Page {page_num + 1} (Image {img_index + 1})
-
-**Location:** Page {page_num + 1} of the document
-**Image Type:** {image_type_keywords}
-
-**Description:**
-{description}
-
-**Context:** This image appears on page {page_num + 1} of the document. {f"Surrounding context: {context_snippet}" if context_snippet else ""}
-
-**Searchable Keywords:** image, picture, visual, page {page_num + 1}, {image_type_keywords}
-"""
-                            image_descriptions.append(image_entry)
-                            teacher_logger.info(f"Generated description for image {page_num + 1}-{img_index + 1}")
-                    
+                        # Store image task for parallel processing
+                        image_tasks.append({
+                            'base64': image_base64,
+                            'ext': image_ext,
+                            'page_num': page_num + 1,
+                            'img_index': img_index + 1,
+                            'context': context_snippet
+                        })
                     except Exception as e:
-                        teacher_logger.warning(f"Error processing image {img_index} on page {page_num}: {str(e)}")
+                        teacher_logger.warning(f"Error preparing image {img_index} on page {page_num}: {str(e)}")
                         continue
             
             doc.close()
             
-            if not image_descriptions:
+            if not image_tasks:
                 teacher_logger.info("No images found in PDF")
+                return ""
+            
+            teacher_logger.info(f"Found {len(image_tasks)} images, processing in parallel batches of 4")
+            
+            # Process images in parallel batches of 4
+            image_descriptions = []
+            batch_size = 4
+            
+            for batch_start in range(0, len(image_tasks), batch_size):
+                batch = image_tasks[batch_start:batch_start + batch_size]
+                teacher_logger.info(f"Processing image batch {batch_start // batch_size + 1} ({len(batch)} images)")
+                
+                # Process batch in parallel
+                with ThreadPoolExecutor(max_workers=batch_size) as executor:
+                    batch_futures = {
+                        executor.submit(
+                            self._process_single_image,
+                            task['base64'],
+                            task['ext'],
+                            task['page_num'],
+                            task['img_index'],
+                            task['context']
+                        ): task for task in batch
+                    }
+                    
+                    # Collect results from batch
+                    for future in as_completed(batch_futures):
+                        task = batch_futures[future]
+                        try:
+                            description_entry = future.result()
+                            if description_entry:
+                                image_descriptions.append(description_entry)
+                        except Exception as e:
+                            teacher_logger.warning(f"Error processing image {task['page_num']}-{task['img_index']}: {str(e)}")
+            
+            if not image_descriptions:
+                teacher_logger.info("No image descriptions generated")
                 return ""
             
             result = "\n".join(image_descriptions)
@@ -315,6 +392,58 @@ class TeacherLessonService(BaseLessonService):
             
         except Exception as e:
             teacher_logger.error(f"Error extracting images: {str(e)}")
+            return ""
+    
+    def _process_single_image(self, image_base64: str, image_ext: str, page_num: int, img_index: int, context: str) -> str:
+        """Process a single image and return formatted description entry"""
+        try:
+            # Generate description using LLM with context
+            description = self._describe_image_with_llm(
+                image_base64, 
+                image_ext, 
+                page_num=page_num,
+                image_index=img_index,
+                context=context
+            )
+            
+            if not description:
+                return ""
+            
+            # Extract image type from description for better searchability
+            image_type_keywords = ""
+            description_lower = description.lower()
+            if any(word in description_lower for word in ['pie chart', 'piechart']):
+                image_type_keywords = "pie chart, chart, graph, visualization, data visualization"
+            elif any(word in description_lower for word in ['bar chart', 'bar graph', 'barchart']):
+                image_type_keywords = "bar chart, bar graph, chart, graph, visualization, data visualization"
+            elif any(word in description_lower for word in ['line graph', 'line chart']):
+                image_type_keywords = "line graph, line chart, chart, graph, visualization, data visualization"
+            elif any(word in description_lower for word in ['diagram', 'flowchart']):
+                image_type_keywords = "diagram, flowchart, illustration, visual"
+            elif any(word in description_lower for word in ['table', 'data table']):
+                image_type_keywords = "table, data table, information table"
+            else:
+                image_type_keywords = "image, picture, visual, illustration"
+            
+            # Create a comprehensive image entry with context and searchable keywords
+            image_entry = f"""
+### Image on Page {page_num} (Image {img_index})
+
+**Location:** Page {page_num} of the document
+**Image Type:** {image_type_keywords}
+
+**Description:**
+{description}
+
+**Context:** This image appears on page {page_num} of the document. {f"Surrounding context: {context}" if context else ""}
+
+**Searchable Keywords:** image, picture, visual, page {page_num}, {image_type_keywords}
+"""
+            teacher_logger.info(f"Generated description for image {page_num}-{img_index}")
+            return image_entry
+            
+        except Exception as e:
+            teacher_logger.warning(f"Error processing image {page_num}-{img_index}: {str(e)}")
             return ""
     
     def _describe_image_with_llm(self, image_base64: str, image_ext: str, page_num: int = None, image_index: int = None, context: str = "") -> str:
@@ -341,47 +470,99 @@ class TeacherLessonService(BaseLessonService):
                     context_info += f"The surrounding text context: {context[:150]}... "
                 
                 # Create enhanced prompt for image description that includes context references
-                prompt_text = f"""Please describe this image in detail. IMPORTANT: Start your description by clearly identifying what TYPE of image this is using phrases like:
-- "This is a pie chart showing..." or "This pie chart is telling us that..."
-- "This is a bar graph displaying..." or "The bar graph shows that..."
-- "This is a line graph illustrating..." or "The line graph indicates that..."
-- "This is a diagram demonstrating..." or "This diagram illustrates..."
-- "This image shows..." or "This picture depicts..."
+                prompt_text = f"""Please analyze and describe the provided image in thorough detail using the structured format below. Your response will be used for RAG, so ensure the description is clear, explicit, and information-dense.
 
-Then provide a comprehensive description covering:
+1. *Image Type & Overall Message*
 
-1. **Image Type and What It's Telling**: 
-   - Clearly state what type of visualization or image this is (pie chart, bar graph, line graph, diagram, photograph, illustration, table, etc.)
-   - Use phrases like "This [image type] is telling us that..." or "This [image type] shows that..." or "What this [image type] is telling:"
-   - Explicitly state what the image is communicating
+Begin by clearly identifying the type of image using phrases such as:
 
-2. **Data and Information** (for charts/graphs): 
-   - What data is being presented
-   - What the chart/graph is telling or showing (use phrases like "The chart is telling us that...", "This graph shows that...", "The data indicates that...")
-   - Key values, percentages, trends, or patterns visible
-   - What insights can be drawn from the data
-   - What story or message the visualization is conveying
+“This is a pie chart showing…”
 
-3. **Visual Elements**: 
-   - Colors, labels, legends, axes, titles
-   - Any text, numbers, or annotations visible
-   - Structure and layout of the image
+“This is a bar graph displaying…”
 
-4. **What's Happening in the Image**: 
-   - If it's a scene or action image, describe what is happening
-   - Use phrases like "What is happening in this image: ..." or "This image shows the following: ..."
-   - Describe any actions, processes, or events depicted
+“This line graph indicates…”
 
-5. **Context and Purpose**: 
-   - What this image is communicating or illustrating
-   - How it relates to educational content
-   - What information or concept it helps explain
+“This diagram illustrates…”
 
-6. **Answer Format**: Structure your description to directly answer these types of questions:
-   - "What is the pie chart telling?" → Answer: "This pie chart is telling us that [specific information]..."
-   - "What is happening in this image?" → Answer: "What is happening in this image: [description of events/actions]..."
-   - "What does this graph show?" → Answer: "This graph shows that [specific data/trends]..."
-   - "What data is presented in this chart?" → Answer: "The data presented in this chart includes [specific data points]..."
+“This image shows…” or “This picture depicts…”
+
+Then explicitly state what the image is telling us.
+
+2. *Data & Information (for charts/graphs/tables)*
+
+If the image contains data visualization, clearly describe:
+
+What data is being presented
+
+What the chart/graph is telling us
+
+Key values, percentages, or labels
+
+Trends, increases, decreases, patterns
+
+Main insights or conclusions
+
+Use phrases such as:
+
+“The chart is telling us that…”
+
+“This graph shows that…”
+
+“The data indicates that…”
+
+3. *Visual Elements*
+
+Describe all visible elements, including:
+
+Colors
+
+Labels, legends, axes, and scales
+
+Titles, subtitles, annotations
+
+Structure, layout, shapes, icons
+
+4. *What Is Happening in the Image* (for scenes, photos, illustrations)
+
+If the image shows a scene or action, describe:
+
+People, objects, or entities present
+
+Actions taking place
+
+Environment or setting
+
+Notable activities or sequences
+
+Use phrases such as:
+
+“What is happening in this image: …”
+
+“This image shows the following: …”
+
+5. *Context & Purpose*
+
+Explain the overall purpose of the image:
+
+What idea or concept it illustrates
+
+Why this image or chart is useful
+
+What educational or informational purpose it serves
+
+The main story or insight communicated
+
+6. *Answer Format Guide*
+
+Structure your descriptions so they naturally answer common question forms:
+
+“What is the pie chart telling?” → “This pie chart is telling us that…”
+
+“What does this graph show?” → “This graph shows that…”
+
+“What data is presented?” → “The data presented includes…”
+
+“What is happening in this image?” → “What is happening in this image: …”
 
 {context_info}
 
@@ -485,12 +666,11 @@ Provide a detailed, comprehensive description that explicitly answers questions 
             
             teacher_logger.info(f"File saved to temporary path: {temp_path}")
             
-            # Run extractions in parallel
+            # Step 1: Process text and tables first (synchronous)
             text_content = ""
             table_content = ""
-            image_content = ""
             
-            with ThreadPoolExecutor(max_workers=3) as executor:
+            with ThreadPoolExecutor(max_workers=2) as executor:
                 futures = {}
                 
                 # Always extract text
@@ -500,11 +680,7 @@ Provide a detailed, comprehensive description that explicitly answers questions 
                 if table_extraction:
                     futures['tables'] = executor.submit(self._extract_tables_from_pdf, temp_path, file.filename)
                 
-                # Extract images if enabled
-                if image_extraction:
-                    futures['images'] = executor.submit(self._extract_images_and_describe, temp_path, file.filename)
-                
-                # Wait for all extractions to complete
+                # Wait for text and tables to complete
                 for key, future in futures.items():
                     try:
                         result = future.result()
@@ -514,8 +690,6 @@ Provide a detailed, comprehensive description that explicitly answers questions 
                                 text_content = "\n".join([doc.page_content for doc in documents])
                         elif key == 'tables':
                             table_content = result if result else ""
-                        elif key == 'images':
-                            image_content = result if result else ""
                     except Exception as e:
                         teacher_logger.error(f"Error in {key} extraction: {str(e)}")
                         if key == 'text':
@@ -525,46 +699,86 @@ Provide a detailed, comprehensive description that explicitly answers questions 
                 teacher_logger.error("No readable content found in the file")
                 return {"error": "No readable content found in the file"}
             
-            # Concatenate all extracted content
-            all_content = text_content
+            # Step 2: Create initial content with text and tables
+            initial_content = text_content
             if table_content:
-                all_content += "\n\n## Extracted Tables\n" + table_content
+                initial_content += "\n\n## Extracted Tables\n" + table_content
                 teacher_logger.info(f"Added {len(table_content)} characters of table content")
-            if image_content:
-                all_content += "\n\n## Image Descriptions\n" + image_content
-                teacher_logger.info(f"Added {len(image_content)} characters of image descriptions")
             
-            teacher_logger.info(f"Total content extracted: {len(all_content)} characters")
-            teacher_logger.info(f"Text: {len(text_content)}, Tables: {len(table_content)}, Images: {len(image_content)}")
+            teacher_logger.info(f"Initial content extracted: {len(initial_content)} characters (Text: {len(text_content)}, Tables: {len(table_content)})")
             
-            # Create documents from combined content
-            combined_documents = [Document(page_content=all_content, metadata={"source": file.filename})]
-            
-            # Process document with RAG service to create vector DB
-            rag_result = self.rag_service.process_document(combined_documents, file.filename)
+            # Step 3: Create initial vector DB with text and tables
+            initial_documents = [Document(page_content=initial_content, metadata={"source": file.filename})]
+            rag_result = self.rag_service.process_document(initial_documents, file.filename)
             if 'error' in rag_result:
                 teacher_logger.error(f"RAG processing failed: {rag_result['error']}")
                 return rag_result
             
-            # Store the original document's RAG service immediately after processing
+            # Store the original document's RAG service
             if rag_result['use_rag']:
                 self._store_original_document_rag(file.filename)
-                teacher_logger.info("Original document RAG service stored for AI review")
+                teacher_logger.info("Initial vector DB created with text and tables")
+            
+            # Step 4: If image extraction is enabled, process in background
+            images_processing = False
+            if image_extraction:
+                images_processing = True
+                teacher_logger.info("Starting background image processing...")
+                
+                # Start background thread for image processing
+                def process_images_background():
+                    try:
+                        teacher_logger.info("Background image processing started")
+                        image_content = self._extract_images_and_describe(temp_path, file.filename)
+                        
+                        if image_content:
+                            # Update vector DB with image descriptions
+                            updated_content = initial_content + "\n\n## Image Descriptions\n" + image_content
+                            updated_documents = [Document(page_content=updated_content, metadata={"source": file.filename})]
+                            
+                            # Re-process with updated content
+                            self.rag_service.process_document(updated_documents, file.filename)
+                            teacher_logger.info(f"Vector DB updated with image descriptions: {len(image_content)} characters")
+                        else:
+                            teacher_logger.info("No image descriptions generated")
+                    except Exception as e:
+                        teacher_logger.error(f"Error in background image processing: {str(e)}", exc_info=True)
+                    finally:
+                        # Clean up temp file in background thread
+                        if temp_path and os.path.exists(temp_path):
+                            try:
+                                os.remove(temp_path)
+                                teacher_logger.info(f"Temporary file cleaned up in background: {temp_path}")
+                            except Exception as e:
+                                teacher_logger.warning(f"Could not remove temporary file {temp_path}: {str(e)}")
+                
+                # Start background thread (daemon=True so it doesn't block app shutdown)
+                bg_thread = threading.Thread(target=process_images_background, daemon=True)
+                bg_thread.start()
+                teacher_logger.info("Background image processing thread started")
+            else:
+                # Clean up temp file immediately if no image processing
+                if temp_path and os.path.exists(temp_path):
+                    try:
+                        os.remove(temp_path)
+                        teacher_logger.info(f"Temporary file cleaned up: {temp_path}")
+                    except Exception as e:
+                        teacher_logger.warning(f"Could not remove temporary file {temp_path}: {str(e)}")
             
             teacher_logger.info("Vector DB created successfully. Skipping LLM call - will respond on user query.")
             
-            # Return a simple greeting message instead of generating lesson
-            # The actual lesson generation will happen in interactive_chat when user sends a query
+            # Return greeting message with image processing status
             greeting_message = f"Hello! I'm Prof. Potter, here to help you prepare your lesson plan. Your file '{file.filename}' has been uploaded and processed successfully. I've analyzed the document and I'm ready to help you create a lesson from this content. How would you like me to help you create a lesson?"
             
-            teacher_logger.info("=== TEACHER FILE PROCESSING COMPLETED (No LLM call) ===")
+            teacher_logger.info("=== TEACHER FILE PROCESSING COMPLETED (Text and tables done, images in background) ===")
             
             return {
                 "lesson": greeting_message,
                 "docx_bytes": None,  # No DOCX generated at upload time
                 "filename": None,
                 "file_processed": True,
-                "filename_processed": file.filename
+                "filename_processed": file.filename,
+                "images_processing": images_processing  # Flag to indicate images are processing
             }
         except Exception as e:
             teacher_logger.error(f"File processing failed: {str(e)}")
@@ -648,7 +862,7 @@ Provide a detailed, comprehensive description that explicitly answers questions 
                 self.rag_service.embeddings, 
                 allow_dangerous_deserialization=True
             )
-            retriever = vector_db.as_retriever(search_type="similarity", search_kwargs={"k": 5})
+            retriever = vector_db.as_retriever(search_type="similarity", search_kwargs={"k": 10})
             teacher_logger.info("Vector DB loaded successfully")
             
             # Step 2: Store form data
@@ -1359,182 +1573,179 @@ Provide a detailed, comprehensive description that explicitly answers questions 
             form_context_section = f"\n\n📋 LESSON FORM INFORMATION:\n{form_context_section}\n"
 
         unified_prompt = f"""
-              # Prof. Potter - Lesson Planning Assistant
-
-Role: You are Prof. Potter, an expert education assistant helping Faculty/Teachers create lesson plans from their uploaded document.
-CONTEXT: Faculty has ALREADY uploaded a document before this chat started. The document content is available in the knowledge base context below. Never ask about uploading - it's already done!
+              ROLE:
+You are Prof. Potter, an expert education assistant helping Faculty/Teachers create lessons from their already uploaded document, which may include text, images, tables, charts, or graphs.
+The document has been uploaded before this chat started — never ask for uploads.
 
 INTERACTION MODES
 MODE 1: General Conversation
 
-Casual questions, teaching advice, educational discussions
-Natural, warm responses (≤200 words)
-If question is NOT in the document: State this clearly and redirect to document topics
+Warm, natural tone (≤200 words)
+
+Answer using the document when possible (including text, images & tables)
+
+If the question is NOT in the document:
+“I cannot find [topic] in your document. Your document covers [actual topics].”
 
 MODE 2: Lesson Planning
 
-Creating structured lesson plans from the uploaded document
-Step-by-step, using ONLY document content
-Concise responses (≤150 words per step)
+Create structured lessons using ONLY the document content
 
+Step-by-step, ≤150 words per step
+
+Faculty must choose a topic first
+
+Respect all prerequisites & confirmation steps
 
 CRITICAL RULES
-RULE 1: Document is Already Uploaded
+RULE 1: Document Is Already Uploaded
 
-Faculty uploaded document BEFORE starting this chat
-NEVER ask: "Do you have a document?" or "Please upload a document"
-ALWAYS: Check knowledge base context for document content
-If info NOT in document: "I cannot find [topic] in your document. Your document covers [actual topics]. Create lesson from available content OR answer from general knowledge?"
+NEVER ask for the document
 
-RULE 2: When Faculty Says "Generate Lesson"
+ALWAYS check the RELEVANT CONTEXT FROM KNOWLEDGE BASE
 
-Your Response: "Perfect! Your document covers: [list topics from knowledge base]. Which topic should I focus on?"
-Then: WAIT for Faculty to choose
-Never ask: "Tell me about the topic" or "What subject?"
+Use found info.
 
-RULE 3: Wait for Answers
+Only say “I cannot find…” if the context truly lacks it.
 
-After ANY question → STOP and WAIT
-Don't explain until Faculty responds
-Examples: topic choice, prerequisites, clarifications
+RULE 2: When Faculty Says “Generate Lesson”
 
-RULE 4: Check Document First, Always
+Respond:
+“Perfect! Your document covers: [topics]. Which topic should I focus on?”
+→ Then WAIT.
 
-Every question → Check the ACTUAL context provided below
-The "RELEVANT CONTEXT FROM KNOWLEDGE BASE" section contains retrieved information from the document
-If the context contains relevant information → USE IT to answer the question
-ONLY say "I cannot find" if the context truly does NOT contain the information
-Never make up information
-NEVER say information is not found if it's actually in the provided context
+RULE 3: Wait After Every Question
 
+Do not continue until Faculty responds.
+
+RULE 4: Check Context First — INCLUDING Images, Tables & Graphs
+
+Tables must be read and used in answers
+
+Charts/graphs must be interpreted (trends, values, axes, message)
+
+Images must be described and analyzed
+
+If relevant info appears anywhere (text or visual), you MUST use it
+
+MULTIMODAL CONTENT RULES
+1. For Images
+
+Describe them clearly using structured analysis:
+
+This image shows…
+
+All visible elements
+
+Actions, labels, diagrams
+
+Educational meaning or purpose
+
+If the user asks: extract info from the image
+
+2. For Graphs/Charts
+
+Explain:
+
+Type (bar, pie, line, etc.)
+
+What the chart is telling
+
+Values, labels, axes
+
+Trends, comparisons
+
+Key insight
+
+3. For Tables
+
+Use them as factual data:
+
+Read rows/columns
+
+Provide exact numbers if asked
+
+Summarize patterns
+
+Cite table info when answering questions
 
 FIRST MESSAGE (Greeting)
-"Hello! I've reviewed your document about [main topics from knowledge base context]. Would you like me to create a lesson plan from this content?"
 
-LESSON GENERATION FLOW
+“Hello! I’ve reviewed your document about [topics from context including visuals, tables & charts]. Would you like me to create a lesson plan from this content?”
 
-Faculty requests: "Generate lesson" / "Create lesson" / "I need a lesson"
-You respond: "Perfect! Your document covers: [Topic A, Topic B, Topic C]. Which topic?"
-Faculty chooses: "Topic B"
-You ask: "For [Topic B], students need [prerequisites]. Include them?"
-Faculty confirms: "Yes" / "No"
-You build: Lesson step-by-step (≤150 words per step)
-You connect: Each step builds on previous
-You check: "Does this work for your students?"
+LESSON GENERATION FLOW (Improved)
 
+Faculty: “Generate lesson”
+You: “Perfect! Your document covers: [topics]. Which topic should I focus on?”
 
-HANDLING QUESTIONS - CHECK CONTEXT FIRST!
+Faculty chooses topic
+You: “For [topic], students need [prerequisites]. Include them?”
 
-CRITICAL: Before saying "I cannot find", you MUST check the "RELEVANT CONTEXT FROM KNOWLEDGE BASE" section provided below.
+Faculty confirms
+You: Generate lesson step-by-step (≤150 words per step)
 
-Step 1: Read the context carefully
-Step 2: If the context contains information related to the question → ANSWER using that information
-Step 3: ONLY if the context truly has NO relevant information → Then say "I cannot find"
+After lesson:
+“Does this work for your students?”
 
-Example 1 - Information IS in context:
-Faculty: "Who is Hamza Nawaz?"
-Context contains: "Hamza Nawaz is a software engineer with expertise in AI/ML..."
-Your Response: "Based on your document, Hamza Nawaz is a software engineer with expertise in AI/ML. [Provide details from context]"
+HANDLING MULTIPLE QUESTIONS
 
-Example 2 - Information NOT in context:
-Faculty: "Who is John Smith?"
-Context contains: "The document discusses machine learning algorithms..."
-Your Response: "I cannot find information about John Smith in your document. Your document focuses on machine learning algorithms. Would you like me to create a lesson from the available content or answer using general knowledge?"
+User may ask several things at once
 
-Key Pattern:
-1. FIRST check the provided context
-2. If found → Answer using context
-3. If NOT found → State clearly and offer alternatives
+Answer each according to context
 
+Remind them gently:
+“If you’d like, I can also generate a lesson from the document.”
 
-EXAMPLE CONVERSATIONS
-Example 1: Lesson Request
+WHEN INFORMATION IS NOT FOUND
 
-Faculty: "I need to generate the lesson"
-You: "Perfect! Your document covers: Machine Learning Basics, Neural Networks, and AI Applications. Which topic should I focus on?"
-Faculty: "Neural Networks"
-You: "Great! For Neural Networks, students need to understand basic math and programming concepts. Should I include these prerequisites in the lesson?"
+Only after checking carefully:
+“I cannot find [topic] in your document. Your document covers [topics]. Would you like a lesson from the available content or an answer from general knowledge?”
 
-Example 2: Question Not in Document
+EQUATION TEACHING RULES
 
-Faculty: "Who is the author?"
-Document doesn't mention author
-You: "I cannot find author information in your document. Your document focuses on [Physics concepts / Biology topics / etc.]. Would you like me to create a lesson from this content?"
+Explain each term
 
-Example 3: General Chat
+Explain operations
 
-Faculty: "How do I keep students engaged?"
-You: "Great question! Here are effective strategies: 1) Use real-world examples, 2) Interactive activities, 3) Frequent check-ins. Would you like me to incorporate these into a lesson from your document?"
+Build full equation
 
-Example 4: Casual
+Add simple real-world example
 
-Faculty: "Hi!"
-You: "Hello! Your document about [topics] is ready. Would you like to create a lesson plan or discuss teaching strategies?"
-
-
-EQUATION TEACHING (When Applicable)
-
-Explain each term individually
-Show what operations do to each term
-Finally reveal complete equation
-Use real-world examples
-Check understanding at each step
-
+Ask if they want to proceed
 
 QUALITY CHECKLIST
-Before Every Response:
 
- Did I READ the "RELEVANT CONTEXT FROM KNOWLEDGE BASE" section?
- Does the context contain information related to the question?
- If YES → Did I use that information to answer?
- If NO → Did I clearly state it's not in the document?
- Listed available topics (if lesson requested)?
- Waiting for Faculty's answer?
- Within word limit?
- Warm and encouraging tone?
+Before responding, ensure:
 
+✔ Checked the RELEVANT CONTEXT FROM KNOWLEDGE BASE
+
+✔ Included images, charts, tables when relevant
+
+✔ No fabricated info
+
+✔ Warm, clear tone
+
+✔ Word limits respected
+
+✔ Stop and wait for user when required
 
 NEVER DO THIS
 
-❌ Ask "Do you have a document to upload?"
-❌ Say "Please upload your document first"
-❌ Ask "What topic?" when document has the topics
-❌ Answer from general knowledge without checking document first
-❌ Make up information not in document
-❌ Continue explaining before Faculty confirms
-❌ Exceed word limits (150 lesson / 200 chat)
-
+❌ Ask for document
+❌ Ignore images/tables/charts
+❌ Invent missing content
+❌ Continue lesson without confirmation
+❌ Exceed word limits
 
 ALWAYS DO THIS
 
-✅ Acknowledge document is already uploaded
-✅ READ the "RELEVANT CONTEXT FROM KNOWLEDGE BASE" section FIRST
-✅ If context contains relevant info → USE IT to answer the question
-✅ Only say "I cannot find" if context truly doesn't contain the information
-✅ List topics from document when generating lesson
-✅ State clearly when info NOT in document (only after checking context)
-✅ Wait for Faculty responses
-✅ Be warm, professional, encouraging
-✅ Use knowledge base context to understand document
+✔ Use all context (text + visuals + data)
+✔ Interpret tables & graphs correctly
+✔ Offer lesson generation proactively but only proceed when user chooses
+✔ Stay warm, supportive, professional
+✔ Help faculty stay aware of lesson planning options
 
-
-SUCCESS MARKERS
-Good Lesson:
-
-Uses only document content
-Builds logically (simple → complex)
-Faculty confirms it meets needs
-Connected, clear explanations
-
-Good Conversation:
-
-Faculty feels heard and supported
-Practical insights
-Natural flow
-Appropriate use of document content
-
-
-{form_context_section}{context_section}
+{form_context_section}{rag_context}
 
 CRITICAL REMINDER:
 The "RELEVANT CONTEXT FROM KNOWLEDGE BASE" section above contains information retrieved from the document based on the user's query.
