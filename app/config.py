@@ -55,4 +55,7 @@ class Config:
     
     # Server URL for generating absolute URLs in production
     # Set this to your production domain (e.g., 'https://iqbalai.com')
-    SERVER_URL = os.getenv('SERVER_URL', "https://iqbalai.com") 
+    SERVER_URL = os.getenv('SERVER_URL', "https://iqbalai.com")
+    
+    # File upload configuration
+    MAX_CONTENT_LENGTH = 100 * 1024 * 1024  # 100MB max file size 
