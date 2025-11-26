@@ -35,6 +35,16 @@ bp = Blueprint('lesson_routes', __name__)
 # @teacher_required
 def create_lesson():
     """Create a new lesson or answer a question based on user input"""
+    logger.info("=== CREATE_LESSON REQUEST RECEIVED ===")
+    logger.info(f"Request method: {request.method}")
+    logger.info(f"Request path: {request.path}")
+    logger.info(f"Content-Type: {request.content_type}")
+    logger.info(f"Content-Length: {request.content_length if request.content_length else 'Unknown'}")
+    logger.info(f"Has files: {'file' in request.files}")
+    if 'file' in request.files:
+        file = request.files['file']
+        logger.info(f"File in request: {file.filename if file.filename else 'No filename'}")
+    
     try:
         # Get form data for lesson configuration
         lesson_title = request.form.get('lessonTitle', '')
@@ -43,12 +53,16 @@ def create_lesson():
         grade_level = request.form.get('gradeLevel', '')
         additional_notes = request.form.get('additionalNotes', '')
         
+        logger.info(f"Form data - Title: {lesson_title}, Focus: {focus_area}, Grade: {grade_level}")
+        
         # Get API key from session
         api_key = session.get('groq_api_key')
         if not api_key:
+            logger.warning("API key not found in session")
             return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
         
         # Initialize lesson service
+        logger.info("Initializing lesson service...")
         lesson_service = LessonService(api_key=api_key)
         
         # Check if file is provided - if yes, always treat as lesson generation
@@ -187,10 +201,16 @@ def create_lesson():
             return jsonify({'error': 'File is required for lesson generation. Please upload a PDF, DOC, DOCX, or TXT file.'}), 400
         
     except RequestEntityTooLarge:
-        logger.error("File upload rejected: File too large")
+        logger.error("=== CREATE_LESSON ERROR: File upload rejected - File too large ===")
         return jsonify({'error': 'File size exceeds maximum allowed size (100MB)'}), 413
     except Exception as e:
-        logger.error(f"Lesson creation/query error: {str(e)}", exc_info=True)
+        logger.error("=== CREATE_LESSON ERROR ===")
+        logger.error(f"Error type: {type(e).__name__}")
+        logger.error(f"Error message: {str(e)}")
+        logger.error(f"Request path: {request.path}")
+        logger.error(f"Request method: {request.method}")
+        logger.error(f"Content-Length: {request.content_length if request.content_length else 'Unknown'}")
+        logger.error(f"Exception details:", exc_info=True)
         return jsonify({'error': f'Failed to process request: {str(e)}'}), 500
 
 @bp.route('/ask_question_general', methods=['POST'])
