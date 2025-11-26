@@ -5,6 +5,7 @@ from app.services.lesson_service import LessonService
 from app.utils.decorators import login_required, teacher_required, student_required
 from app.utils.db import get_db
 from werkzeug.datastructures import FileStorage
+from werkzeug.exceptions import RequestEntityTooLarge
 import logging
 import os
 from io import BytesIO
@@ -55,6 +56,18 @@ def create_lesson():
             # User uploaded a file - proceed with lesson generation regardless of prompt type
             logger.info("File uploaded - proceeding with lesson generation")
             file = request.files['file']
+            
+            # Check file size before processing
+            if file and file.filename:
+                # Get file size
+                file.seek(0, os.SEEK_END)
+                file_size = file.tell()
+                file.seek(0)  # Reset file pointer
+                
+                logger.info(f"File upload attempt: {file.filename}, size: {file_size / (1024*1024):.2f}MB")
+                
+                if file_size > 100 * 1024 * 1024:  # 100MB
+                    return jsonify({'error': 'File size exceeds 100MB limit'}), 400
             
             # Validate required fields for lesson generation (prompt is now optional since we use interactive chat)
             if not lesson_title or not focus_area or not grade_level:
@@ -173,6 +186,9 @@ def create_lesson():
             # User wants to generate a lesson but no file provided
             return jsonify({'error': 'File is required for lesson generation. Please upload a PDF, DOC, DOCX, or TXT file.'}), 400
         
+    except RequestEntityTooLarge:
+        logger.error("File upload rejected: File too large")
+        return jsonify({'error': 'File size exceeds maximum allowed size (100MB)'}), 413
     except Exception as e:
         logger.error(f"Lesson creation/query error: {str(e)}", exc_info=True)
         return jsonify({'error': f'Failed to process request: {str(e)}'}), 500

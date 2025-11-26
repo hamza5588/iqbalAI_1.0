@@ -214,6 +214,9 @@ def create_app():
     # Load configuration
     app.config.from_object(Config)
     
+    # Set max content length for file uploads (100MB)
+    app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
+    
     # Configure session - UPDATED for CORS
     app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=24)
     app.config['SESSION_COOKIE_SECURE'] = False  # Set to True only in production with HTTPS

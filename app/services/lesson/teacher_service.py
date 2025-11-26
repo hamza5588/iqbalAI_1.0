@@ -644,6 +644,13 @@ Provide a detailed, comprehensive description that explicitly answers questions 
         teacher_logger.info(f"File: {file.filename if file else 'None'}")
         teacher_logger.info(f"Lesson details: {json.dumps(lesson_details, indent=2) if lesson_details else 'None'}")
         
+        # Get file size for logging
+        if file:
+            file.seek(0, os.SEEK_END)
+            file_size = file.tell()
+            file.seek(0)  # Reset file pointer
+            teacher_logger.info(f"File size: {file_size / (1024*1024):.2f}MB")
+        
         # Get extraction flags
         table_extraction = lesson_details.get('table_extraction', False) if lesson_details else False
         image_extraction = lesson_details.get('image_extraction', False) if lesson_details else False

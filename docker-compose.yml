@@ -94,11 +94,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: "3"
-          memory: 6G
+          cpus: "4"
+          memory: 20G
         reservations:
           cpus: "2"
-          memory: 4G
+          memory: 12G
     networks:
       - app_network
 
@@ -243,42 +243,8 @@ services:
   #   networks:
   #     - app_network
 
-  # ----------------------------
-  # OLLAMA SERVICE
-  # ----------------------------
-  ollama:
-    image: ollama/ollama:latest
-    expose:
-      - "11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    environment:
-      # Reduced parallel requests since we're testing with only 1 Flask instance (4 workers)
-      # Increase to 8 when using all 4 Flask instances
-      - OLLAMA_NUM_PARALLEL=4
-      - OLLAMA_MAX_LOADED_MODELS=1
-      # Use all available CPU threads for better performance
-      - OLLAMA_NUM_THREAD=16
-      # Keep model in memory longer to avoid reload overhead
-      - OLLAMA_KEEP_ALIVE=30m
-      # Optimize for CPU inference
-      - OLLAMA_HOST=0.0.0.0:11434
-    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull llama3.2:3b && wait"]
-    deploy:
-      resources:
-        limits:
-          cpus: "16"
-          memory: 40G
-        reservations:
-          cpus: "12"
-          memory: 20G
-    networks:
-      - app_network
-    restart: unless-stopped
-
 volumes:
   postgres_data:
-  ollama_data:
 
 networks:
   app_network:
