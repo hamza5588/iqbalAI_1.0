@@ -310,6 +310,22 @@ def ingest_pdf(file_bytes: bytes, thread_id: str, filename: Optional[str] = None
         # Persist metadata to disk
         _save_metadata()
 
+        # Delete temporary PDF file after chunks are created and stored
+        try:
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+                logger.debug(f"Deleted temporary PDF file: {temp_path}")
+        except OSError as e:
+            logger.warning(f"Failed to delete temporary PDF file {temp_path}: {e}")
+
+        # Delete the uploaded file from uploaded_files directory after processing
+        try:
+            if file_path.exists():
+                os.remove(file_path)
+                logger.debug(f"Deleted uploaded PDF file: {file_path}")
+        except OSError as e:
+            logger.warning(f"Failed to delete uploaded PDF file {file_path}: {e}")
+
         return {
             "filename": filename or safe_filename,
             "documents": num_pages,  # Keep for backward compatibility
@@ -319,10 +335,13 @@ def ingest_pdf(file_bytes: bytes, thread_id: str, filename: Optional[str] = None
         }
 
     finally:
+        # Safety net: ensure temp file is deleted even if an error occurred
         try:
-            os.remove(temp_path)
-        except OSError:
-            pass
+            if 'temp_path' in locals() and os.path.exists(temp_path):
+                os.remove(temp_path)
+                logger.debug(f"Deleted temporary PDF file in finally block: {temp_path}")
+        except OSError as e:
+            logger.warning(f"Failed to delete temporary PDF file in finally block {temp_path}: {e}")
 
 
 # -------------------

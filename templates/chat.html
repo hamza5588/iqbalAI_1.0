@@ -577,7 +577,7 @@
 
         <!-- Action Buttons -->
                 <button onclick="openLessonGenerator()"
-                    class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors"
+                    class="hidden w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors"
                     id="generateLessonBtn">
                     <img src="{{ url_for('static', filename='images/lesson.png') }}" alt="" class="w-3.5 h-3.5">
           <span>Generate Lessons</span>
@@ -4193,11 +4193,13 @@ async function initializeApp() {
             }
         });
         
-        // Add welcome message
-        const welcomeMessage = filename 
-            ? `PDF "${filename}" uploaded successfully! You can now ask questions about it.`
-            : 'PDF document uploaded successfully! You can now ask questions about it.';
-        addMessageToChat('ai', welcomeMessage);
+        // Add welcome message only when uploading a new file (filename provided)
+        // When switching threads (filename is null), don't add message here - 
+        // it will be added by switchToRAGThread after loading thread info
+        if (filename) {
+            const welcomeMessage = `PDF "${filename}" uploaded successfully! You can now ask questions about it.`;
+            addMessageToChat('ai', welcomeMessage);
+        }
         
         // Focus on input
         setTimeout(() => {
@@ -4698,26 +4700,33 @@ async function initializeApp() {
         localStorage.setItem('currentRAGThreadId', threadId);
         updateRAGThreadSelector();
         closeRAGThreadSelector();
-        clearChat();
         
-        // Load thread info
+        // Switch to RAG chat mode first (this will clear chat and set up UI)
+        // Pass null for filename - we'll update it after loading thread info
+        switchToRAGChatMode(threadId, null);
+        
+        // Load thread info and add appropriate default message
         fetch(`/api/rag/thread/status/${encodeURIComponent(threadId)}`, {
             credentials: 'include'
         })
         .then(response => response.json())
         .then(data => {
             if (data.has_document && data.metadata) {
-                document.getElementById('chatStatus').textContent = `Document: ${data.metadata.filename || 'Unknown'}`;
-                addMessageToChat('ai', `PDF "${data.metadata.filename || 'Unknown'}" loaded. You can now ask questions about it.`);
+                const filename = data.metadata.filename || 'Unknown';
+                document.getElementById('chatStatus').textContent = `Document: ${filename}`;
+                // Add default message for thread with document
+                addMessageToChat('ai', `PDF "${filename}" loaded. You can now ask questions about it.`);
             } else {
+                document.getElementById('chatStatus').textContent = 'PDF Document Chat';
+                // Add default message for thread without document
                 addMessageToChat('ai', 'Thread loaded. Upload a document to start chatting.');
             }
         })
         .catch(error => {
             console.error('Error loading thread info:', error);
+            // Add default message even on error
+            addMessageToChat('ai', 'Thread loaded. Upload a document to start chatting.');
         });
-        
-        switchToRAGChatMode(threadId, null);
     }
 
     function toggleRAGThreadSelector() {
@@ -7550,7 +7559,7 @@ async function initializeApp() {
                 </button>
 
                 <!-- Action Buttons -->
-                <button onclick="openLessonGenerator()" class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors" id="generateLessonBtn">
+                <button onclick="openLessonGenerator()" class="hidden w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors" id="generateLessonBtn">
                     <img src="{{ url_for('static', filename='images/lesson.png') }}" alt="" class="w-3.5 h-3.5">
                     <span>Generate Lessons</span>
                 </button>
