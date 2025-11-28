@@ -248,6 +248,7 @@ def create_app():
     from app.routes.chatbot_routes import bp as chatbot_bp
     from app.routes.survey import bp as survey_bp
     from app.routes.lesson_routes import bp as lesson_bp
+    from app.routes.rag_routes import bp as rag_bp
 
     # Register blueprints with appropriate prefixes
     app.register_blueprint(auth_bp, url_prefix='/auth')
@@ -257,6 +258,7 @@ def create_app():
     app.register_blueprint(chatbot_bp, url_prefix='/api')
     app.register_blueprint(survey_bp, url_prefix='/api')
     app.register_blueprint(lesson_bp, url_prefix='/api/lessons')
+    app.register_blueprint(rag_bp, url_prefix='/api/rag')
     
     print(f"Flask app template folder: {app.template_folder}")
     

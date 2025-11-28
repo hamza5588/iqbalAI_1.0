@@ -591,6 +591,35 @@
           <span id="viewLessonsLabel">View Lessons</span>
         </button>
 
+        <!-- Upload PDF Document Button -->
+                <button onclick="showRAGUploadModal()"
+                    class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors"
+                    id="uploadPDFBtn">
+                    <i class="fas fa-file-pdf text-[#B7B7B7] w-3.5 h-3.5"></i>
+          <span>Upload PDF</span>
+        </button>
+
+        <!-- RAG Thread Selector -->
+                <div id="ragThreadSelector" class="hidden w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px]">
+                    <button onclick="toggleRAGThreadSelector()"
+                        class="w-full h-6 sm:h-7 lg:h-8 px-2 flex items-center justify-between font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors">
+                        <div class="flex items-center gap-1.5">
+                            <i class="fas fa-layer-group text-[#B7B7B7] w-3 h-3"></i>
+                            <span id="currentRAGThreadName">Thread 1</span>
+                        </div>
+                        <i class="fas fa-chevron-down text-[#666] w-2 h-2" id="ragThreadArrow"></i>
+                    </button>
+                    <div id="ragThreadDropdown" class="hidden mt-1.5 flex flex-col gap-1 w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] max-h-40 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg p-2">
+                        <!-- Threads will be populated here -->
+                    </div>
+                </div>
+
+        <!-- RAG Prompt Settings Button -->
+                <button onclick="showRAGPromptModal()" id="ragPromptBtn" class="hidden w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors">
+                    <i class="fas fa-cog text-[#B7B7B7] w-3.5 h-3.5"></i>
+                    <span>Set Prompt</span>
+                </button>
+
                 <button onclick="resetChat()"
                     class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors">
                     <i class="fas fa-refresh text-[#B7B7B7] w-3.5 h-3.5"></i>
@@ -1499,6 +1528,9 @@
     let currentView = 'chat';
     let isLessonChatMode = false; // Track if we're in lesson interactive chat mode
     let currentLessonChatId = null; // Store the lesson ID for interactive chat
+    let isRAGChatMode = false; // Track if we're in RAG chat mode
+    let currentRAGThreadId = null; // Store the RAG thread ID
+    let ragThreads = []; // Array of {thread_id, name, filename, created_at}
     let lastAIMessage = ''; // Store the last AI message for finalization
     let currentLessonFile = null;
     let currentLessonData = null;
@@ -1592,14 +1624,30 @@ async function initializeApp() {
         
         // Initialize other components
         await Promise.all([
-            loadChatHistory()
+            loadChatHistory(),
+            loadRAGThreads()  // Load RAG threads on page initialization
         ]);
         
         // Setup UI
         setupSidebarListeners();
-                
-                // Try to restore existing chat or start new one
+        
+        // Check if we should restore RAG mode before restoring regular chat
+        const savedRAGThreadId = localStorage.getItem('currentRAGThreadId');
+        if (savedRAGThreadId && ragThreads.length > 0) {
+            // Verify the thread still exists
+            const threadExists = ragThreads.some(t => t.thread_id === savedRAGThreadId);
+            if (threadExists) {
+                // Restore RAG chat mode
+                const thread = ragThreads.find(t => t.thread_id === savedRAGThreadId);
+                switchToRAGChatMode(savedRAGThreadId, thread?.filename || null);
+            } else {
+                // Thread no longer exists, restore regular chat
                 await restoreOrStartChat();
+            }
+        } else {
+            // No RAG thread to restore, restore regular chat
+            await restoreOrStartChat();
+        }
         
         // Initialize mobile state
         if (window.innerWidth < 768) {
@@ -3677,8 +3725,80 @@ async function initializeApp() {
         }
     }
 
+    // Handle RAG file upload and navigate to chatbot
+    async function handleRAGFileUpload(file) {
+        const generateBtn = document.getElementById('generateLessonFormBtn');
+        const generateBtnText = document.getElementById('generateBtnText');
+        
+        if (!generateBtn || !generateBtnText) {
+            showNotification('Error: Form elements not found', 'error');
+            return;
+        }
+        
+        // Disable button and show loading
+        generateBtn.disabled = true;
+        generateBtnText.textContent = 'Uploading PDF...';
+        
+        const loadingIcon = generateBtn.querySelector('i');
+        if (loadingIcon) {
+            loadingIcon.className = 'fas fa-spinner fa-spin mr-2';
+        }
+        
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('create_new_thread', 'true'); // Always create new thread for new uploads
+            
+            const response = await fetch('/api/rag/ingest', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
+            
+            const data = await response.json();
+            
+            if (response.ok && data.success) {
+                showNotification('PDF uploaded successfully! Switching to chat...', 'success');
+                
+                // Reload threads from database
+                await loadRAGThreads();
+                
+                // Switch to RAG chat mode in existing interface
+                switchToRAGChatMode(data.thread_id, data.filename);
+            } else {
+                throw new Error(data.error || 'Upload failed');
+            }
+        } catch (error) {
+            console.error('RAG upload error:', error);
+            showNotification('Failed to upload PDF: ' + error.message, 'error');
+        } finally {
+            // Re-enable button
+            if (generateBtn) {
+                generateBtn.disabled = false;
+            }
+            if (generateBtnText) {
+                generateBtnText.textContent = 'Generate Lesson';
+            }
+            if (loadingIcon) {
+                loadingIcon.className = 'fas fa-magic mr-2';
+            }
+        }
+    }
+
     async function generateLesson(event) {
         event.preventDefault();
+        
+        // Check if a file is uploaded - if so, use RAG ingestion instead
+        if (currentLessonFile) {
+            // Check if it's a PDF file
+            const isPdf = /\.pdf$/i.test(currentLessonFile.name) || currentLessonFile.type === 'application/pdf';
+            
+            if (isPdf) {
+                // Use RAG ingestion flow
+                await handleRAGFileUpload(currentLessonFile);
+                return;
+            }
+        }
         
         const formData = new FormData();
         const form = document.getElementById('lessonConfigForm');
@@ -4016,6 +4136,635 @@ async function initializeApp() {
         const finalizeBtn = document.getElementById('lessonChatFinalizeBtn');
         if (finalizeBtn) {
             finalizeBtn.classList.add('hidden');
+        }
+    }
+
+    // Switch to RAG chat mode
+    function switchToRAGChatMode(threadId, filename) {
+        isRAGChatMode = true;
+        currentRAGThreadId = threadId;
+        if (threadId) {
+            localStorage.setItem('currentRAGThreadId', threadId);
+        }
+        
+        // Exit lesson chat mode if active
+        if (isLessonChatMode) {
+            resetLessonChatMode();
+        }
+        
+        // Hide all content areas
+        hideAllContentAreas();
+        
+        // Hide lesson generator content
+        const lessonGenContent = document.getElementById('lessonGeneratorContent');
+        if (lessonGenContent) {
+            lessonGenContent.classList.add('hidden');
+        }
+        
+        // Show chat interface
+        document.getElementById('chatMessages').classList.remove('hidden');
+        const chatInputArea = document.getElementById('chatInputArea');
+        if (chatInputArea) {
+            chatInputArea.classList.remove('hidden');
+        }
+        
+        // Hide finalize button (not needed for RAG)
+        const finalizeBtn = document.getElementById('lessonChatFinalizeBtn');
+        if (finalizeBtn) {
+            finalizeBtn.classList.add('hidden');
+        }
+        
+        // Clear chat messages
+        const chatMessages = document.getElementById('chatMessages');
+        chatMessages.innerHTML = '';
+        
+        // Update chat header
+        document.getElementById('chatTitle').textContent = 'PDF Chat Assistant';
+        document.getElementById('chatStatus').textContent = filename ? `Document: ${filename}` : 'PDF Document Chat';
+        
+        // Reload threads from database to get the latest
+        loadRAGThreads().then(() => {
+            updateRAGThreadSelector();
+            showRAGThreadSelector();
+            // Show prompt button (prompts apply to all threads, so show when in RAG chat mode)
+            const promptBtn = document.getElementById('ragPromptBtn');
+            if (promptBtn && isRAGChatMode) {
+                promptBtn.classList.remove('hidden');
+            }
+        });
+        
+        // Add welcome message
+        const welcomeMessage = filename 
+            ? `PDF "${filename}" uploaded successfully! You can now ask questions about it.`
+            : 'PDF document uploaded successfully! You can now ask questions about it.';
+        addMessageToChat('ai', welcomeMessage);
+        
+        // Focus on input
+        setTimeout(() => {
+            const input = document.getElementById('messageInput');
+            if (input) {
+                input.focus();
+            }
+        }, 100);
+        
+        currentView = 'chat';
+    }
+
+    // Handle RAG chat
+    async function handleRAGChat(message) {
+        hideTypingIndicator();
+        showTypingIndicator();
+        
+        try {
+            const response = await authenticatedFetch('/api/rag/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: message,
+                    thread_id: currentRAGThreadId
+                })
+            });
+            
+            hideTypingIndicator();
+            
+            if (!response) {
+                addMessageToChat('ai', 'Authentication error. Please login again.');
+                return;
+            }
+            
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: 'Failed to get response' }));
+                addMessageToChat('ai', `Error: ${errorData.error || `HTTP error! status: ${response.status}`}`);
+                return;
+            }
+            
+            const data = await response.json();
+            
+            if (data.error) {
+                addMessageToChat('ai', `Error: ${data.error}`);
+                return;
+            }
+            
+            // Get the AI response
+            const aiResponse = data.message || 'No response received';
+            
+            // Add the AI message to chat
+            addMessageToChat('ai', aiResponse);
+            
+            // Automatically speak the response if voice output is enabled
+            if (isVoiceOutputEnabled || isRecording) {
+                speakText(aiResponse);
+            }
+            
+            // Focus back to input after AI response
+            setTimeout(() => {
+                focusMessageInput();
+            }, 500);
+            
+        } catch (error) {
+            hideTypingIndicator();
+            console.error('Error in RAG chat:', error);
+            addMessageToChat('ai', `Error: ${error.message || 'Failed to get response'}`);
+        }
+    }
+
+    // Show RAG upload modal
+    function showRAGUploadModal() {
+        // Create modal if it doesn't exist
+        let modal = document.getElementById('ragUploadModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'ragUploadModal';
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
+                    <div class="bg-gradient-to-r from-[#05B0FC] to-blue-600 px-6 py-4 rounded-t-lg">
+                        <h3 class="text-xl font-semibold text-white">Upload PDF Document</h3>
+                    </div>
+                    <div class="p-6">
+                        <div id="ragUploadArea" class="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-400 transition-all mb-4">
+                            <input type="file" id="ragFileInput" accept=".pdf" class="hidden">
+                            <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-4"></i>
+                            <p class="text-gray-600 mb-2">Click to upload or drag and drop</p>
+                            <p class="text-sm text-gray-400">PDF files only</p>
+                        </div>
+                        <div id="ragUploadProgress" class="hidden mb-4">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm text-gray-600">Uploading...</span>
+                                <span id="ragUploadPercent" class="text-sm font-medium text-blue-600">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div id="ragUploadBar" class="bg-blue-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div class="flex gap-3 mt-4">
+                            <button onclick="closeRAGUploadModal()" 
+                                class="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            // Setup file upload
+            const uploadArea = modal.querySelector('#ragUploadArea');
+            const fileInput = modal.querySelector('#ragFileInput');
+            
+            uploadArea.addEventListener('click', () => fileInput.click());
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('border-blue-500', 'bg-blue-50');
+            });
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('border-blue-500', 'bg-blue-50');
+            });
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('border-blue-500', 'bg-blue-50');
+                const files = e.dataTransfer.files;
+                if (files.length > 0 && files[0].type === 'application/pdf') {
+                    handleRAGFileUploadFromModal(files[0]);
+                } else {
+                    showNotification('Please upload a PDF file', 'error');
+                }
+            });
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleRAGFileUploadFromModal(e.target.files[0]);
+                }
+            });
+        }
+        modal.classList.remove('hidden');
+    }
+
+    function closeRAGUploadModal() {
+        const modal = document.getElementById('ragUploadModal');
+        if (modal) {
+            modal.classList.add('hidden');
+            const fileInput = document.getElementById('ragFileInput');
+            if (fileInput) fileInput.value = '';
+        }
+    }
+
+    // Show RAG Prompt Settings Modal
+    function showRAGPromptModal() {
+        // Create modal if it doesn't exist
+        let modal = document.getElementById('ragPromptModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'ragPromptModal';
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] flex flex-col">
+                    <div class="bg-gradient-to-r from-[#05B0FC] to-blue-600 px-6 py-4 rounded-t-lg">
+                        <h3 class="text-xl font-semibold text-white">Set Custom System Prompt</h3>
+                        <p class="text-blue-100 text-sm mt-1">Customize how the AI assistant behaves. This prompt will apply to all your threads.</p>
+                    </div>
+                    <div class="p-6 flex-1 overflow-y-auto">
+                        <div class="mb-4">
+                            <label class="block text-gray-700 text-sm font-semibold mb-2">
+                                Custom Prompt
+                            </label>
+                            <textarea id="ragPromptTextarea" 
+                                class="w-full h-64 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none text-sm"
+                                placeholder="Enter your custom system prompt here. This will be combined with the default RAG instructions..."></textarea>
+                            <p class="text-xs text-gray-500 mt-2">
+                                <i class="fas fa-info-circle mr-1"></i>
+                                Your custom prompt will be combined with the default RAG instructions for PDF queries. This prompt will apply to all your threads.
+                            </p>
+                        </div>
+                        <div class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <p class="text-xs text-blue-800 font-semibold mb-1">Note:</p>
+                            <p class="text-xs text-blue-700">
+                                The default RAG instructions (for PDF queries) will always be included along with your custom prompt. This prompt applies to all your threads, not just the current one.
+                            </p>
+                        </div>
+                    </div>
+                    <div class="px-6 py-4 border-t border-gray-200 flex gap-3">
+                        <button onclick="loadRAGPrompt()" 
+                            class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                            Load Current
+                        </button>
+                        <button onclick="deleteRAGPrompt()" 
+                            class="px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50">
+                            Delete Prompt
+                        </button>
+                        <div class="flex-1"></div>
+                        <button onclick="closeRAGPromptModal()" 
+                            class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                            Cancel
+                        </button>
+                        <button onclick="saveRAGPrompt()" 
+                            class="px-4 py-2 bg-[#05B0FC] text-white rounded-lg hover:bg-blue-600">
+                            Save Prompt
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+        modal.classList.remove('hidden');
+        // Load current prompt if available
+        loadRAGPrompt();
+    }
+
+    function closeRAGPromptModal() {
+        const modal = document.getElementById('ragPromptModal');
+        if (modal) {
+            modal.classList.add('hidden');
+        }
+    }
+
+    // Load current RAG prompt
+    async function loadRAGPrompt() {
+        try {
+            // Load user-level prompt (applies to all threads)
+            const response = await fetch('/api/rag/prompt', {
+                method: 'GET',
+                credentials: 'include'
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                const textarea = document.getElementById('ragPromptTextarea');
+                if (textarea) {
+                    if (data.success && data.prompt) {
+                        textarea.value = data.prompt;
+                    } else {
+                        textarea.value = '';
+                    }
+                }
+            } else {
+                console.error('Failed to load prompt');
+            }
+        } catch (error) {
+            console.error('Error loading prompt:', error);
+            showNotification('Failed to load prompt', 'error');
+        }
+    }
+
+    // Save RAG prompt
+    async function saveRAGPrompt() {
+        const textarea = document.getElementById('ragPromptTextarea');
+        if (!textarea) {
+            showNotification('Prompt textarea not found', 'error');
+            return;
+        }
+
+        const prompt = textarea.value.trim();
+        if (!prompt) {
+            showNotification('Please enter a prompt', 'warning');
+            return;
+        }
+
+        try {
+            // Save user-level prompt (applies to all threads)
+            const response = await fetch('/api/rag/prompt', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    prompt: prompt
+                })
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                showNotification('Prompt saved successfully! It will apply to all your threads.', 'success');
+                closeRAGPromptModal();
+            } else {
+                throw new Error(data.error || 'Failed to save prompt');
+            }
+        } catch (error) {
+            console.error('Error saving prompt:', error);
+            showNotification('Failed to save prompt: ' + error.message, 'error');
+        }
+    }
+
+    // Delete RAG prompt
+    async function deleteRAGPrompt() {
+        if (!confirm('Are you sure you want to delete the custom prompt? This will remove it from all your threads. The default prompt will be used.')) {
+            return;
+        }
+
+        try {
+            // Delete user-level prompt (applies to all threads)
+            const response = await fetch('/api/rag/prompt', {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                showNotification('Prompt deleted successfully! It has been removed from all your threads.', 'success');
+                const textarea = document.getElementById('ragPromptTextarea');
+                if (textarea) {
+                    textarea.value = '';
+                }
+            } else {
+                throw new Error(data.error || 'Failed to delete prompt');
+            }
+        } catch (error) {
+            console.error('Error deleting prompt:', error);
+            showNotification('Failed to delete prompt: ' + error.message, 'error');
+        }
+    }
+
+    // Handle RAG file upload from modal
+    async function handleRAGFileUploadFromModal(file) {
+        if (!file.type.includes('pdf')) {
+            showNotification('Please upload a PDF file', 'error');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('create_new_thread', 'true'); // Always create new thread for new uploads
+        
+        const uploadProgress = document.getElementById('ragUploadProgress');
+        const uploadBar = document.getElementById('ragUploadBar');
+        const uploadPercent = document.getElementById('ragUploadPercent');
+        const fileInput = document.getElementById('ragFileInput');
+        const uploadArea = document.getElementById('ragUploadArea');
+        
+        uploadProgress.classList.remove('hidden');
+        fileInput.disabled = true;
+        uploadArea.style.pointerEvents = 'none';
+        uploadArea.style.opacity = '0.6';
+
+        try {
+            const response = await fetch('/api/rag/ingest', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include'
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                showNotification('PDF uploaded successfully!', 'success');
+                closeRAGUploadModal();
+                
+                // Reload threads from database
+                await loadRAGThreads();
+                
+                switchToRAGChatMode(data.thread_id, data.filename);
+            } else {
+                throw new Error(data.error || 'Upload failed');
+            }
+        } catch (error) {
+            console.error('Upload error:', error);
+            showNotification('Failed to upload PDF: ' + error.message, 'error');
+        } finally {
+            uploadProgress.classList.add('hidden');
+            fileInput.disabled = false;
+            uploadArea.style.pointerEvents = 'auto';
+            uploadArea.style.opacity = '1';
+            uploadBar.style.width = '0%';
+            uploadPercent.textContent = '0%';
+        }
+    }
+
+    // RAG Thread Management
+    async function loadRAGThreads() {
+        try {
+            // Always load from database first
+            const response = await fetch('/api/rag/threads', {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success && data.threads) {
+                    // Load threads from database
+                    ragThreads = data.threads;
+                    
+                    // Try to restore current thread from localStorage (only if not already set)
+                    if (!currentRAGThreadId) {
+                        const savedThreadId = localStorage.getItem('currentRAGThreadId');
+                        if (savedThreadId) {
+                            // Validate saved thread ID still exists in database
+                            const threadExists = ragThreads.some(t => t.thread_id === savedThreadId);
+                            if (threadExists) {
+                                currentRAGThreadId = savedThreadId;
+                            } else {
+                                // Remove invalid thread ID from localStorage
+                                localStorage.removeItem('currentRAGThreadId');
+                            }
+                        }
+                    }
+                    
+                    // If no current thread is set and we have threads, set the most recent one as active
+                    // (threads are already ordered by most recent first from the backend)
+                    if (!currentRAGThreadId && ragThreads.length > 0) {
+                        const mostRecentThread = ragThreads[0];
+                        if (mostRecentThread.has_document) {
+                            currentRAGThreadId = mostRecentThread.thread_id;
+                        }
+                    }
+                    
+                    // Update localStorage with current thread ID (for persistence across refreshes)
+                    if (currentRAGThreadId) {
+                        localStorage.setItem('currentRAGThreadId', currentRAGThreadId);
+                    }
+                    
+                    // Update UI
+                    updateRAGThreadSelector();
+                    
+                    // Show thread selector if we have threads
+                    if (ragThreads.length > 0) {
+                        showRAGThreadSelector();
+                    }
+                } else {
+                    // No threads found in database
+                    ragThreads = [];
+                    currentRAGThreadId = null;
+                    localStorage.removeItem('currentRAGThreadId');
+                    updateRAGThreadSelector();
+                }
+            } else {
+                // API call failed - clear threads and show error
+                console.error('Failed to load threads from database:', response.status, response.statusText);
+                ragThreads = [];
+                updateRAGThreadSelector();
+                showNotification('Failed to load threads from database. Please refresh the page.', 'error');
+            }
+        } catch (error) {
+            console.error('Error loading threads from database:', error);
+            // Database call failed - clear threads
+            ragThreads = [];
+            updateRAGThreadSelector();
+            showNotification('Error loading threads from database. Please refresh the page.', 'error');
+        }
+    }
+
+    // Removed saveRAGThreads - threads are now always loaded from database
+
+    function updateRAGThreadSelector() {
+        const threadList = document.getElementById('ragThreadDropdown');
+        const currentThreadName = document.getElementById('currentRAGThreadName');
+        
+        if (!threadList) return;
+        
+        threadList.innerHTML = '';
+        
+        if (ragThreads.length === 0) {
+            threadList.innerHTML = '<div class="px-3 py-2 text-sm text-gray-500 text-center">No threads yet</div>';
+            if (currentThreadName) {
+                currentThreadName.textContent = 'No Thread';
+            }
+            return;
+        }
+        
+        ragThreads.forEach((thread) => {
+            const isActive = thread.thread_id === currentRAGThreadId;
+            const threadDiv = document.createElement('div');
+            threadDiv.className = `px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-50 ${isActive ? 'bg-blue-50' : ''}`;
+            threadDiv.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm font-medium text-gray-800 truncate">${thread.name}</div>
+                        <div class="text-xs text-gray-500 truncate">${thread.filename || 'No file'}</div>
+                    </div>
+                    ${isActive ? '<i class="fas fa-check text-[#05B0FC] ml-2"></i>' : ''}
+                </div>
+            `;
+            threadDiv.addEventListener('click', () => switchToRAGThread(thread.thread_id));
+            threadList.appendChild(threadDiv);
+        });
+        
+        // Update current thread name
+        if (currentRAGThreadId) {
+            const currentThread = ragThreads.find(t => t.thread_id === currentRAGThreadId);
+            if (currentThread && currentThreadName) {
+                currentThreadName.textContent = currentThread.name;
+            }
+        } else if (currentThreadName) {
+            currentThreadName.textContent = 'No Thread';
+        }
+    }
+
+    function switchToRAGThread(threadId) {
+        currentRAGThreadId = threadId;
+        localStorage.setItem('currentRAGThreadId', threadId);
+        updateRAGThreadSelector();
+        closeRAGThreadSelector();
+        clearChat();
+        
+        // Load thread info
+        fetch(`/api/rag/thread/status/${encodeURIComponent(threadId)}`, {
+            credentials: 'include'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.has_document && data.metadata) {
+                document.getElementById('chatStatus').textContent = `Document: ${data.metadata.filename || 'Unknown'}`;
+                addMessageToChat('ai', `PDF "${data.metadata.filename || 'Unknown'}" loaded. You can now ask questions about it.`);
+            } else {
+                addMessageToChat('ai', 'Thread loaded. Upload a document to start chatting.');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading thread info:', error);
+        });
+        
+        switchToRAGChatMode(threadId, null);
+    }
+
+    function toggleRAGThreadSelector() {
+        const dropdown = document.getElementById('ragThreadDropdown');
+        const arrow = document.getElementById('ragThreadArrow');
+        if (dropdown) {
+            dropdown.classList.toggle('hidden');
+            if (arrow) {
+                arrow.classList.toggle('fa-chevron-down');
+                arrow.classList.toggle('fa-chevron-up');
+            }
+        }
+    }
+
+    function closeRAGThreadSelector() {
+        const dropdown = document.getElementById('ragThreadDropdown');
+        const arrow = document.getElementById('ragThreadArrow');
+        if (dropdown) {
+            dropdown.classList.add('hidden');
+            if (arrow) {
+                arrow.classList.remove('fa-chevron-up');
+                arrow.classList.add('fa-chevron-down');
+            }
+        }
+    }
+
+    function showRAGThreadSelector() {
+        const selector = document.getElementById('ragThreadSelector');
+        if (selector) {
+            selector.classList.remove('hidden');
+        }
+        // Also show prompt button when in RAG chat mode (prompts apply to all threads)
+        const promptBtn = document.getElementById('ragPromptBtn');
+        if (promptBtn && isRAGChatMode) {
+            promptBtn.classList.remove('hidden');
+        }
+    }
+
+    function hideRAGThreadSelector() {
+        const selector = document.getElementById('ragThreadSelector');
+        if (selector) {
+            selector.classList.add('hidden');
+        }
+        // Also hide prompt button
+        const promptBtn = document.getElementById('ragPromptBtn');
+        if (promptBtn) {
+            promptBtn.classList.add('hidden');
         }
     }
 
@@ -5803,6 +6552,15 @@ async function initializeApp() {
 
     // Allow Enter key to submit question
         document.addEventListener('DOMContentLoaded', function () {
+            // Load RAG threads
+            loadRAGThreads();
+            
+            // Check for thread_id in URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const threadIdFromUrl = urlParams.get('thread_id');
+            if (threadIdFromUrl) {
+                switchToRAGChatMode(threadIdFromUrl, null);
+            }
         const questionInput = document.getElementById('questionInput');
         if (questionInput) {
                 questionInput.addEventListener('keypress', function (event) {
@@ -6032,6 +6790,11 @@ async function initializeApp() {
 
     // Chat Functions
         async function restoreOrStartChat() {
+            // Don't restore regular chat if we're in RAG mode
+            if (isRAGChatMode && currentRAGThreadId) {
+                return;
+            }
+            
             try {
                 // Check if there's an existing active chat in localStorage
                 const savedChatId = localStorage.getItem('currentChatId');
@@ -6057,16 +6820,25 @@ async function initializeApp() {
                     }
                 }
                 
-                // If no valid existing chat, start a new one
-                await startNewChat();
+                // If no valid existing chat, start a new one (but only if not in RAG mode)
+                if (!isRAGChatMode) {
+                    await startNewChat();
+                }
             } catch (error) {
                 console.error('Error restoring chat:', error);
-                // Fallback to starting new chat
-                await startNewChat();
+                // Fallback to starting new chat (but only if not in RAG mode)
+                if (!isRAGChatMode) {
+                    await startNewChat();
+                }
             }
         }
         
         async function restoreChatDisplay(messages) {
+            // Don't restore regular chat if we're in RAG mode
+            if (isRAGChatMode && currentRAGThreadId) {
+                return;
+            }
+            
             const chatMessages = document.getElementById('chatMessages');
             if (!chatMessages) return;
             
@@ -6095,8 +6867,10 @@ async function initializeApp() {
                 console.error('Error loading conversation title:', error);
             }
             
-            // Switch to chat view
-            changeTab(null, 'chat');
+            // Switch to chat view (but preserve RAG mode if active)
+            if (!isRAGChatMode) {
+                changeTab(null, 'chat');
+            }
         }
         
     async function startNewChat() {
@@ -6128,6 +6902,20 @@ async function initializeApp() {
             currentChatId = Date.now();
         }
 
+            // Only reset RAG mode if we're actually switching away from it
+            // Don't reset if we're just initializing and there are RAG threads
+            const shouldResetRAG = isRAGChatMode && !ragThreads.some(t => t.thread_id === currentRAGThreadId);
+            
+            if (shouldResetRAG) {
+                isRAGChatMode = false;
+                currentRAGThreadId = null;
+                localStorage.removeItem('currentRAGThreadId');
+                hideRAGThreadSelector();
+            }
+            
+            isLessonChatMode = false;
+            currentLessonChatId = null;
+            
             // Reset header to New Chat
             document.getElementById('chatTitle').textContent = 'New Chat';
             document.getElementById('chatStatus').textContent = 'Online';
@@ -6257,8 +7045,11 @@ async function initializeApp() {
             try {
                 let response;
                 
-                // Check if we're in lesson chat mode
-                if (isLessonChatMode && currentLessonChatId) {
+                // Check if we're in RAG chat mode
+                if (isRAGChatMode && currentRAGThreadId) {
+                    // Use RAG chat API
+                    await handleRAGChat(message);
+                } else if (isLessonChatMode && currentLessonChatId) {
                     // Use interactive chat API for lesson
                     await handleStreamingLessonChat(message);
                 } else {

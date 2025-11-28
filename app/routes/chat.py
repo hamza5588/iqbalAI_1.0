@@ -421,3 +421,14 @@ def chatbot():
     except Exception as e:
         logger.error(f"Error rendering chatbot: {str(e)}", exc_info=True)
         return jsonify({'error': f'Failed to render chatbot: {str(e)}'}), 500
+
+
+@bp.route('/chatbot_update', methods=['GET'])
+@login_required
+def chatbot_update():
+    """Render the PDF chat interface"""
+    try:
+        return render_template('chatbot_update.html')
+    except Exception as e:
+        logger.error(f"Error rendering chatbot_update page: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to render page: {str(e)}'}), 500
