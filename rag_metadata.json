@@ -72,5 +72,23 @@
     "num_pages": 51,
     "pages": 51,
     "chunks": 159
+  },
+  "user_1_thread_1764349465_a44bbc4c": {
+    "filename": "ABC India Equity Fund Factsheet - Aug 2024.pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1764349465_a44bbc4c_ABC India Equity Fund Factsheet - Aug 2024.pdf",
+    "user_id": 1,
+    "documents": 2,
+    "num_pages": 2,
+    "pages": 2,
+    "chunks": 11
+  },
+  "user_1_thread_1764349692_81497fc8": {
+    "filename": "Hamza (1).pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1764349692_81497fc8_Hamza 1.pdf",
+    "user_id": 1,
+    "documents": 3,
+    "num_pages": 3,
+    "pages": 3,
+    "chunks": 13
   }
 }
