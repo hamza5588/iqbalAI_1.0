@@ -34,6 +34,7 @@ class User(Base):
     user_documents = relationship("UserDocument", back_populates="user", cascade="all, delete-orphan")
     token_usage = relationship("UserTokenUsage", back_populates="user", cascade="all, delete-orphan")
     token_reset_history = relationship("TokenResetHistory", back_populates="user", cascade="all, delete-orphan")
+    rag_threads = relationship("RAGThread", back_populates="user", cascade="all, delete-orphan")
     
     __table_args__ = (
         CheckConstraint("role IN ('student', 'teacher')", name='check_user_role'),
@@ -276,5 +277,49 @@ class PasswordResetToken(Base):
     
     __table_args__ = (
         Index('idx_password_reset_email', 'email'),
+    )
+
+
+class RAGThread(Base):
+    """RAG Thread model for storing PDF chat threads"""
+    __tablename__ = 'rag_threads'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    thread_id = Column(String(255), nullable=False, unique=True, index=True)
+    name = Column(String(255), nullable=False)
+    filename = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, server_default=func.now())
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, server_default=func.now())
+    
+    # Relationships
+    user = relationship("User", back_populates="rag_threads")
+    rag_prompts = relationship("RAGPrompt", back_populates="thread", cascade="all, delete-orphan")
+    
+    __table_args__ = (
+        Index('idx_rag_thread_user_id', 'user_id'),
+        Index('idx_rag_thread_thread_id', 'thread_id'),
+    )
+
+
+class RAGPrompt(Base):
+    """RAG Prompt model for storing custom system prompts for RAG threads"""
+    __tablename__ = 'rag_prompts'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    thread_id = Column(String(255), ForeignKey('rag_threads.thread_id', ondelete='CASCADE'), nullable=True, index=True)
+    prompt = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, server_default=func.now())
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow,
+                       server_default=func.now(), server_onupdate=func.now())
+    
+    # Relationships
+    user = relationship("User")
+    thread = relationship("RAGThread", back_populates="rag_prompts")
+    
+    __table_args__ = (
+        Index('idx_rag_prompts_user_id', 'user_id'),
+        Index('idx_rag_prompts_thread_id', 'thread_id'),
     )
 
