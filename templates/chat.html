@@ -19,6 +19,22 @@
   <script src="https://cdn.jsdelivr.net/npm/emoji-button@4.6.4/dist/emoji-button.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <!-- MathJax for LaTeX equation rendering -->
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['\\(', '\\)'], ['$', '$'], ['\\[', '\\]']],
+        displayMath: [['\\[', '\\]'], ['$$', '$$']],
+        processEscapes: true,
+        processEnvironments: true
+      },
+      options: {
+        skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code']
+      }
+    };
+  </script>
 
   <!-- Google Fonts & Font Awesome -->
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -4198,7 +4214,7 @@ async function initializeApp() {
         // it will be added by switchToRAGThread after loading thread info
         if (filename) {
             const welcomeMessage = `PDF "${filename}" uploaded successfully! You can now ask questions about it.`;
-            addMessageToChat('ai', welcomeMessage);
+        addMessageToChat('ai', welcomeMessage);
         }
         
         // Focus on input
@@ -8076,6 +8092,34 @@ async function initializeApp() {
             // Preprocess: Convert common AI-generated patterns to proper markdown
             let processedMessage = message;
             
+            // Protect LaTeX equations from markdown processing
+            // Store LaTeX blocks temporarily
+            const latexBlocks = [];
+            let blockIndex = 0;
+            
+            // Pattern to match LaTeX equations: \(...\), \[...\], $...$, $$...$$
+            // Also handle patterns like [ \text{...} = \text{...} \times \text{...} ]
+            // and ( \text{...} = \text{...} \times \text{...} )
+            const latexPatterns = [
+                /\\\[[\s\S]*?\\\]/g,  // \[...\]
+                /\\\([\s\S]*?\\\)/g,  // \(...\)
+                /\$\$[\s\S]*?\$\$/g,  // $$...$$
+                /\[[\s\S]*?\\text\{[\s\S]*?\}[\s\S]*?\]/g,  // [ \text{...} ... ]
+                /\([\s\S]*?\\text\{[\s\S]*?\}[\s\S]*?\)/g,  // ( \text{...} ... )
+                /\$[^$\n]+?\$/g       // $...$ (inline, but be careful with single $)
+            ];
+            
+            // Replace LaTeX blocks with placeholders
+            // Use HTML-like tags that marked.js will preserve as raw HTML
+            latexPatterns.forEach(pattern => {
+                processedMessage = processedMessage.replace(pattern, (match) => {
+                    const placeholder = `<latex-placeholder data-index="${blockIndex}"></latex-placeholder>`;
+                    latexBlocks[blockIndex] = match;
+                    blockIndex++;
+                    return placeholder;
+                });
+            });
+            
             // Split into lines for processing
             const lines = processedMessage.split('\n');
             const processedLines = [];
@@ -8104,11 +8148,84 @@ async function initializeApp() {
                 breaks: true,      // Convert line breaks to <br>
                 gfm: true,        // GitHub Flavored Markdown
                 headerIds: false, // Disable header IDs for cleaner output
-                mangle: false     // Don't mangle email addresses
+                mangle: false,    // Don't mangle email addresses
+                silent: false,    // Don't suppress HTML output
+                pedantic: false   // Don't use original markdown.pl behavior
             });
             
             // Parse markdown to HTML
-            const htmlContent = marked.parse(processedMessage);
+            let htmlContent = marked.parse(processedMessage);
+            
+            // Restore LaTeX blocks and wrap them properly for MathJax
+            latexBlocks.forEach((latexBlock, index) => {
+                const placeholder = `<latex-placeholder data-index="${index}"></latex-placeholder>`;
+                // Determine if it's display math or inline
+                let wrappedBlock;
+                let mathContent = latexBlock.trim();
+                
+                // Normalize LaTeX delimiters for MathJax
+                if (mathContent.startsWith('\\[') && mathContent.endsWith('\\]')) {
+                    // Already in display format
+                    mathContent = mathContent.slice(2, -2); // Remove \[ and \]
+                    wrappedBlock = `<div class="math-display">\\[${mathContent}\\]</div>`;
+                } else if (mathContent.startsWith('$$') && mathContent.endsWith('$$')) {
+                    // Already in display format
+                    wrappedBlock = `<div class="math-display">${mathContent}</div>`;
+                } else if (mathContent.startsWith('\\(') && mathContent.endsWith('\\)')) {
+                    // Already in inline format
+                    mathContent = mathContent.slice(2, -2); // Remove \( and \)
+                    wrappedBlock = `<span class="math-inline">\\(${mathContent}\\)</span>`;
+                } else if (mathContent.startsWith('[') && mathContent.endsWith(']') && mathContent.includes('\\text')) {
+                    // Display math with square brackets: [ \text{...} = ... ]
+                    mathContent = mathContent.slice(1, -1).trim(); // Remove [ and ]
+                    wrappedBlock = `<div class="math-display">\\[${mathContent}\\]</div>`;
+                } else if (mathContent.startsWith('(') && mathContent.endsWith(')') && mathContent.includes('\\text')) {
+                    // Inline math with parentheses: ( \text{...} = ... )
+                    mathContent = mathContent.slice(1, -1).trim(); // Remove ( and )
+                    wrappedBlock = `<span class="math-inline">\\(${mathContent}\\)</span>`;
+                } else if (mathContent.startsWith('$') && mathContent.endsWith('$')) {
+                    // Dollar sign delimiters
+                    if (mathContent.startsWith('$$')) {
+                        wrappedBlock = `<div class="math-display">${mathContent}</div>`;
+                    } else {
+                        wrappedBlock = `<span class="math-inline">${mathContent}</span>`;
+                    }
+                } else {
+                    // Default: treat as inline math
+                    wrappedBlock = `<span class="math-inline">\\(${mathContent}\\)</span>`;
+                }
+                
+                // Replace the placeholder - marked.js should preserve custom HTML tags
+                // Try multiple replacement strategies to ensure we catch the placeholder
+                let replaced = false;
+                
+                // Strategy 1: Exact match with regex (handles whitespace variations)
+                const placeholderRegex = new RegExp(`<latex-placeholder\\s+data-index="${index}"\\s*></latex-placeholder>`, 'gi');
+                if (placeholderRegex.test(htmlContent)) {
+                    htmlContent = htmlContent.replace(placeholderRegex, wrappedBlock);
+                    replaced = true;
+                }
+                
+                // Strategy 2: Exact string match (if regex didn't work)
+                if (!replaced && htmlContent.includes(placeholder)) {
+                    htmlContent = htmlContent.split(placeholder).join(wrappedBlock);
+                    replaced = true;
+                }
+                
+                // Strategy 3: Check for HTML-encoded version (if marked.js escaped it)
+                if (!replaced) {
+                    const encodedPlaceholder = placeholder.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    if (htmlContent.includes(encodedPlaceholder)) {
+                        htmlContent = htmlContent.split(encodedPlaceholder).join(wrappedBlock);
+                        replaced = true;
+                    }
+                }
+                
+                // Log warning if placeholder wasn't found (for debugging)
+                if (!replaced) {
+                    console.warn(`LaTeX placeholder ${index} not found in HTML content. Placeholder: ${placeholder.substring(0, 50)}...`);
+                }
+            });
             
             return htmlContent;
         } catch (error) {
@@ -8159,6 +8276,27 @@ async function initializeApp() {
         }
 
         chatMessages.appendChild(messageDiv);
+        
+        // Trigger MathJax rendering for LaTeX equations if MathJax is loaded
+        if (sender === 'ai' && window.MathJax) {
+            setTimeout(() => {
+                // Check if MathJax is ready
+                if (window.MathJax.typesetPromise) {
+                    window.MathJax.typesetPromise([messageDiv]).catch((err) => {
+                        console.error('MathJax rendering error:', err);
+                    });
+                } else {
+                    // Fallback: wait for MathJax to load
+                    window.MathJax.startup.promise.then(() => {
+                        if (window.MathJax.typesetPromise) {
+                            window.MathJax.typesetPromise([messageDiv]).catch((err) => {
+                                console.error('MathJax rendering error:', err);
+                            });
+                        }
+                    });
+                }
+            }, 100);
+        }
         
         // Handle scrolling based on message length
         if (sender === 'ai') {
@@ -10640,6 +10778,35 @@ async function initializeApp() {
       transition-property: box-shadow;
       transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
       transition-duration: 150ms;
+    }
+
+    /* Math equation styling */
+    .math-display {
+      margin: 1.5em 0;
+      text-align: center;
+      overflow-x: auto;
+      padding: 0.5em;
+    }
+
+    .math-inline {
+      display: inline-block;
+      margin: 0 0.2em;
+    }
+
+    /* Ensure MathJax renders properly */
+    .markdown-content .math-display,
+    .markdown-content .math-inline {
+      font-size: inherit;
+    }
+
+    /* MathJax output styling */
+    .markdown-content .MathJax {
+      display: inline-block !important;
+    }
+
+    .markdown-content .MathJax_Display {
+      margin: 1.5em 0 !important;
+      text-align: center;
     }
 
 

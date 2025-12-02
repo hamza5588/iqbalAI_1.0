@@ -90,5 +90,23 @@
     "num_pages": 3,
     "pages": 3,
     "chunks": 13
+  },
+  "user_1_thread_1764673311_61237541": {
+    "filename": "CIE PHYSICS-8 Electricity-9 Magnets Currents.pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1764673311_61237541_CIE PHYSICS-8 Electricity-9 Magnets Currents.pdf",
+    "user_id": 1,
+    "documents": 51,
+    "num_pages": 51,
+    "pages": 51,
+    "chunks": 159
+  },
+  "user_1_thread_1764691122_a576b28d": {
+    "filename": "Gravitational Potential With Yukawa Potential — Full Derivation.pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1764691122_a576b28d_Gravitational Potential With Yukawa Potential  Full Derivation.pdf",
+    "user_id": 1,
+    "documents": 6,
+    "num_pages": 6,
+    "pages": 6,
+    "chunks": 12
   }
 }
