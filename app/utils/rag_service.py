@@ -479,6 +479,7 @@ def chat_node(state: ChatState, config=None):
             f"You can also use web search, stock price, and calculator tools when helpful.\n"
             f"But for PDF-related questions, ALWAYS use rag_tool first with thread_id='{thread_id}'.\n"
             f"When asked about the number of pages, use the num_pages or pages field from the rag_tool response."
+            f"Always retrun the responce in markdown format for better readability. recognized the equations code structure etc."
         )
         
         # Combine custom prompt with default RAG instructions
