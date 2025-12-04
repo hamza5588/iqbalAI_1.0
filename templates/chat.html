@@ -105,10 +105,16 @@
     }
     
     .prose p {
-      margin-bottom: 1.25rem;
+      margin-top: 0;
+      margin-bottom: 0.25rem;
       line-height: 1.8;
       font-size: 1.05rem;
       color: #4b5563;
+    }
+    
+    /* Reduce spacing between consecutive paragraphs */
+    .prose p + p {
+      margin-top: 0;
     }
     
     .prose ul, .prose ol {
@@ -282,8 +288,8 @@
 
     /* Reduce paragraph margins in lesson content */
     #lessonSummary .lesson-content-wrapper .prose p {
-      margin-top: 0.5rem !important;
-      margin-bottom: 0.75rem !important;
+      margin-top: 0 !important;
+      margin-bottom: 0.25rem !important;
       line-height: 1.6 !important;
     }
 
@@ -4888,7 +4894,8 @@ async function initializeApp() {
                     .prose h3 { font-size: 1.125rem; font-weight: 600; margin-top: 1.25rem; margin-bottom: 0.5rem; color: #374151; }
                     .prose ul { margin: 0.75rem 0; padding-left: 1.5rem; }
                     .prose li { margin: 0.25rem 0; line-height: 1.6; }
-                    .prose p { margin: 0.75rem 0; line-height: 1.6; }
+                    .prose p { margin: 0.25rem 0; line-height: 1.6; }
+                    .prose p + p { margin-top: 0; }
                     .prose strong { font-weight: 600; color: #1f2937; }
                 </style>
                 ${markdownContent}
@@ -8069,10 +8076,31 @@ async function initializeApp() {
         });
         
         // Add click handler to chat messages area to focus input
+        // Only focus if user didn't select text (to allow text selection and copying)
         const chatMessages = document.getElementById('chatMessages');
         if (chatMessages) {
-            chatMessages.addEventListener('click', function() {
-                focusMessageInput();
+            let mouseDownTime = 0;
+            let mouseDownTarget = null;
+            
+            chatMessages.addEventListener('mousedown', function(event) {
+                mouseDownTime = Date.now();
+                mouseDownTarget = event.target;
+            });
+            
+            chatMessages.addEventListener('mouseup', function(event) {
+                // Check if user selected text (mouseup after a brief delay indicates selection)
+                setTimeout(() => {
+                    const selection = window.getSelection();
+                    const hasSelection = selection.toString().trim().length > 0;
+                    
+                    // Only focus input if no text was selected and it was a simple click (not a drag)
+                    const clickDuration = Date.now() - mouseDownTime;
+                    const isSimpleClick = clickDuration < 200 && mouseDownTarget === event.target;
+                    
+                    if (!hasSelection && isSimpleClick) {
+                        focusMessageInput();
+                    }
+                }, 10);
             });
             
             // Add scroll detection for long messages
@@ -10634,7 +10662,8 @@ async function initializeApp() {
     }
     
     #lessonSummary p {
-      margin-bottom: 0.75rem;
+      margin-top: 0;
+      margin-bottom: 0.25rem;
       line-height: 1.6;
     }
     
@@ -10870,9 +10899,15 @@ async function initializeApp() {
         }
 
         .markdown-content p {
-            margin-bottom: 0.75rem;
+            margin-top: 0;
+            margin-bottom: 0.25rem;
             line-height: 1.6;
             font-size: 0.9375rem;
+        }
+        
+        /* Reduce spacing between consecutive paragraphs */
+        .markdown-content p + p {
+            margin-top: 0;
         }
 
         .markdown-content ul, .markdown-content ol {

@@ -18,7 +18,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_community.vectorstores import FAISS
-from langchain_core.messages import BaseMessage, SystemMessage
+from langchain_core.messages import BaseMessage, SystemMessage, AIMessage
 from langchain_core.tools import tool
 from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
@@ -33,7 +33,17 @@ load_dotenv()
 # -------------------
 # 1. LLM + embeddings
 # -------------------
-llm = ChatOpenAI(model="gpt-4o-mini")
+# llm = ChatOpenAI(model="gpt-4o-mini")
+
+vllm_api_base = os.getenv('VLLM_API_BASE', 'http://69.28.92.113:8000/v1')
+vllm_model = os.getenv('VLLM_MODEL', 'Qwen/Qwen2.5-14B-Instruct')
+llm = ChatOpenAI(
+            openai_api_key="EMPTY",
+            openai_api_base=vllm_api_base,
+            model_name=vllm_model,
+            temperature=0.7,
+            max_tokens=1024,
+        )
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
 # -------------------
@@ -515,8 +525,35 @@ def chat_node(state: ChatState, config=None):
             )
 
     messages = [system_message, *state["messages"]]
-    response = llm_with_tools.invoke(messages, config=config)
-    return {"messages": [response]}
+    try:
+        response = llm_with_tools.invoke(messages, config=config)
+        return {"messages": [response]}
+    except Exception as e:
+        # Handle connection errors and other API failures
+        error_msg = str(e)
+        logger.error(f"LLM API error in chat_node: {error_msg}", exc_info=True)
+        
+        # Check if it's a connection error
+        if "Connection error" in error_msg or "No connection could be made" in error_msg or "actively refused" in error_msg:
+            error_response = AIMessage(
+                content=(
+                    "⚠️ **Connection Error**: Unable to connect to the AI service. "
+                    "The server may be temporarily unavailable.\n\n"
+                    "Please try again in a few moments, or contact support if the issue persists.\n\n"
+                    f"*Error details: {error_msg}*"
+                )
+            )
+        else:
+            # Generic error handling
+            error_response = AIMessage(
+                content=(
+                    "⚠️ **Error**: An error occurred while processing your request.\n\n"
+                    "Please try again, or contact support if the issue persists.\n\n"
+                    f"*Error details: {error_msg}*"
+                )
+            )
+        
+        return {"messages": [error_response]}
 
 tool_node = ToolNode(tools)
 

@@ -6,3 +6,5 @@ include
 venv
 vector_store.faiss
 logs
+.env
+generate_prompt.py

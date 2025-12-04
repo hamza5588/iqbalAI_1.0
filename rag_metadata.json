@@ -108,5 +108,14 @@
     "num_pages": 6,
     "pages": 6,
     "chunks": 12
+  },
+  "user_1_thread_1764855191_0fa00287": {
+    "filename": "Hamza.pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1764855191_0fa00287_Hamza.pdf",
+    "user_id": 1,
+    "documents": 3,
+    "num_pages": 3,
+    "pages": 3,
+    "chunks": 13
   }
 }
