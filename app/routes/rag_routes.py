@@ -254,6 +254,7 @@ def chat():
         metadata = thread_document_metadata(thread_id)
         lesson_finalized = metadata.get("lesson_finalized", False)
         last_lesson_text = metadata.get("last_lesson_text", "")
+        lesson_title = metadata.get("lesson_title", "")
 
         return jsonify({
             'success': True,
@@ -261,7 +262,8 @@ def chat():
             'thread_id': thread_id,
             'has_document': thread_has_document(thread_id),
             'lesson_finalized': lesson_finalized,
-            'last_lesson_text': last_lesson_text
+            'last_lesson_text': last_lesson_text,
+            'lesson_title': lesson_title
         })
 
     except Exception as e:

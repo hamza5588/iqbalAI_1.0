@@ -52,19 +52,38 @@ def register_email():
                         recipients=[email])
             
             # Generate verification link - handle production vs development
-            # Check for custom server URL in config or environment variable
-            server_url = os.getenv('SERVER_URL') or getattr(Config, 'SERVER_URL', None)
+            # Detect if we're running locally or in production
+            is_local = (
+                request.host.startswith('localhost') or 
+                request.host.startswith('127.0.0.1') or
+                request.host.startswith('0.0.0.0') or
+                'localhost' in request.host or
+                '127.0.0.1' in request.host
+            )
             
-            if server_url:
-                # Use configured server URL (for production)
-                verification_link = f"{server_url.rstrip('/')}/auth/verify_email/{token}"
-            elif 'X-Forwarded-Host' in request.headers:
-                # Behind reverse proxy (nginx, etc.)
-                scheme = request.headers.get('X-Forwarded-Proto', request.scheme)
-                host = request.headers['X-Forwarded-Host']
-                verification_link = f"{scheme}://{host}/auth/verify_email/{token}"
+            # Check if behind reverse proxy (production)
+            is_production = 'X-Forwarded-Host' in request.headers or not is_local
+            
+            if is_production and not is_local:
+                # Production environment - use SERVER_URL or X-Forwarded-Host
+                server_url = os.getenv('SERVER_URL') or getattr(Config, 'SERVER_URL', None)
+                
+                if 'X-Forwarded-Host' in request.headers:
+                    # Behind reverse proxy (nginx, etc.) - use forwarded headers
+                    scheme = request.headers.get('X-Forwarded-Proto', 'https')
+                    host = request.headers['X-Forwarded-Host']
+                    verification_link = f"{scheme}://{host}/auth/verify_email/{token}"
+                elif server_url:
+                    # Use configured server URL (for production)
+                    verification_link = f"{server_url.rstrip('/')}/auth/verify_email/{token}"
+                else:
+                    # Fallback to url_for with external=True
+                    verification_link = url_for('auth.verify_email',
+                                            token=token,
+                                            _external=True,
+                                            _scheme=request.scheme)
             else:
-                # Development - use request host
+                # Local development - use request-based URL generation
                 verification_link = url_for('auth.verify_email',
                                           token=token,
                                           _external=True,
@@ -107,12 +126,19 @@ def verify_email(token):
             logger.warning(f"Invalid token attempted: {token[:10]}...")
             return render_template('register.html', error="Invalid or expired verification link")
         
-        # Check if token has expired
-        if datetime.utcnow() > verification_token.expires_at:
+        # Check if token has expired - use UTC for consistency
+        current_time = datetime.utcnow()
+        expires_at = verification_token.expires_at
+        
+        # Log expiration details for debugging
+        logger.debug(f"Token expiration check - Current: {current_time}, Expires: {expires_at}, Email: {verification_token.email}")
+        
+        if current_time > expires_at:
             # Mark as used to clean up
             verification_token.used = True
             db.commit()
-            logger.warning(f"Expired token attempted: {token[:10]}...")
+            time_diff = current_time - expires_at
+            logger.warning(f"Expired token attempted: {token[:10]}... (expired {time_diff} ago)")
             return render_template('register.html', error="Verification link has expired")
         
         email = verification_token.email
@@ -130,7 +156,21 @@ def verify_email(token):
 def register():
     if request.method == 'POST':
         try:
-            email = request.form['useremail']
+            # Log request details for debugging
+            logger.debug(f"Register request - Content-Type: {request.content_type}")
+            logger.debug(f"Register request - Form data: {dict(request.form)}")
+            logger.debug(f"Register request - JSON data: {request.get_json(silent=True)}")
+            
+            # Check if form data exists
+            if not request.form:
+                logger.error("No form data received in registration request")
+                return render_template('register.html', error="Invalid request format. Please ensure the form is submitted correctly.")
+            
+            # Get email - handle both form and potential JSON
+            email = request.form.get('useremail')
+            if not email:
+                logger.error("Missing email in registration request")
+                return render_template('register.html', error="Email is required")
             
             # Verify that email was previously verified
             db = get_db()
@@ -145,14 +185,39 @@ def register():
             if not verification_token:
                 return render_template('register.html', error="Email not verified")
             
+            # Get all required form fields with validation
+            username = request.form.get('username')
+            password = request.form.get('password')
+            class_standard = request.form.get('class_standard')
+            medium = request.form.get('medium')
+            groq_api_key = request.form.get('groq_api_key', '')  # Optional field - defaults to empty string
+            role = request.form.get('role')
+            
+            # Validate required fields (groq_api_key is optional, so not included in validation)
+            missing_fields = []
+            if not username:
+                missing_fields.append('username')
+            if not password:
+                missing_fields.append('password')
+            if not class_standard:
+                missing_fields.append('class_standard')
+            if not medium:
+                missing_fields.append('medium')
+            if not role:
+                missing_fields.append('role')
+            
+            if missing_fields:
+                logger.error(f"Missing required fields: {missing_fields}")
+                return render_template('register.html', error=f"Missing required fields: {', '.join(missing_fields)}")
+            
             user_id = UserModel.create_user(
-                username=request.form['username'],
+                username=username,
                 useremail=email,
-                password=request.form['password'],
-                class_standard=request.form['class_standard'],
-                medium=request.form['medium'],
-                groq_api_key=request.form['groq_api_key'],
-                role=request.form['role']
+                password=password,
+                class_standard=class_standard,
+                medium=medium,
+                groq_api_key=groq_api_key,  # Will default to empty string if not provided
+                role=role
             )
             
             # Mark verification token as used and clean up all tokens for this email
@@ -163,10 +228,14 @@ def register():
                     
             return redirect(url_for('auth.login'))
         except ValueError as e:
+            logger.error(f"Registration validation error: {str(e)}")
             return render_template('register.html', error=str(e))
+        except KeyError as e:
+            logger.error(f"Missing form field: {str(e)}")
+            return render_template('register.html', error=f"Missing required field: {str(e)}")
         except Exception as e:
-            logger.error(f"Registration error: {str(e)}")
-            return render_template('register.html', error="Registration failed")
+            logger.error(f"Registration error: {str(e)}", exc_info=True)
+            return render_template('register.html', error="Registration failed. Please try again.")
             
     return render_template('register.html')
 
@@ -179,7 +248,7 @@ def login():
                 session.clear()
                 session['user_id'] = user['id']
                 session['username'] = user['username']
-                session['groq_api_key'] = user['groq_api_key']
+                session['groq_api_key'] = user.get('groq_api_key', '')  # Default to empty string if not present
                 session.permanent = True  # Make session permanent for 24 hours
                 return redirect(url_for('chat.index'))
             return render_template('login.html', error="Invalid credentials")

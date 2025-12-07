@@ -73,7 +73,7 @@ class UserModel:
     
     @staticmethod
     def create_user(username: str, useremail: str, password: str, 
-                   class_standard: str, medium: str, groq_api_key: str, role: str = 'student') -> int:
+                   class_standard: str, medium: str, groq_api_key: str = '', role: str = 'student') -> int:
         """Create a new user in the database"""
         try:
             db = get_db()
@@ -83,7 +83,7 @@ class UserModel:
                 password=password,
                 class_standard=class_standard,
                 medium=medium,
-                groq_api_key=groq_api_key,
+                groq_api_key=groq_api_key or '',  # Default to empty string if not provided
                 role=role
             )
             db.add(user)

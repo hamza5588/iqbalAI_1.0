@@ -441,6 +441,7 @@ class LessonState(TypedDict):
     lesson_in_progress: bool
     lesson_finalized: bool
     last_lesson_text: str
+    lesson_title: str
 llm_structured_output = llm.with_structured_output(LessonState)
 
 # -------------------
@@ -495,8 +496,11 @@ def chat_node(state: ChatState, config=None):
             f"- The source filename\n\n"
             f"You can also use web search, stock price, and calculator tools when helpful.\n"
             f"But for PDF-related questions, ALWAYS use rag_tool first with thread_id='{thread_id}'.\n"
-            f"When asked about the number of pages, use the num_pages or pages field from the rag_tool response."
-            f"Always retrun the responce in markdown format for better readability. recognized the equations code structure etc."
+            f"When asked about the number of pages, use the num_pages or pages field from the rag_tool response.\n"
+            f"Always return the response in markdown format for better readability. Recognize the equations code structure etc.\n\n"
+            f"IMPORTANT: When you finalize a lesson (set lesson_finalized to true), you MUST provide a meaningful lesson_title. "
+            f"The lesson_title should be a concise, descriptive title that summarizes the main topic of the lesson (e.g., 'Introduction to Newton's Laws', 'Photosynthesis: How Plants Make Food'). "
+            f"Do NOT use generic titles like 'Lesson' or 'Lesson from Chat'. Create a specific, educational title that reflects the lesson content."
         )
         
         # Combine custom prompt with default RAG instructions
@@ -534,7 +538,7 @@ def chat_node(state: ChatState, config=None):
     # Limit to latest 10 messages to avoid context window issues
     # Keep all messages if there are 10 or fewer
     conversation_messages = state["messages"]
-    max_messages = 10
+    max_messages = 8
     if len(conversation_messages) > max_messages:
         # Take only the latest 10 messages
         conversation_messages = conversation_messages[-max_messages:]
@@ -554,6 +558,7 @@ def chat_node(state: ChatState, config=None):
                     _THREAD_METADATA[thread_id_str] = {}
                 _THREAD_METADATA[thread_id_str]["lesson_finalized"] = True
                 _THREAD_METADATA[thread_id_str]["last_lesson_text"] = lesson_state.get("last_lesson_text", "")
+                _THREAD_METADATA[thread_id_str]["lesson_title"] = lesson_state.get("lesson_title", "")
                 _save_metadata()
 
         return {"messages": [response]}

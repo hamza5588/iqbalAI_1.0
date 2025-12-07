@@ -4353,7 +4353,7 @@ async function initializeApp() {
             // Check if lesson is finalized and show/hide buttons accordingly
             // Only show button when lesson_finalized is explicitly true
             if (data.lesson_finalized === true && data.last_lesson_text) {
-                showLessonFinalizedButtons(data.last_lesson_text);
+                showLessonFinalizedButtons(data.last_lesson_text, data.lesson_title || '');
             } else {
                 hideLessonFinalizedButtons();
             }
@@ -4822,7 +4822,7 @@ async function initializeApp() {
                 
                 // Check if lesson is finalized - only show button when explicitly true
                 if (data.metadata.lesson_finalized === true && data.metadata.last_lesson_text) {
-                    showLessonFinalizedButtons(data.metadata.last_lesson_text);
+                    showLessonFinalizedButtons(data.metadata.last_lesson_text, data.metadata.lesson_title || '');
                 } else {
                     hideLessonFinalizedButtons();
                 }
@@ -6203,7 +6203,7 @@ async function initializeApp() {
                 const data = await response.json();
                 // Only show button when lesson_finalized is explicitly true
                 if (data.metadata && data.metadata.lesson_finalized === true && data.metadata.last_lesson_text) {
-                    showLessonFinalizedButtons(data.metadata.last_lesson_text);
+                    showLessonFinalizedButtons(data.metadata.last_lesson_text, data.metadata.lesson_title || '');
                 } else {
                     hideLessonFinalizedButtons();
                 }
@@ -6216,7 +6216,7 @@ async function initializeApp() {
 
     // Show lesson finalized buttons (only in RAG chat mode, not on lesson view page)
     // This function should only be called when lesson_finalized is explicitly true
-    function showLessonFinalizedButtons(lessonText) {
+    function showLessonFinalizedButtons(lessonText, lessonTitle = '') {
         // Validate that we have lesson text
         if (!lessonText || !lessonText.trim()) {
             console.warn('showLessonFinalizedButtons called without lesson text');
@@ -6261,8 +6261,9 @@ async function initializeApp() {
             }
         }
         
-        // Store the lesson text for saving/downloading
+        // Store the lesson text and title for saving/downloading
         window.finalizedLessonText = lessonText;
+        window.finalizedLessonTitle = lessonTitle || `Lesson from Chat - ${new Date().toLocaleDateString()}`;
     }
 
     // Hide lesson finalized buttons
@@ -6290,6 +6291,9 @@ async function initializeApp() {
         showFullPageLoading('Saving lesson...');
 
         try {
+            // Use the lesson title from metadata if available, otherwise generate one
+            const lessonTitle = window.finalizedLessonTitle || `Lesson from Chat - ${new Date().toLocaleDateString()}`;
+            
             // Create a lesson from the finalized text
             const response = await authenticatedFetch('/api/lessons/create', {
                 method: 'POST',
@@ -6297,7 +6301,7 @@ async function initializeApp() {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    title: `Lesson from Chat - ${new Date().toLocaleDateString()}`,
+                    title: lessonTitle,
                     content: window.finalizedLessonText,
                     lesson_prompt: '',
                     focus_area: 'General',
@@ -6366,6 +6370,9 @@ async function initializeApp() {
         showFullPageLoading(`Preparing ${fileType} download...`);
 
         try {
+            // Use the lesson title from metadata if available, otherwise generate one
+            const lessonTitle = window.finalizedLessonTitle || `Lesson from Chat - ${new Date().toLocaleDateString()}`;
+            
             // First save the lesson, then download it
             const saveResponse = await authenticatedFetch('/api/lessons/create', {
                 method: 'POST',
@@ -6373,7 +6380,7 @@ async function initializeApp() {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    title: `Lesson from Chat - ${new Date().toLocaleDateString()}`,
+                    title: lessonTitle,
                     content: window.finalizedLessonText,
                     lesson_prompt: '',
                     focus_area: 'General',
