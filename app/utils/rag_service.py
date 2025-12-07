@@ -42,7 +42,6 @@ llm = ChatOpenAI(
             openai_api_base=vllm_api_base,
             model_name=vllm_model,
             temperature=0.7,
-            max_tokens=1024,
         )
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
@@ -434,7 +433,15 @@ llm_with_tools = llm.bind_tools(tools)
 # -------------------
 class ChatState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
+    lesson_in_progress: bool
+    lesson_finalized: bool
+    last_lesson_text: str
 
+class LessonState(TypedDict):
+    lesson_in_progress: bool
+    lesson_finalized: bool
+    last_lesson_text: str
+llm_structured_output = llm.with_structured_output(LessonState)
 
 # -------------------
 # 6. Nodes
@@ -524,9 +531,31 @@ def chat_node(state: ChatState, config=None):
                 )
             )
 
-    messages = [system_message, *state["messages"]]
+    # Limit to latest 10 messages to avoid context window issues
+    # Keep all messages if there are 10 or fewer
+    conversation_messages = state["messages"]
+    max_messages = 10
+    if len(conversation_messages) > max_messages:
+        # Take only the latest 10 messages
+        conversation_messages = conversation_messages[-max_messages:]
+        logger.debug(f"Limited conversation history to latest {max_messages} messages to avoid context window issues")
+    
+    messages = [system_message, *conversation_messages]
+
     try:
         response = llm_with_tools.invoke(messages, config=config)
+        lesson_state = llm_structured_output.invoke(messages, config=config)
+      
+        # lesson_state is a dict (TypedDict), so access it with dictionary syntax
+        if lesson_state.get("lesson_finalized", False):
+            # Update the lesson state
+            if thread_id_str:
+                if thread_id_str not in _THREAD_METADATA:
+                    _THREAD_METADATA[thread_id_str] = {}
+                _THREAD_METADATA[thread_id_str]["lesson_finalized"] = True
+                _THREAD_METADATA[thread_id_str]["last_lesson_text"] = lesson_state.get("last_lesson_text", "")
+                _save_metadata()
+
         return {"messages": [response]}
     except Exception as e:
         # Handle connection errors and other API failures
@@ -608,6 +637,36 @@ def thread_document_metadata(thread_id: str) -> dict:
         _load_metadata()
     
     return _THREAD_METADATA.get(thread_id_str, {})
+
+
+def update_lesson_finalized_status(thread_id: str, finalized: bool) -> bool:
+    """
+    Update the lesson finalized status for a thread.
+    
+    Args:
+        thread_id: The thread ID to update
+        finalized: Boolean indicating if the lesson is finalized
+        
+    Returns:
+        True if the update was successful, False if thread not found
+    """
+    thread_id_str = str(thread_id)
+    
+    # Reload metadata if not in memory
+    if thread_id_str not in _THREAD_METADATA:
+        _load_metadata()
+    
+    # Check if thread exists
+    if thread_id_str not in _THREAD_METADATA:
+        return False
+    
+    # Update the finalized status
+    _THREAD_METADATA[thread_id_str]["lesson_finalized"] = finalized
+    
+    # Save metadata to disk
+    _save_metadata()
+    
+    return True
 
 # Load metadata on module import
 _load_metadata()

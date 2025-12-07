@@ -45,6 +45,67 @@
   
   <!-- Custom styles for Markdown content -->
   <style>
+    /* Lesson Finalized Buttons Styles */
+    .lesson-finalized-btn {
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      border: none;
+      cursor: pointer;
+      outline: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    .lesson-finalized-btn:focus {
+      outline: 2px solid rgba(59, 130, 246, 0.5);
+      outline-offset: 2px;
+    }
+    
+    .lesson-finalized-btn-save {
+      background-color: #10B981 !important;
+    }
+    
+    .lesson-finalized-btn-save:hover {
+      background-color: #059669 !important;
+      box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);
+    }
+    
+    .lesson-finalized-btn-docx {
+      background-color: #3B82F6 !important;
+    }
+    
+    .lesson-finalized-btn-docx:hover {
+      background-color: #2563EB !important;
+      box-shadow: 0 4px 6px rgba(59, 130, 246, 0.3);
+    }
+    
+    .lesson-finalized-btn-pdf {
+      background-color: #EF4444 !important;
+    }
+    
+    .lesson-finalized-btn-pdf:hover {
+      background-color: #DC2626 !important;
+      box-shadow: 0 4px 6px rgba(239, 68, 68, 0.3);
+    }
+    
+    /* Responsive adjustments for lesson finalized buttons */
+    @media (max-width: 767px) {
+      #ragLessonFinalizedButtons .lesson-finalized-btn {
+        width: 100%;
+        max-width: 100%;
+      }
+    }
+    
+    @media (min-width: 768px) and (max-width: 1024px) {
+      #ragLessonFinalizedButtons .flex {
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+      
+      #ragLessonFinalizedButtons .lesson-finalized-btn {
+        flex: 0 0 calc(50% - 8px);
+        max-width: calc(50% - 8px);
+      }
+    }
+    
     /* Enhanced Prose Styles */
     .prose {
       color: #374151;
@@ -743,6 +804,10 @@
 
         <!-- Input Area -->
         <div id="chatInputArea" class="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 border-t border-gray-100">
+            <!-- Save and Download Buttons (hidden - save button moved to sidebar) -->
+            <div id="ragLessonFinalizedButtons" class="hidden mb-6 sm:mb-8 px-3 sm:px-4 lg:px-6">
+                <!-- This section is now hidden - Save Lesson button moved to sidebar -->
+            </div>
             <!-- Finalize Button for Lesson Chat (hidden by default) -->
             <div id="lessonChatFinalizeBtn" class="hidden mb-3 flex justify-center">
                 <button onclick="finalizeLessonFromChat()"
@@ -3299,6 +3364,9 @@ async function initializeApp() {
             chatInputArea.classList.add('hidden');
         }
         
+        // Hide lesson finalized buttons when viewing lessons
+        hideLessonFinalizedButtons();
+        
         // Update chat header
         document.getElementById('chatTitle').textContent = userRole === 'teacher' ? 'My Lessons' : 'Browse Lessons';
         document.getElementById('chatStatus').textContent = 'View Available Lessons';
@@ -4214,6 +4282,11 @@ async function initializeApp() {
                 promptBtn.classList.remove('hidden');
             }
         });
+
+        // Check if lesson is finalized for this thread
+        if (threadId) {
+            checkThreadLessonStatus(threadId);
+        }
         
         // Add welcome message only when uploading a new file (filename provided)
         // When switching threads (filename is null), don't add message here - 
@@ -4276,6 +4349,14 @@ async function initializeApp() {
             
             // Add the AI message to chat
             addMessageToChat('ai', aiResponse);
+            
+            // Check if lesson is finalized and show/hide buttons accordingly
+            // Only show button when lesson_finalized is explicitly true
+            if (data.lesson_finalized === true && data.last_lesson_text) {
+                showLessonFinalizedButtons(data.last_lesson_text);
+            } else {
+                hideLessonFinalizedButtons();
+            }
             
             // Automatically speak the response if voice output is enabled
             if (isVoiceOutputEnabled || isRecording) {
@@ -4738,16 +4819,25 @@ async function initializeApp() {
                 document.getElementById('chatStatus').textContent = `Document: ${filename}`;
                 // Add default message for thread with document
                 addMessageToChat('ai', `PDF "${filename}" loaded. You can now ask questions about it.`);
+                
+                // Check if lesson is finalized - only show button when explicitly true
+                if (data.metadata.lesson_finalized === true && data.metadata.last_lesson_text) {
+                    showLessonFinalizedButtons(data.metadata.last_lesson_text);
+                } else {
+                    hideLessonFinalizedButtons();
+                }
             } else {
                 document.getElementById('chatStatus').textContent = 'PDF Document Chat';
                 // Add default message for thread without document
                 addMessageToChat('ai', 'Thread loaded. Upload a document to start chatting.');
+                hideLessonFinalizedButtons();
             }
         })
         .catch(error => {
             console.error('Error loading thread info:', error);
             // Add default message even on error
             addMessageToChat('ai', 'Thread loaded. Upload a document to start chatting.');
+            hideLessonFinalizedButtons();
         });
     }
 
@@ -6100,6 +6190,250 @@ async function initializeApp() {
         }
     }
 
+    // Check thread lesson status
+    async function checkThreadLessonStatus(threadId) {
+        if (!threadId) return;
+        
+        try {
+            const response = await authenticatedFetch(`/api/rag/thread/status/${encodeURIComponent(threadId)}`, {
+                method: 'GET'
+            });
+            
+            if (response && response.ok) {
+                const data = await response.json();
+                // Only show button when lesson_finalized is explicitly true
+                if (data.metadata && data.metadata.lesson_finalized === true && data.metadata.last_lesson_text) {
+                    showLessonFinalizedButtons(data.metadata.last_lesson_text);
+                } else {
+                    hideLessonFinalizedButtons();
+                }
+            }
+        } catch (error) {
+            console.error('Error checking thread lesson status:', error);
+            hideLessonFinalizedButtons();
+        }
+    }
+
+    // Show lesson finalized buttons (only in RAG chat mode, not on lesson view page)
+    // This function should only be called when lesson_finalized is explicitly true
+    function showLessonFinalizedButtons(lessonText) {
+        // Validate that we have lesson text
+        if (!lessonText || !lessonText.trim()) {
+            console.warn('showLessonFinalizedButtons called without lesson text');
+            hideLessonFinalizedButtons();
+            return;
+        }
+        
+        // Only show buttons in RAG chat mode, not when viewing lessons or in lesson generator
+        if (isRAGChatMode && currentView === 'chat' && currentView !== 'viewLessons' && currentView !== 'lessonGenerator') {
+            const ragFinalizedButtons = document.getElementById('ragLessonFinalizedButtons');
+            if (ragFinalizedButtons) {
+                ragFinalizedButtons.classList.remove('hidden');
+            }
+            
+            // Add save lesson button below the last AI message
+            if (window.lastAIMessage) {
+                // Remove any existing save button from this message
+                const existingSaveBtn = window.lastAIMessage.querySelector('.save-lesson-button-container');
+                if (existingSaveBtn) {
+                    existingSaveBtn.remove();
+                }
+                
+                // Create save button container
+                const saveButtonContainer = document.createElement('div');
+                saveButtonContainer.className = 'save-lesson-button-container mt-4 pt-4 border-t border-gray-200';
+                saveButtonContainer.innerHTML = `
+                    <div class="flex justify-center">
+                        <button onclick="saveFinalizedLesson()"
+                            class="px-6 py-3 bg-[#05B0FC] hover:bg-blue-600 text-white rounded-lg transition-all duration-200 font-medium flex items-center justify-center gap-2 shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98]"
+                            style="font-size: 15px; font-weight: 500;">
+                            <i class="fas fa-save" style="font-size: 18px;"></i>
+                            <span>Save Lesson</span>
+                        </button>
+                    </div>
+                `;
+                
+                // Add button below the message bubble
+                const messageBubble = window.lastAIMessage.querySelector('.message-bubble');
+                if (messageBubble) {
+                    messageBubble.appendChild(saveButtonContainer);
+                }
+            }
+        }
+        
+        // Store the lesson text for saving/downloading
+        window.finalizedLessonText = lessonText;
+    }
+
+    // Hide lesson finalized buttons
+    function hideLessonFinalizedButtons() {
+        // Hide buttons in RAG chat area
+        const ragFinalizedButtons = document.getElementById('ragLessonFinalizedButtons');
+        if (ragFinalizedButtons) {
+            ragFinalizedButtons.classList.add('hidden');
+        }
+        
+        // Remove save lesson button from all messages
+        const saveButtonContainers = document.querySelectorAll('.save-lesson-button-container');
+        saveButtonContainers.forEach(container => {
+            container.remove();
+        });
+    }
+
+    // Save finalized lesson
+    async function saveFinalizedLesson() {
+        if (!window.finalizedLessonText) {
+            showNotification('No lesson content to save', 'error');
+            return;
+        }
+
+        showFullPageLoading('Saving lesson...');
+
+        try {
+            // Create a lesson from the finalized text
+            const response = await authenticatedFetch('/api/lessons/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    title: `Lesson from Chat - ${new Date().toLocaleDateString()}`,
+                    content: window.finalizedLessonText,
+                    lesson_prompt: '',
+                    focus_area: 'General',
+                    grade_level: 'General',
+                    summary: 'Lesson generated from chat conversation'
+                })
+            });
+
+            hideFullPageLoading();
+
+            if (!response) {
+                showNotification('Authentication error. Please login again.', 'error');
+                return;
+            }
+
+            if (response.ok) {
+                const data = await response.json();
+                showNotification('Lesson saved successfully!', 'success');
+                
+                // Set lesson_finalized to false after saving
+                if (currentRAGThreadId) {
+                    try {
+                        const updateResponse = await authenticatedFetch(`/api/rag/thread/${encodeURIComponent(currentRAGThreadId)}/lesson-finalized`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                finalized: false
+                            })
+                        });
+                        
+                        if (updateResponse && updateResponse.ok) {
+                            // Hide the save button since lesson is no longer finalized
+                            hideLessonFinalizedButtons();
+                        }
+                    } catch (error) {
+                        console.error('Error updating lesson finalized status:', error);
+                        // Don't show error to user as lesson was already saved successfully
+                    }
+                }
+                
+                // Optionally navigate to My Lessons
+                setTimeout(() => {
+                    openViewLessons();
+                }, 1500);
+            } else {
+                const errorData = await response.json().catch(() => ({ error: 'Failed to save lesson' }));
+                showNotification(errorData.error || 'Failed to save lesson', 'error');
+            }
+        } catch (error) {
+            hideFullPageLoading();
+            console.error('Error saving lesson:', error);
+            showNotification('Error saving lesson. Please try again.', 'error');
+        }
+    }
+
+    // Download finalized lesson
+    async function downloadFinalizedLesson(format) {
+        if (!window.finalizedLessonText) {
+            showNotification('No lesson content to download', 'error');
+            return;
+        }
+
+        const fileType = format === 'pdf' ? 'PDF' : 'DOCX';
+        showFullPageLoading(`Preparing ${fileType} download...`);
+
+        try {
+            // First save the lesson, then download it
+            const saveResponse = await authenticatedFetch('/api/lessons/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    title: `Lesson from Chat - ${new Date().toLocaleDateString()}`,
+                    content: window.finalizedLessonText,
+                    lesson_prompt: '',
+                    focus_area: 'General',
+                    grade_level: 'General',
+                    summary: 'Lesson generated from chat conversation'
+                })
+            });
+
+            if (!saveResponse || !saveResponse.ok) {
+                hideFullPageLoading();
+                showNotification('Failed to prepare lesson for download', 'error');
+                return;
+            }
+
+            const lessonData = await saveResponse.json();
+            const lessonId = lessonData.lesson?.id || lessonData.id;
+
+            if (!lessonId) {
+                hideFullPageLoading();
+                showNotification('Failed to get lesson ID for download', 'error');
+                return;
+            }
+
+            // Now download the lesson
+            let downloadUrl;
+            if (format === 'pdf') {
+                downloadUrl = `/api/lessons/download_lesson_pdf/${lessonId}`;
+            } else {
+                downloadUrl = `/api/lessons/download_lesson/${lessonId}`;
+            }
+
+            const downloadResponse = await fetch(downloadUrl, {
+                method: 'GET',
+                credentials: 'include'
+            });
+
+            if (downloadResponse.ok) {
+                const blob = await downloadResponse.blob();
+                const a = document.createElement('a');
+                a.href = window.URL.createObjectURL(blob);
+                a.download = `Lesson_${new Date().toISOString().split('T')[0]}.${format}`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(a.href);
+                a.remove();
+
+                hideFullPageLoading();
+                showNotification(`Lesson downloaded as ${fileType}!`, 'success');
+            } else {
+                const errorData = await downloadResponse.json().catch(() => ({ error: 'Error downloading lesson' }));
+                hideFullPageLoading();
+                showNotification(errorData.error || 'Error downloading lesson', 'error');
+            }
+        } catch (error) {
+            hideFullPageLoading();
+            console.error('Error downloading lesson:', error);
+            showNotification('Error downloading lesson. Please try again.', 'error');
+        }
+    }
+
     function startNewLesson() {
             // Reset lesson state completely (including finalized state)
         currentLessonData = null;
@@ -6212,6 +6546,11 @@ async function initializeApp() {
                     downloadBtn.classList.add('hidden');
                 }
             }
+        
+        // Hide lesson finalized buttons when switching away from chat
+        if (tabType !== 'chat') {
+            hideLessonFinalizedButtons();
+        }
         
         // Show selected content area
         currentView = tabType;
@@ -8301,6 +8640,17 @@ async function initializeApp() {
                     <div class="text-gray-700 leading-relaxed prose max-w-none markdown-content">${formattedMessage}</div>
                 </div>
             `;
+            
+            // Remove save button from previous AI message if it exists
+            if (window.lastAIMessage) {
+                const existingSaveBtn = window.lastAIMessage.querySelector('.save-lesson-button-container');
+                if (existingSaveBtn) {
+                    existingSaveBtn.remove();
+                }
+            }
+            
+            // Store reference to last AI message for potential save button placement
+            window.lastAIMessage = messageDiv;
         }
 
         chatMessages.appendChild(messageDiv);

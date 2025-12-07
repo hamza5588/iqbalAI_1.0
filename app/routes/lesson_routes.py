@@ -213,6 +213,64 @@ def create_lesson():
         logger.error(f"Exception details:", exc_info=True)
         return jsonify({'error': f'Failed to process request: {str(e)}'}), 500
 
+@bp.route('/create', methods=['POST'])
+@login_required
+def create_lesson_simple():
+    """Create a lesson from JSON data (for finalized lessons from chat)"""
+    try:
+        if 'user_id' not in session:
+            return jsonify({'error': 'Not authenticated'}), 401
+        
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        title = data.get('title', '').strip()
+        content = data.get('content', '').strip()
+        focus_area = data.get('focus_area', 'General')
+        grade_level = data.get('grade_level', 'General')
+        summary = data.get('summary', '') or data.get('additional_notes', '')
+        
+        if not title:
+            return jsonify({'error': 'Title is required'}), 400
+        
+        if not content:
+            return jsonify({'error': 'Content is required'}), 400
+        
+        # Check if lesson title already exists for this teacher
+        if LessonModel.check_title_exists(session['user_id'], title):
+            return jsonify({'error': 'This lesson title is already used. Please choose a different title.'}), 400
+        
+        # Create the lesson
+        lesson_id = LessonModel.create_lesson(
+            teacher_id=session['user_id'],
+            title=title,
+            summary=summary or f"Lesson on {focus_area} for {grade_level}",
+            learning_objectives='',
+            content=content,
+            grade_level=grade_level,
+            focus_area=focus_area,
+            is_public=True,
+            status='finalized'
+        )
+        
+        if not lesson_id:
+            return jsonify({'error': 'Failed to save lesson to database'}), 500
+        
+        # Get the created lesson
+        lesson = LessonModel.get_lesson_by_id(lesson_id)
+        
+        return jsonify({
+            'success': True,
+            'lesson': lesson,
+            'id': lesson_id,
+            'message': 'Lesson saved successfully'
+        })
+        
+    except Exception as e:
+        logger.error(f"Error creating lesson: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to create lesson: {str(e)}'}), 500
+
 @bp.route('/ask_question_general', methods=['POST'])
 @login_required
 def ask_general_question():

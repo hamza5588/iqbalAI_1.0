@@ -4,7 +4,8 @@ from app.utils.rag_service import (
     ingest_pdf,
     chatbot,
     thread_has_document,
-    thread_document_metadata
+    thread_document_metadata,
+    update_lesson_finalized_status
 )
 from app.utils.db import get_db
 from app.models.database_models import RAGThread, RAGPrompt
@@ -249,11 +250,18 @@ def chat():
             else:
                 response_content = str(last_msg)
 
+        # Get thread metadata to check if lesson is finalized
+        metadata = thread_document_metadata(thread_id)
+        lesson_finalized = metadata.get("lesson_finalized", False)
+        last_lesson_text = metadata.get("last_lesson_text", "")
+
         return jsonify({
             'success': True,
             'message': response_content,
             'thread_id': thread_id,
-            'has_document': thread_has_document(thread_id)
+            'has_document': thread_has_document(thread_id),
+            'lesson_finalized': lesson_finalized,
+            'last_lesson_text': last_lesson_text
         })
 
     except Exception as e:
@@ -502,4 +510,49 @@ def delete_rag_prompt():
     except Exception as e:
         logger.error(f"Error deleting RAG prompt: {str(e)}")
         return jsonify({'error': f'Failed to delete prompt: {str(e)}'}), 500
+
+
+@bp.route('/thread/<thread_id>/lesson-finalized', methods=['PUT'])
+@login_required
+def update_lesson_finalized(thread_id):
+    """
+    Update the lesson_finalized status for a thread.
+    Expects JSON with 'finalized' boolean field.
+    """
+    try:
+        if 'user_id' not in session:
+            return jsonify({'error': 'Not authenticated'}), 401
+
+        user_id = session['user_id']
+        
+        # Validate thread_id belongs to this user
+        if not _validate_thread_id(thread_id, user_id):
+            return jsonify({'error': 'Access denied. You can only access your own threads.'}), 403
+
+        data = request.get_json()
+        if not data:
+            return jsonify({'error': 'No data provided'}), 400
+        
+        finalized = data.get('finalized')
+        if not isinstance(finalized, bool):
+            return jsonify({'error': 'finalized must be a boolean value'}), 400
+
+        # Update the status
+        success = update_lesson_finalized_status(thread_id, finalized)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': f'Lesson finalized status updated to {finalized}',
+                'thread_id': thread_id,
+                'finalized': finalized
+            })
+        else:
+            return jsonify({
+                'error': 'Thread not found or no document associated with this thread'
+            }), 404
+
+    except Exception as e:
+        logger.error(f"Error updating lesson finalized status: {str(e)}")
+        return jsonify({'error': f'Failed to update lesson finalized status: {str(e)}'}), 500
 
