@@ -1228,6 +1228,30 @@
             </div>
         </div>
 
+        <!-- Text Selection Modal -->
+        <div id="textSelectionModal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/30 backdrop-blur-sm"></div>
+            <div class="relative bg-white/95 backdrop-blur-md rounded-3xl shadow-2xl border border-white/20 max-w-4xl w-full max-h-[85vh] flex flex-col transform transition-all duration-300 animate-modalSlideIn" style="box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3); animation: modalSlideIn 0.3s ease-out;">
+                <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200/50">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-gradient-to-br from-[#05B0FC] to-blue-600 rounded-full flex items-center justify-center">
+                            <i class="fas fa-eye text-white text-lg"></i>
+                        </div>
+                        <h4 class="font-bold text-gray-800 text-lg">Selected Text</h4>
+                    </div>
+                    <button class="text-gray-500 hover:text-gray-700 p-2 hover:bg-gray-100/50 rounded-full transition-colors" onclick="closeTextSelectionModal()" aria-label="Close">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                <div class="flex-1 overflow-auto p-8">
+                    <div id="selectedTextContent" class="text-gray-800 leading-relaxed" style="font-size: 1.5rem; line-height: 1.8;"></div>
+                </div>
+                <div class="px-6 py-4 border-t border-gray-200/50 flex justify-end">
+                    <button class="px-6 py-2.5 bg-gradient-to-r from-[#05B0FC] to-blue-600 text-white rounded-lg hover:from-blue-600 hover:to-blue-700 transition-all duration-200 text-sm font-semibold shadow-lg hover:shadow-xl" onclick="closeTextSelectionModal()">Close</button>
+                </div>
+            </div>
+        </div>
+
             <!-- Step 3: Generated Lesson Display -->
                 <div id="lessonDisplay"
                     class="hidden w-full mx-auto p-2 sm:p-4 lg:p-6">
@@ -3627,6 +3651,277 @@ async function initializeApp() {
         const modal = document.getElementById('pdfTextModal');
         if (modal) modal.classList.add('hidden');
     }
+
+    // Text Selection Modal Functions - Make them globally accessible
+    window.openTextSelectionModal = function(selectedText) {
+        const modal = document.getElementById('textSelectionModal');
+        const content = document.getElementById('selectedTextContent');
+        console.log('Attempting to open modal:', { modal: !!modal, content: !!content, selectedText: !!selectedText });
+        
+        if (modal && content && selectedText) {
+            // Ensure modal is appended to body (not inside any container that might hide it)
+            if (modal.parentElement !== document.body) {
+                document.body.appendChild(modal);
+                console.log('Modal moved to body');
+            }
+            
+            // Clean the text and preserve line breaks
+            const cleanedText = selectedText.trim().replace(/\s+/g, ' ');
+            content.textContent = cleanedText;
+            
+            // Remove hidden class
+            modal.classList.remove('hidden');
+            
+            // Force all visibility properties with !important
+            modal.style.setProperty('display', 'flex', 'important');
+            modal.style.setProperty('visibility', 'visible', 'important');
+            modal.style.setProperty('opacity', '1', 'important');
+            modal.style.setProperty('z-index', '99999', 'important');
+            modal.style.setProperty('position', 'fixed', 'important');
+            modal.style.setProperty('top', '0', 'important');
+            modal.style.setProperty('left', '0', 'important');
+            modal.style.setProperty('right', '0', 'important');
+            modal.style.setProperty('bottom', '0', 'important');
+            modal.style.setProperty('width', '100vw', 'important');
+            modal.style.setProperty('height', '100vh', 'important');
+            modal.style.setProperty('margin', '0', 'important');
+            modal.style.setProperty('padding', '1rem', 'important');
+            
+            // Ensure backdrop is visible
+            const backdrop = modal.querySelector('.bg-black\\/30');
+            if (backdrop) {
+                backdrop.style.setProperty('display', 'block', 'important');
+                backdrop.style.setProperty('visibility', 'visible', 'important');
+                backdrop.style.setProperty('opacity', '0.3', 'important');
+                backdrop.style.setProperty('position', 'absolute', 'important');
+                backdrop.style.setProperty('top', '0', 'important');
+                backdrop.style.setProperty('left', '0', 'important');
+                backdrop.style.setProperty('right', '0', 'important');
+                backdrop.style.setProperty('bottom', '0', 'important');
+                backdrop.style.setProperty('width', '100%', 'important');
+                backdrop.style.setProperty('height', '100%', 'important');
+            }
+            
+            // Ensure modal content is visible
+            const modalContent = modal.querySelector('.relative.bg-white\\/95');
+            if (modalContent) {
+                modalContent.style.setProperty('display', 'flex', 'important');
+                modalContent.style.setProperty('visibility', 'visible', 'important');
+                modalContent.style.setProperty('opacity', '1', 'important');
+                modalContent.style.setProperty('z-index', '100000', 'important');
+                modalContent.style.setProperty('position', 'relative', 'important');
+                // Prevent clicks on modal content from closing the modal
+                modalContent.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                });
+            }
+            
+            // Use requestAnimationFrame to ensure the modal is rendered
+            requestAnimationFrame(() => {
+                // Double-check all visibility
+                if (modal.classList.contains('hidden')) {
+                    modal.classList.remove('hidden');
+                }
+                modal.style.setProperty('display', 'flex', 'important');
+                modal.style.setProperty('visibility', 'visible', 'important');
+                modal.style.setProperty('opacity', '1', 'important');
+                modal.style.setProperty('z-index', '99999', 'important');
+                
+                // Debug: Check computed styles
+                const computedStyle = window.getComputedStyle(modal);
+                const rect = modal.getBoundingClientRect();
+                console.log('Text selection modal opened successfully with text:', cleanedText.substring(0, 50) + '...');
+                console.log('Modal display style:', modal.style.display, 'Modal classes:', modal.className);
+                console.log('Modal computed style:', {
+                    display: computedStyle.display,
+                    visibility: computedStyle.visibility,
+                    opacity: computedStyle.opacity,
+                    zIndex: computedStyle.zIndex,
+                    position: computedStyle.position,
+                    top: computedStyle.top,
+                    left: computedStyle.left,
+                    width: computedStyle.width,
+                    height: computedStyle.height
+                });
+                console.log('Modal bounding rect:', rect);
+                console.log('Modal is in viewport:', rect.width > 0 && rect.height > 0);
+                
+                // If modal is still not visible, try a different approach
+                if (rect.width === 0 || rect.height === 0) {
+                    console.warn('Modal has zero dimensions, trying alternative approach...');
+                    // Force a reflow
+                    void modal.offsetHeight;
+                    modal.style.setProperty('display', 'none', 'important');
+                    setTimeout(() => {
+                        modal.style.setProperty('display', 'flex', 'important');
+                    }, 10);
+                }
+            });
+        } else {
+            console.error('Failed to open text selection modal:', { 
+                modal: !!modal, 
+                content: !!content, 
+                selectedText: !!selectedText,
+                modalElement: modal,
+                contentElement: content
+            });
+        }
+    };
+
+    window.closeTextSelectionModal = function() {
+        const modal = document.getElementById('textSelectionModal');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.style.setProperty('display', 'none', 'important');
+            modal.style.setProperty('visibility', 'hidden', 'important');
+            console.log('Text selection modal closed');
+        }
+    };
+    
+    // Also create local references for backward compatibility
+    const openTextSelectionModal = window.openTextSelectionModal;
+    const closeTextSelectionModal = window.closeTextSelectionModal;
+
+    // Handle text selection in chat messages
+    function setupTextSelection() {
+        console.log('Setting up text selection handler...');
+        
+        // Function to handle text selection
+        function handleTextSelection(e) {
+            // Clear any pending timeout
+            if (window.selectionTimeout) {
+                clearTimeout(window.selectionTimeout);
+            }
+            
+            // Small delay to ensure selection is complete
+            window.selectionTimeout = setTimeout(() => {
+                const selection = window.getSelection();
+                const selectedText = selection.toString().trim();
+
+                // Only open modal if there's actual text selected (more than just whitespace)
+                if (selectedText && selectedText.length > 0) {
+                    // Check if selection is within chat messages area
+                    const chatMessagesEl = document.getElementById('chatMessages');
+                    const isInChatArea = chatMessagesEl && chatMessagesEl.contains(e.target);
+                    
+                    // Also check for message-related elements
+                    const messageBubble = e.target.closest('.message-bubble');
+                    const messageContainer = e.target.closest('.message-container');
+                    const markdownContent = e.target.closest('.markdown-content');
+                    const prose = e.target.closest('.prose');
+                    
+                    // Open modal if selection is in any message area or chat area
+                    if (isInChatArea || messageBubble || messageContainer || markdownContent || prose) {
+                        // Store the selected text immediately before it might be cleared
+                        const textToShow = selectedText;
+                        console.log('Text selected in chat area:', textToShow.substring(0, 50) + '...');
+                        openTextSelectionModal(textToShow);
+                    }
+                }
+            }, 300);
+        }
+
+        // Set up event listener on document level for all mouseup events
+        // This ensures it works for dynamically added content
+        document.addEventListener('mouseup', function(e) {
+            // Check if we're in the chat messages area
+            const chatMessagesEl = document.getElementById('chatMessages');
+            if (chatMessagesEl && chatMessagesEl.contains(e.target)) {
+                handleTextSelection(e);
+            }
+        }, true); // Use capture phase to catch events earlier
+        
+        // Also listen for selectionchange event as a backup
+        let lastSelectedText = '';
+        document.addEventListener('selectionchange', function() {
+            const selection = window.getSelection();
+            const selectedText = selection.toString().trim();
+            
+            // Only process if selection actually changed and has content
+            if (selectedText && selectedText.length > 0 && selectedText !== lastSelectedText) {
+                const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+                if (range) {
+                    const chatMessagesEl = document.getElementById('chatMessages');
+                    const container = range.commonAncestorContainer;
+                    const isInChat = chatMessagesEl && (
+                        chatMessagesEl.contains(container.nodeType === 3 ? container.parentElement : container)
+                    );
+                    
+                    if (isInChat) {
+                        // Debounce selection change
+                        if (window.selectionChangeTimeout) {
+                            clearTimeout(window.selectionChangeTimeout);
+                        }
+                        window.selectionChangeTimeout = setTimeout(() => {
+                            const currentSelection = window.getSelection().toString().trim();
+                            if (currentSelection && currentSelection.length > 0 && currentSelection !== lastSelectedText) {
+                                lastSelectedText = currentSelection;
+                                console.log('Selection change detected in chat:', currentSelection.substring(0, 50) + '...');
+                                // Only open if modal is not already open
+                                const modal = document.getElementById('textSelectionModal');
+                                if (modal && modal.classList.contains('hidden')) {
+                                    openTextSelectionModal(currentSelection);
+                                }
+                            }
+                        }, 500);
+                    }
+                }
+            } else if (!selectedText) {
+                lastSelectedText = '';
+            }
+        });
+
+        // Close modal when clicking on backdrop
+        const modal = document.getElementById('textSelectionModal');
+        if (modal) {
+            const backdrop = modal.querySelector('.bg-black\\/30');
+            if (backdrop) {
+                // Use modal itself to detect backdrop clicks (clicks that don't hit modal content)
+                modal.addEventListener('click', function(e) {
+                    // If click is directly on the modal container (backdrop area), close it
+                    if (e.target === modal || e.target === backdrop) {
+                        closeTextSelectionModal();
+                    }
+                });
+            }
+        }
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById('textSelectionModal');
+                if (modal && !modal.classList.contains('hidden')) {
+                    closeTextSelectionModal();
+                }
+            }
+        });
+    }
+
+    // Initialize text selection when DOM is ready
+    function initializeTextSelection() {
+        // Try to set up immediately
+        setupTextSelection();
+        
+        // Also try after a short delay in case elements aren't ready yet
+        setTimeout(() => {
+            setupTextSelection();
+        }, 500);
+        
+        // Retry after DOM is fully loaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                setupTextSelection();
+            });
+        }
+    }
+    
+    // Initialize when script loads
+    initializeTextSelection();
+    
+    // Also initialize when window loads (as a fallback)
+    window.addEventListener('load', () => {
+        setupTextSelection();
+    });
 
 
         // Function to start a completely new lesson (clears everything including file)
@@ -11332,6 +11627,10 @@ async function initializeApp() {
         opacity: 1;
         transform: translateY(0) scale(1);
       }
+    }
+
+    .animate-modalSlideIn {
+      animation: modalSlideIn 0.3s ease-out;
     }
   </style>
 

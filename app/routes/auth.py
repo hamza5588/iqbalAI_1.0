@@ -188,30 +188,23 @@ def register():
             # Get all required form fields with validation
             username = request.form.get('username')
             password = request.form.get('password')
-            class_standard = request.form.get('class_standard', '').strip()
-            medium = request.form.get('medium', '').strip()
+            class_standard = request.form.get('class_standard')
+            medium = request.form.get('medium')
             groq_api_key = request.form.get('groq_api_key', '')  # Optional field - defaults to empty string
             role = request.form.get('role')
             
-            # Validate required fields
+            # Validate required fields (groq_api_key is optional, so not included in validation)
             missing_fields = []
             if not username:
                 missing_fields.append('username')
             if not password:
                 missing_fields.append('password')
-            if not role:
-                missing_fields.append('role')
-            
-            # class_standard is required only for students, optional for teachers
-            if role == 'student' and not class_standard:
+            if not class_standard:
                 missing_fields.append('class_standard')
-            elif role == 'teacher' and not class_standard:
-                # For teachers, set a default value if not provided
-                class_standard = 'N/A'
-            
-            # medium is required for all roles
             if not medium:
                 missing_fields.append('medium')
+            if not role:
+                missing_fields.append('role')
             
             if missing_fields:
                 logger.error(f"Missing required fields: {missing_fields}")

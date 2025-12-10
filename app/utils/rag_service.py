@@ -535,59 +535,122 @@ def chat_node(state: ChatState, config=None):
                 )
             )
 
-    # Limit to latest 10 messages to avoid context window issues
-    # Keep all messages if there are 10 or fewer
+    # Progressive message reduction on token errors
     conversation_messages = state["messages"]
-    max_messages = 8
-    if len(conversation_messages) > max_messages:
-        # Take only the latest 10 messages
-        conversation_messages = conversation_messages[-max_messages:]
-        logger.debug(f"Limited conversation history to latest {max_messages} messages to avoid context window issues")
+    initial_max_messages = 7  # Start with 7 messages
+    max_attempts = 4  # Try with 7, 5, 3, 1 messages
     
-    messages = [system_message, *conversation_messages]
-
-    try:
-        response = llm_with_tools.invoke(messages, config=config)
-        lesson_state = llm_structured_output.invoke(messages, config=config)
-      
-        # lesson_state is a dict (TypedDict), so access it with dictionary syntax
-        if lesson_state.get("lesson_finalized", False):
-            # Update the lesson state
-            if thread_id_str:
-                if thread_id_str not in _THREAD_METADATA:
-                    _THREAD_METADATA[thread_id_str] = {}
-                _THREAD_METADATA[thread_id_str]["lesson_finalized"] = True
-                _THREAD_METADATA[thread_id_str]["last_lesson_text"] = lesson_state.get("last_lesson_text", "")
-                _THREAD_METADATA[thread_id_str]["lesson_title"] = lesson_state.get("lesson_title", "")
-                _save_metadata()
-
-        return {"messages": [response]}
-    except Exception as e:
-        # Handle connection errors and other API failures
-        error_msg = str(e)
-        logger.error(f"LLM API error in chat_node: {error_msg}", exc_info=True)
-        
-        # Check if it's a connection error
-        if "Connection error" in error_msg or "No connection could be made" in error_msg or "actively refused" in error_msg:
-            error_response = AIMessage(
-                content=(
-                    "⚠️ **Connection Error**: Unable to connect to the AI service. "
-                    "The server may be temporarily unavailable.\n\n"
-                    "Please try again in a few moments, or contact support if the issue persists.\n\n"
-                    f"*Error details: {error_msg}*"
-                )
-            )
+    def _is_token_error(error_msg: str) -> bool:
+        """Check if error is related to token/context length limits."""
+        error_lower = error_msg.lower()
+        token_keywords = [
+            "maximum context length",
+            "context length exceeded",
+            "exceeds maximum",
+            "too many tokens",
+            "maximum tokens",
+            "context window",
+            "token limit",
+            "token count",
+            "input length",
+            "maximum input length",
+            "input tokens",
+        ]
+        return any(keyword in error_lower for keyword in token_keywords)
+    
+    def _prepare_messages(num_messages: int):
+        """Prepare messages list with specified number of conversation messages."""
+        if len(conversation_messages) > num_messages:
+            limited_messages = conversation_messages[-num_messages:]
+            logger.debug(f"Limited conversation history to latest {num_messages} messages")
         else:
-            # Generic error handling
-            error_response = AIMessage(
-                content=(
-                    "⚠️ **Error**: An error occurred while processing your request.\n\n"
-                    "Please try again, or contact support if the issue persists.\n\n"
-                    f"*Error details: {error_msg}*"
-                )
-            )
+            limited_messages = conversation_messages
+        return [system_message, *limited_messages]
+    
+    # Try with progressively fewer messages if token errors occur
+    for attempt in range(max_attempts):
+        # Calculate number of messages for this attempt: 7, 5, 3, 1
+        if attempt == 0:
+            current_max = initial_max_messages
+        elif attempt == 1:
+            current_max = 5
+        elif attempt == 2:
+            current_max = 3
+        else:
+            current_max = 1
         
-        return {"messages": [error_response]}
+        messages = _prepare_messages(current_max)
+        
+        try:
+            response = llm_with_tools.invoke(messages, config=config)
+            lesson_state = llm_structured_output.invoke(messages, config=config)
+          
+            # lesson_state is a dict (TypedDict), so access it with dictionary syntax
+            if lesson_state.get("lesson_finalized", False):
+                # Update the lesson state
+                if thread_id_str:
+                    if thread_id_str not in _THREAD_METADATA:
+                        _THREAD_METADATA[thread_id_str] = {}
+                    _THREAD_METADATA[thread_id_str]["lesson_finalized"] = True
+                    _THREAD_METADATA[thread_id_str]["last_lesson_text"] = lesson_state.get("last_lesson_text", "")
+                    _THREAD_METADATA[thread_id_str]["lesson_title"] = lesson_state.get("lesson_title", "")
+                    _save_metadata()
+
+            # Log if we had to reduce messages
+            if attempt > 0:
+                logger.info(f"Successfully processed request after reducing to {current_max} messages (attempt {attempt + 1})")
+            
+            return {"messages": [response]}
+            
+        except Exception as e:
+            error_msg = str(e)
+            logger.warning(f"LLM API error in chat_node (attempt {attempt + 1} with {current_max} messages): {error_msg}")
+            
+            # Check if it's a token error
+            if _is_token_error(error_msg):
+                # If this is not the last attempt, try with fewer messages
+                if attempt < max_attempts - 1:
+                    logger.info(f"Token error detected, retrying with fewer messages (current: {current_max}, next: {current_max - 2 if current_max > 2 else 1})")
+                    continue  # Retry with fewer messages
+                else:
+                    # Last attempt failed, show error
+                    logger.error(f"All retry attempts failed with token errors. Final attempt with {current_max} messages.")
+                    error_response = AIMessage(
+                        content=(
+                            "⚠️ **Context Length Error**: The conversation is too long to process. "
+                            "Please start a new conversation or upload a shorter document.\n\n"
+                            f"*Error details: {error_msg}*"
+                        )
+                    )
+                    return {"messages": [error_response]}
+            else:
+                # Not a token error, check if it's a connection error
+                if "Connection error" in error_msg or "No connection could be made" in error_msg or "actively refused" in error_msg:
+                    error_response = AIMessage(
+                        content=(
+                            "⚠️ **Connection Error**: Unable to connect to the AI service. "
+                            "The server may be temporarily unavailable.\n\n"
+                            "Please try again in a few moments, or contact support if the issue persists.\n\n"
+                            f"*Error details: {error_msg}*"
+                        )
+                    )
+                else:
+                    # Generic error handling (only show if not retrying)
+                    if attempt < max_attempts - 1:
+                        # Try one more time with fewer messages even for non-token errors
+                        logger.info(f"Non-token error detected, retrying with fewer messages (attempt {attempt + 2})")
+                        continue
+                    else:
+                        # Final attempt failed
+                        error_response = AIMessage(
+                            content=(
+                                "⚠️ **Error**: An error occurred while processing your request.\n\n"
+                                "Please try again, or contact support if the issue persists.\n\n"
+                                f"*Error details: {error_msg}*"
+                            )
+                        )
+                
+                return {"messages": [error_response]}
 
 tool_node = ToolNode(tools)
 
