@@ -71,3 +71,30 @@ class Config:
     
     # File upload configuration
     MAX_CONTENT_LENGTH = 100 * 1024 * 1024  # 100MB max file size 
+    
+    # Stripe configuration
+    STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY', 'pk_test_51SdENKR3GHwhdSflEXLb8vuJCGAwrUsjAYOvpbviKHNfVEjSKDZrBFqS92bIt1GuXPyzRO8DzwsK2ZecfyV0hlCy00hS7JJVz4')
+    STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY', 'sk_test_51SdENKR3GHwhdSflTCjLB5h83eDa8G4oZOLySliNfIduAeizo10wrhOZsnlfsslD5530mboYRii8MdXLTFIVNQEQ003sVSsIS1')
+    STRIPE_WEBHOOK_SECRET = os.getenv('STRIPE_WEBHOOK_SECRET', '')
+    
+    # Stripe Product IDs (we'll fetch the default price from these)
+    STRIPE_PRO_PRODUCT_ID = os.getenv('STRIPE_PRO_PRODUCT_ID', 'prod_TaPSD7B5zRAeKb')
+    STRIPE_PRO_PLUS_PRODUCT_ID = os.getenv('STRIPE_PRO_PLUS_PRODUCT_ID', 'prod_TaPShi2ENfvmO3')
+    
+    # LLM Provider Configuration
+    # Set LLM_PROVIDER to 'openai' or 'vllm' to switch between providers
+    LLM_PROVIDER = os.getenv('LLM_PROVIDER', 'openai').lower()  # Default to OpenAI
+    
+    # OpenAI Configuration
+    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+    OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo')
+    OPENAI_TEMPERATURE = float(os.getenv('OPENAI_TEMPERATURE', '0.7'))
+    OPENAI_MAX_TOKENS = int(os.getenv('OPENAI_MAX_TOKENS', '1024'))
+    OPENAI_TIMEOUT = int(os.getenv('OPENAI_TIMEOUT', '60'))
+    
+    # vLLM Configuration
+    VLLM_API_BASE = os.getenv('VLLM_API_BASE', 'http://69.28.92.113:8000/v1')
+    VLLM_MODEL = os.getenv('VLLM_MODEL', 'Qwen/Qwen2.5-14B-Instruct')
+    VLLM_TEMPERATURE = float(os.getenv('VLLM_TEMPERATURE', '0.7'))
+    VLLM_MAX_TOKENS = int(os.getenv('VLLM_MAX_TOKENS', '1024'))
+    VLLM_TIMEOUT = int(os.getenv('VLLM_TIMEOUT', '600'))

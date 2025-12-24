@@ -93,6 +93,7 @@ import tempfile
 
 from langchain_openai import ChatOpenAI
 from langchain_core.documents import Document
+from app.utils.llm_factory import create_llm
 from langchain_community.document_loaders import PyMuPDFLoader, UnstructuredWordDocumentLoader, TextLoader
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
@@ -111,22 +112,23 @@ class BaseLessonService:
         """Initialize the base service with API key"""
         self.api_key = groq_api_key
         
-        # Get vLLM configuration from environment
-        vllm_api_base = os.getenv('VLLM_API_BASE', 'http://69.28.92.113:8000/v1')
-        vllm_model = os.getenv('VLLM_MODEL', 'Qwen/Qwen2.5-14B-Instruct')
-        vllm_timeout = int(os.getenv('VLLM_TIMEOUT', 600))
-        
-        # Initialize vLLM client using ChatOpenAI (OpenAI-compatible API)
-        self.llm = ChatOpenAI(
-            openai_api_key="EMPTY",
-            openai_api_base=vllm_api_base,
-            model_name=vllm_model,
+        # Use dynamic LLM factory - supports OpenAI and vLLM via environment variables
+        # For OpenAI, use groq_api_key as the OpenAI API key (legacy naming)
+        # For vLLM, api_key is not needed
+        self.llm = create_llm(
             temperature=0.7,
             max_tokens=1024,
-            timeout=vllm_timeout,
+            api_key=self.api_key if os.getenv('LLM_PROVIDER', 'openai').lower() == 'openai' else None
         )
         
-        logger.info(f"Base lesson service initialized with vLLM at {vllm_api_base} using model {vllm_model}")
+        provider = os.getenv('LLM_PROVIDER', 'openai').lower()
+        if provider == 'openai':
+            model = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo')
+            logger.info(f"Base lesson service initialized with OpenAI using model {model}")
+        else:
+            api_base = os.getenv('VLLM_API_BASE', 'http://69.28.92.113:8000/v1')
+            model = os.getenv('VLLM_MODEL', 'Qwen/Qwen2.5-14B-Instruct')
+            logger.info(f"Base lesson service initialized with vLLM at {api_base} using model {model}")
 
     def allowed_file(self, filename: str) -> bool:
         """Check if file extension is supported"""
@@ -300,15 +302,38 @@ class BaseLessonService:
             logger.error(f"Error chunking text: {str(e)}")
             return [text]  # Return original text as single chunk on error
 
-    def get_vllm_status(self) -> Dict[str, Any]:
+    def get_llm_status(self) -> Dict[str, Any]:
         """
-        Get current vLLM service status.
+        Get current LLM service status (supports both OpenAI and vLLM).
         
         Returns:
             Dictionary with status information
         """
-        return {
-            'base_url': os.getenv('VLLM_API_BASE', 'http://69.28.92.113:8000/v1'),
-            'model': os.getenv('VLLM_MODEL', 'Qwen/Qwen2.5-14B-Instruct'),
-            'timeout': int(os.getenv('VLLM_TIMEOUT', 600))
-        }
+        provider = os.getenv('LLM_PROVIDER', 'openai').lower()
+        
+        if provider == 'openai':
+            return {
+                'provider': 'openai',
+                'model': os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo'),
+                'temperature': float(os.getenv('OPENAI_TEMPERATURE', '0.7')),
+                'max_tokens': int(os.getenv('OPENAI_MAX_TOKENS', '1024')),
+                'timeout': int(os.getenv('OPENAI_TIMEOUT', '60'))
+            }
+        else:
+            return {
+                'provider': 'vllm',
+                'base_url': os.getenv('VLLM_API_BASE', 'http://69.28.92.113:8000/v1'),
+                'model': os.getenv('VLLM_MODEL', 'Qwen/Qwen2.5-14B-Instruct'),
+                'temperature': float(os.getenv('VLLM_TEMPERATURE', '0.7')),
+                'max_tokens': int(os.getenv('VLLM_MAX_TOKENS', '1024')),
+                'timeout': int(os.getenv('VLLM_TIMEOUT', '600'))
+            }
+    
+    def get_vllm_status(self) -> Dict[str, Any]:
+        """
+        Legacy method name - redirects to get_llm_status for backward compatibility.
+        
+        Returns:
+            Dictionary with status information
+        """
+        return self.get_llm_status()

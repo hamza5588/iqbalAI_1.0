@@ -187,7 +187,8 @@ def init_db(app):
     from app.models.database_models import (
         Base, User, Lesson, Conversation, ChatHistory, SurveyResponse,
         UserPrompt, UserDocument, UserTokenUsage, TokenResetHistory,
-        LessonFAQ, LessonChatHistory, EmailVerificationToken, PasswordResetToken
+        LessonFAQ, LessonChatHistory, EmailVerificationToken, PasswordResetToken,
+        RAGThread, RAGPrompt, Coupon, CouponRedemption
     )
     from sqlalchemy import inspect
     import time
@@ -203,7 +204,7 @@ def init_db(app):
             # Migration: Update existing lessons to have lesson_id if missing
             try:
                 db = get_db()
-                from app.models.database_models import Lesson
+                from app.models.database_models import Lesson, User
                 
                 # Check if lessons table exists and has data
                 inspector = inspect(engine)
@@ -231,6 +232,47 @@ def init_db(app):
                     logger.info(f"Migrated {len(existing_lessons)} existing lessons")
             except Exception as e:
                 logger.warning(f"Migration warning: {str(e)}")
+                db.rollback()
+            
+            # Migration: Add subscription fields to existing users
+            try:
+                db = get_db()
+                inspector = inspect(engine)
+                if 'users' in inspector.get_table_names():
+                    # Check if subscription_tier column exists
+                    columns = [col['name'] for col in inspector.get_columns('users')]
+                    
+                    if 'subscription_tier' not in columns:
+                        logger.info("Adding subscription columns to users table...")
+                        # For SQLite
+                        if 'sqlite' in str(engine.url):
+                            db.execute(text("ALTER TABLE users ADD COLUMN subscription_tier VARCHAR(50) DEFAULT 'free'"))
+                            db.execute(text("ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR(255)"))
+                            db.execute(text("ALTER TABLE users ADD COLUMN stripe_subscription_id VARCHAR(255)"))
+                            db.execute(text("ALTER TABLE users ADD COLUMN subscription_status VARCHAR(50)"))
+                        else:
+                            # For MySQL/PostgreSQL - use ALTER TABLE
+                            db.execute(text("ALTER TABLE users ADD COLUMN subscription_tier VARCHAR(50) DEFAULT 'free'"))
+                            db.execute(text("ALTER TABLE users ADD COLUMN stripe_customer_id VARCHAR(255)"))
+                            db.execute(text("ALTER TABLE users ADD COLUMN stripe_subscription_id VARCHAR(255)"))
+                            db.execute(text("ALTER TABLE users ADD COLUMN subscription_status VARCHAR(50)"))
+                        
+                        # Update existing users to have free tier
+                        db.execute(text("UPDATE users SET subscription_tier = 'free' WHERE subscription_tier IS NULL"))
+                        db.commit()
+                        logger.info("Subscription columns added successfully")
+                    else:
+                        # Ensure existing users have subscription_tier set
+                        existing_users = db.query(User).filter(
+                            (User.subscription_tier == None) | (User.subscription_tier == '')
+                        ).all()
+                        for user in existing_users:
+                            user.subscription_tier = 'free'
+                        db.commit()
+                        if existing_users:
+                            logger.info(f"Updated {len(existing_users)} users with default subscription tier")
+            except Exception as e:
+                logger.warning(f"Subscription migration warning: {str(e)}")
                 db.rollback()
             
             logger.info("Database initialized successfully")

@@ -908,9 +908,8 @@ def ask_lesson_question():
     if not lesson_id or not question:
         return jsonify({'error': 'lesson_id and question are required'}), 400
     
-    api_key = session.get('groq_api_key')
-    if not api_key:
-        return jsonify({'error': 'API key not configured. Please set your API key first.'}), 400
+    # vLLM doesn't require an API key, use empty string as placeholder
+    api_key = session.get('groq_api_key', '')
     
     service = LessonService(api_key=api_key)
     

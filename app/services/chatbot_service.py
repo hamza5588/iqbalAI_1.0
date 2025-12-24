@@ -250,6 +250,7 @@ from pathlib import Path
 from typing import Optional, Union
 # from langchain_groq import ChatGroq
 from langchain_openai import ChatOpenAI
+from app.utils.llm_factory import create_llm
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.prompts import ChatPromptTemplate
@@ -285,15 +286,13 @@ class DocumentChatBot:
         if not self.nomic_api_key:
             raise ValueError("NOMIC_API_KEY environment variable not set")
             
-        # self.llm = ChatGroq(groq_api_key=self.groq_api_key, model_name="llama-3.3-70b-versatile")
-        vllm_api_base = os.getenv('VLLM_API_BASE', 'http://69.28.92.113:8000/v1')
-        vllm_model = os.getenv('VLLM_MODEL', 'Qwen/Qwen2.5-14B-Instruct')
-        self.llm = ChatOpenAI(
-            openai_api_key="EMPTY",
-            openai_api_base=vllm_api_base,
-            model_name=vllm_model,
+        # Use dynamic LLM factory - supports OpenAI and vLLM via environment variables
+        # For OpenAI, use groq_api_key as the OpenAI API key (legacy naming)
+        # For vLLM, api_key is not needed
+        self.llm = create_llm(
             temperature=0.7,
             max_tokens=1024,
+            api_key=self.groq_api_key if os.getenv('LLM_PROVIDER', 'openai').lower() == 'openai' else None
         )
         self.prompt = self._create_prompt()
         self.vectors = None

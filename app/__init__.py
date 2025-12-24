@@ -249,6 +249,7 @@ def create_app():
     from app.routes.survey import bp as survey_bp
     from app.routes.lesson_routes import bp as lesson_bp
     from app.routes.rag_routes import bp as rag_bp
+    from app.routes.subscription import bp as subscription_bp
 
     # Register blueprints with appropriate prefixes
     app.register_blueprint(auth_bp, url_prefix='/auth')
@@ -259,6 +260,12 @@ def create_app():
     app.register_blueprint(survey_bp, url_prefix='/api')
     app.register_blueprint(lesson_bp, url_prefix='/api/lessons')
     app.register_blueprint(rag_bp, url_prefix='/api/rag')
+    app.register_blueprint(subscription_bp, url_prefix='/subscription')
+    
+    # Register RBAC template helpers
+    from app.rbac.template_helpers import TEMPLATE_HELPERS
+    for name, func in TEMPLATE_HELPERS.items():
+        app.jinja_env.globals[name] = func
     
     print(f"Flask app template folder: {app.template_folder}")
     

@@ -84,7 +84,8 @@ class UserModel:
                 class_standard=class_standard,
                 medium=medium,
                 groq_api_key=groq_api_key or '',  # Default to empty string if not provided
-                role=role
+                role=role,
+                subscription_tier='free'  # Default to free tier
             )
             db.add(user)
             db.commit()
@@ -153,6 +154,10 @@ class UserModel:
     def is_student(self) -> bool:
         """Check if user is a student"""
         return self.get_role() == 'student'
+    
+    def is_admin(self) -> bool:
+        """Check if user is an admin"""
+        return self.get_role() == 'admin'
 
 
 class LessonModel:
@@ -697,6 +702,7 @@ class LessonModel:
 # app/models/models.py (ChatModel part)
 # from langchain_groq import ChatGroq
 from langchain_openai import ChatOpenAI
+from app.utils.llm_factory import create_llm
 
 from typing import Optional, List, Dict, Any
 import logging
@@ -1033,21 +1039,14 @@ class ChatModel:
         """Lazy initialization of chat model"""
         if not self._chat_model:
             try:
-                vllm_api_base = os.getenv('VLLM_API_BASE', 'http://69.28.92.113:8000/v1')
-                vllm_model = os.getenv('VLLM_MODEL', 'Qwen/Qwen2.5-14B-Instruct')
-                self._chat_model = ChatOpenAI(
-                    openai_api_key="EMPTY",
-                    openai_api_base=vllm_api_base,
-                    model_name=vllm_model,
+                # Use dynamic LLM factory - supports OpenAI and vLLM via environment variables
+                # For OpenAI, use the api_key from self.api_key if available
+                # For vLLM, api_key is not needed
+                self._chat_model = create_llm(
                     temperature=0.7,
                     max_tokens=1024,
+                    api_key=self.api_key if os.getenv('LLM_PROVIDER', 'openai').lower() == 'openai' else None
                 )
-                # self._chat_model = ChatGroq(
-                #     api_key=self.api_key,
-                #     model_name="llama-3.3-70b-versatile",
-                #     timeout=self.timeout,
-                #     max_retries=3,
-                # )
             except Exception as e:
                 logger.error(f"Failed to initialize chat model: {str(e)}")
                 raise

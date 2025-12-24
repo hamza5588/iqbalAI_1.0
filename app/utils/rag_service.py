@@ -22,6 +22,7 @@ from langchain_core.messages import BaseMessage, SystemMessage, AIMessage
 from langchain_core.tools import tool
 from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from app.utils.llm_factory import create_llm
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import START, StateGraph
 from langgraph.graph.message import add_messages
@@ -33,16 +34,8 @@ load_dotenv()
 # -------------------
 # 1. LLM + embeddings
 # -------------------
-# llm = ChatOpenAI(model="gpt-4o-mini")
-
-vllm_api_base = os.getenv('VLLM_API_BASE', 'http://69.28.92.113:8000/v1')
-vllm_model = os.getenv('VLLM_MODEL', 'Qwen/Qwen2.5-14B-Instruct')
-llm = ChatOpenAI(
-            openai_api_key="EMPTY",
-            openai_api_base=vllm_api_base,
-            model_name=vllm_model,
-            temperature=0.7,
-        )
+# Use dynamic LLM factory - supports OpenAI and vLLM via environment variables
+llm = create_llm(temperature=0.7)
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
 # -------------------

@@ -86,6 +86,7 @@ import re
 from langchain_core.runnables import RunnableLambda
 from langchain_core.runnables.config import RunnableConfig
 from langchain_openai import ChatOpenAI
+from app.utils.llm_factory import create_llm
 
 
 
@@ -102,19 +103,11 @@ class InteractiveChatResponse(BaseModel):
 
 def check_lesson_response(text: str, groq_api_key: str):
     """Check if the AI response indicates a complete lesson has been generated"""
-    # llm = ChatGroq(
-    #     groq_api_key=groq_api_key,
-    #     model_name="llama-3.1-8b-instant",
-    #     temperature=0.1
-    # )
-    vllm_api_base = os.getenv('VLLM_API_BASE', 'http://69.28.92.113:8000/v1')
-    vllm_model = os.getenv('VLLM_MODEL', 'Qwen/Qwen2.5-14B-Instruct')
-    llm = ChatOpenAI(
-        openai_api_key="EMPTY",
-        openai_api_base=vllm_api_base,
-        model_name=vllm_model,
+    # Use dynamic LLM factory - supports OpenAI and vLLM via environment variables
+    llm = create_llm(
         temperature=0.7,
         max_tokens=512,
+        api_key=groq_api_key if os.getenv('LLM_PROVIDER', 'openai').lower() == 'openai' else None
     )
     
     # Create a prompt to analyze if the response is a complete lesson or just an outline/draft
@@ -165,19 +158,20 @@ class TeacherLessonService(BaseLessonService):
         teacher_logger.info("RAG service initialized with persistent memory")
         
         # Initialize separate multimodal LLM for image descriptions
-        vllm_api_base = os.getenv('VLLM_API_BASE', 'http://69.28.92.113:8000/v1')
-        vllm_multimodal_model = os.getenv('VLLM_MULTIMODAL_MODEL', 'Qwen/Qwen2.5-14B-Instruct')
-        vllm_timeout = int(os.getenv('VLLM_TIMEOUT', 600))
+        # Use dynamic LLM factory - supports OpenAI and vLLM via environment variables
+        provider = os.getenv('LLM_PROVIDER', 'openai').lower()
+        if provider == 'openai':
+            multimodal_model = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo')
+        else:
+            multimodal_model = os.getenv('VLLM_MULTIMODAL_MODEL', os.getenv('VLLM_MODEL', 'Qwen/Qwen2.5-14B-Instruct'))
         
-        self.multimodal_llm = ChatOpenAI(
-            openai_api_key="EMPTY",
-            openai_api_base=vllm_api_base,
-            model_name=vllm_multimodal_model,
+        self.multimodal_llm = create_llm(
             temperature=0.7,
             max_tokens=1024,
-            timeout=vllm_timeout,
+            model_name=multimodal_model,
+            api_key=self.api_key if provider == 'openai' else None
         )
-        teacher_logger.info(f"Multimodal LLM initialized for image descriptions: {vllm_multimodal_model}")
+        teacher_logger.info(f"Multimodal LLM initialized for image descriptions: {multimodal_model} (provider: {provider})")
     
     def _detect_pages_with_tables(self, file_path: str) -> List[int]:
         """Quickly detect which pages likely contain tables by scanning for table-like structures"""

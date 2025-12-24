@@ -23,6 +23,10 @@ class User(Base):
     class_standard = Column(String(100), nullable=False)
     medium = Column(String(100), nullable=False)
     groq_api_key = Column(Text, nullable=False)
+    subscription_tier = Column(String(50), nullable=False, default='free', server_default='free')
+    stripe_customer_id = Column(String(255), nullable=True)
+    stripe_subscription_id = Column(String(255), nullable=True)
+    subscription_status = Column(String(50), nullable=True)  # active, canceled, past_due, etc.
     created_at = Column(DateTime, default=datetime.utcnow, server_default=func.now())
     last_login = Column(DateTime, nullable=True)
     
@@ -37,7 +41,8 @@ class User(Base):
     rag_threads = relationship("RAGThread", back_populates="user", cascade="all, delete-orphan")
     
     __table_args__ = (
-        CheckConstraint("role IN ('student', 'teacher')", name='check_user_role'),
+        CheckConstraint("role IN ('student', 'teacher', 'admin')", name='check_user_role'),
+        CheckConstraint("subscription_tier IN ('free', 'pro', 'pro_plus')", name='check_subscription_tier'),
     )
 
 
@@ -321,5 +326,49 @@ class RAGPrompt(Base):
     __table_args__ = (
         Index('idx_rag_prompts_user_id', 'user_id'),
         Index('idx_rag_prompts_thread_id', 'thread_id'),
+    )
+
+
+class Coupon(Base):
+    """Coupon model for subscription coupons"""
+    __tablename__ = 'coupons'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    code = Column(String(100), nullable=False, unique=True, index=True)
+    subscription_tier = Column(String(50), nullable=False)  # pro, pro_plus
+    description = Column(Text, nullable=True)
+    max_uses = Column(Integer, nullable=True)  # None = unlimited
+    used_count = Column(Integer, default=0, server_default='0')
+    expires_at = Column(DateTime, nullable=True)  # None = never expires
+    is_active = Column(Boolean, default=True, server_default='1')
+    created_at = Column(DateTime, default=datetime.utcnow, server_default=func.now())
+    created_by = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    
+    # Relationships
+    redemptions = relationship("CouponRedemption", back_populates="coupon", cascade="all, delete-orphan")
+    
+    __table_args__ = (
+        CheckConstraint("subscription_tier IN ('pro', 'pro_plus')", name='check_coupon_tier'),
+        Index('idx_coupons_code', 'code'),
+        Index('idx_coupons_is_active', 'is_active'),
+    )
+
+
+class CouponRedemption(Base):
+    """Coupon redemption model to track which users redeemed which coupons"""
+    __tablename__ = 'coupon_redemptions'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    coupon_id = Column(Integer, ForeignKey('coupons.id', ondelete='CASCADE'), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, index=True)
+    redeemed_at = Column(DateTime, default=datetime.utcnow, server_default=func.now())
+    
+    # Relationships
+    coupon = relationship("Coupon", back_populates="redemptions")
+    
+    __table_args__ = (
+        UniqueConstraint('coupon_id', 'user_id', name='unique_coupon_user'),
+        Index('idx_coupon_redemptions_user_id', 'user_id'),
+        Index('idx_coupon_redemptions_coupon_id', 'coupon_id'),
     )
 

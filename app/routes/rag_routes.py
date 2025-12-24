@@ -13,9 +13,24 @@ from langchain_core.messages import HumanMessage
 import logging
 import uuid
 from datetime import datetime
+import os
+from tempfile import NamedTemporaryFile
+
+from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('rag', __name__)
+
+
+def _get_openai_client():
+    """
+    Lazily create an OpenAI client for Whisper STT.
+    Expects OPENAI_API_KEY in environment.
+    """
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY environment variable is not set")
+    return OpenAI(api_key=api_key)
 
 
 def _get_thread_id(user_id: int, conversation_id: int = None) -> str:
@@ -181,6 +196,28 @@ def chat():
             return jsonify({'error': 'Not authenticated'}), 401
 
         user_id = session['user_id']
+
+        # If audio is sent (voice input), transcribe it first using Whisper
+        audio_text = None
+        try:
+            audio_file = request.files.get('audio')
+            if audio_file and audio_file.filename:
+                client = _get_openai_client()
+                with NamedTemporaryFile(delete=False, suffix=".webm") as tmp:
+                    audio_file.save(tmp.name)
+                    tmp_path = tmp.name
+
+                with open(tmp_path, "rb") as f:
+                    transcription = client.audio.transcriptions.create(
+                        model="whisper-1",
+                        file=f,
+                        response_format="json"
+                    )
+
+                audio_text = getattr(transcription, "text", None) or transcription.get("text")
+        except Exception as stt_error:
+            logger.error(f"Error transcribing audio for RAG chat: {str(stt_error)}", exc_info=True)
+            # Continue without audio_text; will fall back to text message if provided
         
         # Try to get JSON data first
         data = request.get_json(force=True, silent=True)
@@ -199,9 +236,16 @@ def chat():
                     'thread_id': request.args.get('thread_id'),
                     'conversation_id': request.args.get('conversation_id', type=int)
                 }
+            elif audio_text:
+                # Pure audio request – use transcribed text as the message
+                data = {
+                    'message': audio_text,
+                    'thread_id': request.args.get('thread_id') if request.args else None,
+                    'conversation_id': request.args.get('conversation_id', type=int) if request.args else None
+                }
         
         if not data:
-            return jsonify({'error': 'No data provided. Please send JSON or form-data with "message" field.'}), 400
+            return jsonify({'error': 'No data provided. Please send JSON, form-data with \"message\" field, or an audio file.'}), 400
 
         message = data.get('message', '').strip()
         if not message:

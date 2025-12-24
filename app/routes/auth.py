@@ -248,6 +248,7 @@ def login():
                 session.clear()
                 session['user_id'] = user['id']
                 session['username'] = user['username']
+                session['role'] = user.get('role', 'student')  # Store role in session
                 session['groq_api_key'] = user.get('groq_api_key', '')  # Default to empty string if not present
                 session.permanent = True  # Make session permanent for 24 hours
                 return redirect(url_for('chat.index'))

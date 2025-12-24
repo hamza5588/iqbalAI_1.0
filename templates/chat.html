@@ -105,6 +105,41 @@
         max-width: calc(50% - 8px);
       }
     }
+
+    /* Student Chat Bot Modal - Responsive Split View */
+    @media (max-width: 1024px) {
+      #studentChatBotModal .flex.flex-1 {
+        flex-direction: column;
+      }
+      
+      #studentChatBotModal .w-1\/2 {
+        width: 100% !important;
+        height: 50% !important;
+      }
+      
+      #studentChatBotModal .w-1\/2:first-child {
+        border-right: none;
+        border-bottom: 1px solid #e5e7eb;
+      }
+    }
+    
+    @media (max-width: 640px) {
+      #studentChatBotModal {
+        padding: 0.5rem !important;
+      }
+      
+      #studentChatBotModal > div {
+        height: 95vh !important;
+        max-width: 100% !important;
+        border-radius: 1rem !important;
+      }
+      
+      #studentChatBotModal .w-1\/2 {
+        height: auto !important;
+        min-height: 40% !important;
+        max-height: 60% !important;
+      }
+    }
     
     /* Enhanced Prose Styles */
     .prose {
@@ -630,6 +665,8 @@
 </head>
 
 <body class="h-screen bg-gray-100 font-inter overflow-hidden">
+  <!-- Hidden audio element for server-side TTS (gTTS) -->
+  <audio id="ttsAudio" class="hidden"></audio>
   <!-- PDF.js (for client-side PDF text extraction) -->
   <script src="https://unpkg.com/pdfjs-dist@2.16.105/build/pdf.min.js"></script>
   <div class="flex h-full">
@@ -658,13 +695,15 @@
           <span>New Chat</span>
         </button>
 
-        <!-- Action Buttons -->
+        <!-- Action Buttons - Only visible to teachers and admins -->
+        {% if can_view_my_lessons() %}
                 <button onclick="openLessonGenerator()"
                     class="hidden w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors"
                     id="generateLessonBtn">
                     <img src="{{ url_for('static', filename='images/lesson.png') }}" alt="" class="w-3.5 h-3.5">
           <span>Generate Lessons</span>
         </button>
+        {% endif %}
 
         <!-- View Lessons Button in Sidebar -->
                 <button onclick="openViewLessons()"
@@ -674,13 +713,15 @@
           <span id="viewLessonsLabel">View Lessons</span>
         </button>
 
-        <!-- Upload PDF Document Button -->
+        <!-- Upload PDF Document Button - Only visible to teachers and admins -->
+        {% if can_upload_pdf() %}
                 <button onclick="showRAGUploadModal()"
                     class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors"
                     id="uploadPDFBtn">
                     <i class="fas fa-file-pdf text-[#B7B7B7] w-3.5 h-3.5"></i>
           <span>Upload PDF</span>
         </button>
+        {% endif %}
 
         <!-- RAG Thread Selector -->
                 <div id="ragThreadSelector" class="hidden w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px]">
@@ -736,12 +777,29 @@
 
 
 
-        <!-- Logout Button -->
-                <button onclick="logout()"
-                    class="fixed bottom-4 w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center justify-center gap-1.5 font-semibold text-xs text-gray-700 bg-white shadow rounded hover:bg-gray-50 transition-colors">
-                    <i class="fas fa-sign-out-alt text-[#F50D0D] w-3 h-3"></i>
-          <span class="text-[#F50D0D]">Log out</span>
-        </button>
+        <!-- Settings and Logout Buttons Container -->
+        <div class="fixed bottom-4 left-2 sm:left-3 flex gap-2 items-center">
+            <!-- Settings Button - Circular with Plan -->
+            <button onclick="openSettings()"
+                class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white shadow-md hover:bg-gray-50 transition-colors flex items-center justify-center relative group"
+                title="Settings - {{ subscription_tier|title }} Plan">
+                {% if subscription_tier == 'pro_plus' %}
+                    <span class="text-xs sm:text-sm font-bold text-iqbal-primary">P+</span>
+                {% elif subscription_tier == 'pro' %}
+                    <span class="text-xs sm:text-sm font-bold text-iqbal-primary">P</span>
+                {% else %}
+                    <span class="text-xs sm:text-sm font-bold text-iqbal-primary">F</span>
+                {% endif %}
+                <div class="absolute inset-0 rounded-full border-2 border-iqbal-primary opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            </button>
+            
+            <!-- Logout Button -->
+            <button onclick="logout()"
+                class="flex-1 h-6 sm:h-7 lg:h-8 px-2 flex items-center justify-center gap-1.5 font-semibold text-xs text-gray-700 bg-white shadow rounded hover:bg-gray-50 transition-colors">
+                <i class="fas fa-sign-out-alt text-[#F50D0D] w-3 h-3"></i>
+                <span class="text-[#F50D0D] hidden sm:inline">Logout</span>
+            </button>
+        </div>
 
       </div>
     </div>
@@ -831,10 +889,38 @@
             
             <div class="flex-1 relative">
                     <textarea id="messageInput" placeholder="Type your message"
-                        class="w-full px-4 sm:px-5 lg:px-6 py-3 sm:py-4 bg-gray-100 rounded-2xl border-0 focus:outline-none text-gray-700 placeholder-gray-500 text-sm sm:text-base resize-none overflow-hidden min-h-[48px] max-h-[200px]"
+                        class="w-full px-4 sm:px-5 lg:px-6 py-3 sm:py-4 bg-gray-100 rounded-2xl border-0 focus:outline-none text-gray-700 placeholder-gray-500 text-sm sm:text-base resize-none overflow-hidden min-h-[48px] max-h-[200px] cursor-text"
                         rows="1"
                         onkeydown="handleKeyDown(event)"
-                        oninput="autoResizeTextarea(this)"></textarea>
+                        oninput="autoResizeTextarea(this)"
+                        onfocus="handleTextareaFocus(event)"></textarea>
+                    
+                    <!-- Recording Interface (hidden by default) -->
+                    <div id="recordingInterface" class="hidden w-full px-4 sm:px-5 lg:px-6 py-3 sm:py-4 bg-gray-100 rounded-2xl border-0 min-h-[48px] flex items-center justify-between">
+                        <div class="flex items-center gap-3 flex-1">
+                            <div class="w-8 h-8 flex items-center justify-center">
+                                <svg class="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" fill-rule="evenodd" clip-rule="evenodd"></path>
+                                </svg>
+                            </div>
+                            <div class="flex-1 flex items-center gap-2 hidden" id="waveformContainer">
+                                <!-- Waveform bars will be generated here -->
+                            </div>
+                            <div class="text-xs text-gray-500" id="recordingTime">0:00</div>
+                        </div>
+                        <div class="flex items-center gap-2 ml-3">
+                            <button onclick="cancelRecording()" id="cancelRecordingBtn" class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                            <button onclick="stopRecordingFromInterface()" id="stopRecordingBtn" class="w-8 h-8 flex items-center justify-center text-green-600 hover:text-green-700 transition-colors">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
             </div>
             
                 <button onclick="sendMessage()"
@@ -1635,6 +1721,13 @@
     let isRecording = false;
     let isVoiceOutputEnabled = false;
     let mediaRecorder = null;
+    let recordingModeActive = false;
+    let recordingStartTime = null;
+    let recordingTimer = null;
+    let waveformAnimation = null;
+    let audioContext = null;
+    let analyser = null;
+    let dataArray = null;
 
     let currentView = 'chat';
     let isLessonChatMode = false; // Track if we're in lesson interactive chat mode
@@ -1643,6 +1736,7 @@
     let currentRAGThreadId = null; // Store the RAG thread ID
     let ragThreads = []; // Array of {thread_id, name, filename, created_at}
     let lastAIMessage = ''; // Store the last AI message for finalization
+    let lastSpokenText = ''; // Store last text used for TTS so speaker button can replay it
     let currentLessonFile = null;
     let currentLessonData = null;
     let isCollapsed = false;
@@ -1876,19 +1970,24 @@ async function initializeApp() {
         const generateLessonTopBtn = document.getElementById('generateLessonTopBtn');
         const viewLessonsTitle = document.getElementById('viewLessonsTitle');
         const viewLessonsSubtitle = document.getElementById('viewLessonsSubtitle');
+        const uploadPDFBtn = document.getElementById('uploadPDFBtn');
 
         
-        if (userRole === 'teacher') {
+        if (userRole === 'teacher' || userRole === 'admin') {
             if (viewLessonsLabel) viewLessonsLabel.textContent = 'My Lessons';
             if (lessonGeneratorContent) lessonGeneratorContent.style.display = '';
             if (generateLessonBtn) generateLessonBtn.style.display = '';
             if (generateLessonTopBtn) generateLessonTopBtn.style.display = '';
+            // Show Upload PDF button for teachers and admins
+            if (uploadPDFBtn) uploadPDFBtn.style.display = '';
             
         } else if (userRole === 'student') {
             if (viewLessonsLabel) viewLessonsLabel.textContent = 'View Lessons';
             if (lessonGeneratorContent) lessonGeneratorContent.style.display = 'none';
             if (generateLessonBtn) generateLessonBtn.style.display = 'none';
             if (generateLessonTopBtn) generateLessonTopBtn.style.display = 'none';
+            // Hide Upload PDF button for students
+            if (uploadPDFBtn) uploadPDFBtn.style.display = 'none';
 
         }
         
@@ -7929,145 +8028,523 @@ async function initializeApp() {
         }
     }
 
-    function startVoiceInput() {
-        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-            recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-            recognition.lang = 'en-US';
-            recognition.interimResults = false;
-            recognition.maxAlternatives = 1;
+    async function startVoiceInput() {
+        try {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showNotification('Microphone access is not supported in this browser', 'error');
+                if (recordingModeActive) {
+                    deactivateRecordingMode();
+                }
+                return;
+            }
 
-            recognition.start();
+            // Activate recording mode when mic button is clicked
+            if (!recordingModeActive) {
+                activateRecordingMode();
+            }
+
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            const chunks = [];
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data && event.data.size > 0) {
+                    chunks.push(event.data);
+                }
+            };
+
+            mediaRecorder.onstop = async () => {
+                try {
+                    const blob = new Blob(chunks, { type: 'audio/webm' });
+                    await sendAudioToServer(blob);
+                } catch (err) {
+                    console.error('Error sending audio to server:', err);
+                    showNotification('Failed to process voice input', 'error');
+                    if (recordingModeActive) {
+                        deactivateRecordingMode();
+                    }
+                } finally {
+                    stream.getTracks().forEach(track => track.stop());
+                }
+            };
+
+            mediaRecorder.start();
             isRecording = true;
-            
+
             // Automatically enable voice output when starting voice recording
             if (!isVoiceOutputEnabled) {
                 isVoiceOutputEnabled = true;
                 const voiceBtn = document.getElementById('voiceOutputBtn');
-                voiceBtn.classList.add('bg-blue-50', 'border-blue-300');
+                if (voiceBtn) {
+                    voiceBtn.classList.add('bg-blue-50', 'border-blue-300');
+                }
                 showNotification('Voice output automatically enabled for voice chat', 'success');
             }
-            
-            document.getElementById('voiceRecordingIndicator').classList.remove('hidden');
+
+            // Show recording indicator (if not in recording mode)
+            if (!recordingModeActive) {
+                const indicator = document.getElementById('voiceRecordingIndicator');
+                if (indicator) {
+                    indicator.classList.remove('hidden');
+                }
+            }
+
             const micBtn = document.getElementById('micButton');
-            micBtn.classList.add('bg-red-50', 'border-red-300');
+            if (micBtn) {
+                micBtn.classList.add('bg-red-50', 'border-red-300');
+            }
 
-            recognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript;
-                const messageInput = document.getElementById('messageInput');
-                messageInput.value = transcript;
-                // Resize textarea to fit the transcript
-                autoResizeTextarea(messageInput);
-                stopVoiceInput();
-                // Send message and automatically speak the response
-                sendMessage();
-            };
-
-            recognition.onerror = (event) => {
-                console.error('Speech recognition error:', event.error);
-                stopVoiceInput();
-                showNotification('Voice recognition error: ' + event.error, 'error');
-            };
-
-            recognition.onend = () => {
-                stopVoiceInput();
-            };
-        } else {
-            showNotification('Speech recognition not supported in this browser', 'error');
+            // Start waveform animation and timer only when actually recording (mic clicked)
+            if (isRecording && recordingModeActive) {
+                startWaveformAnimation(stream);
+                startRecordingTimer();
+            }
+        } catch (error) {
+            console.error('Error starting voice input:', error);
+            showNotification('Could not access microphone. Please check permissions.', 'error');
+            if (recordingModeActive) {
+                deactivateRecordingMode();
+            }
         }
     }
 
     function stopVoiceInput() {
-        if (recognition) {
-            recognition.stop();
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            mediaRecorder.stop();
         }
         isRecording = false;
-        document.getElementById('voiceRecordingIndicator').classList.add('hidden');
+        
+        // Stop waveform and timer
+        if (recordingModeActive) {
+            stopWaveformAnimation();
+            stopRecordingTimer();
+        }
+        
+        const indicator = document.getElementById('voiceRecordingIndicator');
+        if (indicator) {
+            indicator.classList.add('hidden');
+        }
+        
         const micBtn = document.getElementById('micButton');
-        micBtn.classList.remove('bg-red-50', 'border-red-300');
+        if (micBtn) {
+            micBtn.classList.remove('bg-red-50', 'border-red-300');
+        }
     }
 
     function stopRecording() {
         stopVoiceInput();
     }
 
-    function toggleVoiceOutput() {
-            // If voice output is currently enabled and speech is playing, stop it
-            if (isVoiceOutputEnabled && window.speechSynthesis && window.speechSynthesis.speaking) {
-                window.speechSynthesis.cancel();
-                showNotification('Voice playback stopped', 'info');
+    async function sendAudioToServer(blob) {
+        const formData = new FormData();
+        formData.append('audio', blob, 'recording.webm');
+
+        try {
+            const response = await fetch('/api/stt', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                console.error('STT error response:', response.status);
+                showNotification('Failed to transcribe audio. Please try again.', 'error');
+                deactivateRecordingMode();
                 return;
             }
 
-            // Toggle voice output state
-        isVoiceOutputEnabled = !isVoiceOutputEnabled;
-        const btn = document.getElementById('voiceOutputBtn');
-        
-        if (isVoiceOutputEnabled) {
-            btn.classList.add('bg-blue-50', 'border-blue-300');
-            showNotification('Voice output enabled', 'success');
-        } else {
-            btn.classList.remove('bg-blue-50', 'border-blue-300');
-            showNotification('Voice output disabled', 'info');
+            const data = await response.json();
+            if (!data.text) {
+                showNotification('No text returned from transcription.', 'error');
+                deactivateRecordingMode();
+                return;
+            }
+
+            // Return to text mode first
+            deactivateRecordingMode();
+
+            const messageInput = document.getElementById('messageInput');
+            messageInput.value = data.text;
+            autoResizeTextarea(messageInput);
+
+            // Automatically send message after transcription
+            sendMessage();
+        } catch (error) {
+            console.error('Error calling STT API:', error);
+            showNotification('Error transcribing audio. Please try again.', 'error');
+            deactivateRecordingMode();
         }
     }
 
-        function stopSpeech() {
-            if (window.speechSynthesis && window.speechSynthesis.speaking) {
-                window.speechSynthesis.cancel();
-                const voiceBtn = document.getElementById('voiceOutputBtn');
+    // Recording Mode Functions
+    function handleTextareaFocus(event) {
+        // Do nothing - let users type normally without activating recording mode
+        // Recording mode will only activate when mic button is clicked
+    }
+
+    function activateRecordingMode() {
+        const messageInput = document.getElementById('messageInput');
+        const recordingInterface = document.getElementById('recordingInterface');
+        
+        if (!recordingInterface || recordingModeActive) return;
+        
+        // Hide textarea and show recording interface
+        messageInput.classList.add('hidden');
+        recordingInterface.classList.remove('hidden');
+        recordingModeActive = true;
+        
+        // Create waveform bars (but keep them hidden until recording starts)
+        createWaveform();
+        const waveformContainer = document.getElementById('waveformContainer');
+        if (waveformContainer) {
+            waveformContainer.classList.add('hidden');
+        }
+        
+        // Reset recording time display
+        const recordingTime = document.getElementById('recordingTime');
+        if (recordingTime) {
+            recordingTime.textContent = '0:00';
+        }
+    }
+
+    function deactivateRecordingMode() {
+        const messageInput = document.getElementById('messageInput');
+        const recordingInterface = document.getElementById('recordingInterface');
+        
+        if (!recordingInterface || !recordingModeActive) return;
+        
+        // Stop waveform animation
+        stopWaveformAnimation();
+        
+        // Stop recording timer
+        if (recordingTimer) {
+            clearInterval(recordingTimer);
+            recordingTimer = null;
+        }
+        
+        // Hide recording interface and show textarea
+        recordingInterface.classList.add('hidden');
+        messageInput.classList.remove('hidden');
+        recordingModeActive = false;
+        recordingStartTime = null;
+    }
+
+    function cancelRecording() {
+        if (isRecording) {
+            stopVoiceInput();
+        }
+        deactivateRecordingMode();
+    }
+
+    function stopRecordingFromInterface() {
+        if (isRecording) {
+            stopVoiceInput();
+        }
+        // The recording will be processed in stopVoiceInput -> sendAudioToServer
+        // and deactivateRecordingMode will be called in the finally block
+    }
+
+    function createWaveform() {
+        const container = document.getElementById('waveformContainer');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        
+        // Create waveform bars
+        for (let i = 0; i < 40; i++) {
+            const bar = document.createElement('div');
+            bar.className = 'waveform-bar';
+            bar.style.width = '3px';
+            bar.style.height = '4px';
+            bar.style.backgroundColor = '#9CA3AF';
+            bar.style.borderRadius = '2px';
+            bar.style.transition = 'height 0.1s ease';
+            bar.style.marginRight = '2px';
+            container.appendChild(bar);
+        }
+    }
+
+    function startWaveformAnimation(stream) {
+        if (waveformAnimation) return;
+        
+        try {
+            // Show waveform container when recording actually starts
+            const waveformContainer = document.getElementById('waveformContainer');
+            if (waveformContainer) {
+                waveformContainer.classList.remove('hidden');
+            }
+            
+            // Create waveform if it doesn't exist
+            if (!waveformContainer || waveformContainer.children.length === 0) {
+                createWaveform();
+            }
+            
+            // Create audio context for waveform visualization
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioContext.createAnalyser();
+            const source = audioContext.createMediaStreamSource(stream);
+            source.connect(analyser);
+            
+            analyser.fftSize = 256;
+            const bufferLength = analyser.frequencyBinCount;
+            dataArray = new Uint8Array(bufferLength);
+            
+            const bars = document.querySelectorAll('.waveform-bar');
+            if (bars.length === 0) {
+                createWaveform();
+            }
+            
+            function animate() {
+                if (!isRecording || !recordingModeActive) {
+                    waveformAnimation = null;
+                    return;
+                }
+                
+                analyser.getByteFrequencyData(dataArray);
+                const bars = document.querySelectorAll('.waveform-bar');
+                
+                bars.forEach((bar, index) => {
+                    const dataIndex = Math.floor((index / bars.length) * bufferLength);
+                    const amplitude = dataArray[dataIndex] || 0;
+                    const height = Math.max(4, (amplitude / 255) * 24);
+                    bar.style.height = height + 'px';
+                    bar.style.backgroundColor = amplitude > 50 ? '#3B82F6' : '#9CA3AF';
+                });
+                
+                waveformAnimation = requestAnimationFrame(animate);
+            }
+            
+            animate();
+        } catch (error) {
+            console.error('Error creating waveform animation:', error);
+            // Fallback: simple animated waveform without audio analysis
+            startSimpleWaveformAnimation();
+        }
+    }
+
+    function startSimpleWaveformAnimation() {
+        if (waveformAnimation) return;
+        
+        // Show waveform container when recording starts
+        const waveformContainer = document.getElementById('waveformContainer');
+        if (waveformContainer) {
+            waveformContainer.classList.remove('hidden');
+        }
+        
+        const bars = document.querySelectorAll('.waveform-bar');
+        if (bars.length === 0) {
+            createWaveform();
+        }
+        
+        function animate() {
+            if (!isRecording || !recordingModeActive) {
+                waveformAnimation = null;
+                return;
+            }
+            
+            const bars = document.querySelectorAll('.waveform-bar');
+            bars.forEach((bar, index) => {
+                const delay = index * 0.05;
+                const time = Date.now() / 1000;
+                const height = 4 + Math.sin(time * 2 + delay) * 8 + Math.random() * 4;
+                bar.style.height = Math.max(4, height) + 'px';
+                bar.style.backgroundColor = height > 8 ? '#3B82F6' : '#9CA3AF';
+            });
+            
+            waveformAnimation = requestAnimationFrame(animate);
+        }
+        
+        animate();
+    }
+
+    function stopWaveformAnimation() {
+        if (waveformAnimation) {
+            cancelAnimationFrame(waveformAnimation);
+            waveformAnimation = null;
+        }
+        
+        if (audioContext) {
+            audioContext.close().catch(console.error);
+            audioContext = null;
+        }
+        
+        analyser = null;
+        dataArray = null;
+        
+        // Reset waveform bars
+        const bars = document.querySelectorAll('.waveform-bar');
+        bars.forEach(bar => {
+            bar.style.height = '4px';
+            bar.style.backgroundColor = '#9CA3AF';
+        });
+        
+        // Hide waveform container when recording stops
+        const waveformContainer = document.getElementById('waveformContainer');
+        if (waveformContainer) {
+            waveformContainer.classList.add('hidden');
+        }
+    }
+
+    function startRecordingTimer() {
+        recordingStartTime = Date.now();
+        const timeDisplay = document.getElementById('recordingTime');
+        
+        if (recordingTimer) {
+            clearInterval(recordingTimer);
+        }
+        
+        recordingTimer = setInterval(() => {
+            if (!isRecording || !recordingModeActive) {
+                clearInterval(recordingTimer);
+                recordingTimer = null;
+                return;
+            }
+            
+            const elapsed = Math.floor((Date.now() - recordingStartTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            
+            if (timeDisplay) {
+                timeDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }, 1000);
+    }
+
+    function stopRecordingTimer() {
+        if (recordingTimer) {
+            clearInterval(recordingTimer);
+            recordingTimer = null;
+        }
+        
+        const timeDisplay = document.getElementById('recordingTime');
+        if (timeDisplay) {
+            timeDisplay.textContent = '0:00';
+        }
+        
+        recordingStartTime = null;
+    }
+
+    function toggleVoiceOutput() {
+        const audio = document.getElementById('ttsAudio');
+        const btn = document.getElementById('voiceOutputBtn');
+
+        // If audio is currently playing, stop it and keep voice output state as-is
+        if (audio && !audio.paused && !audio.ended) {
+            audio.pause();
+            audio.currentTime = 0;
+            if (btn) {
+                if (isVoiceOutputEnabled) {
+                    btn.classList.add('bg-blue-50', 'border-blue-300');
+                }
+                btn.classList.remove('bg-green-50', 'border-green-300');
+            }
+            showNotification('Voice playback stopped', 'info');
+            return;
+        }
+
+        // Toggle voice output state when not currently playing
+        isVoiceOutputEnabled = !isVoiceOutputEnabled;
+
+        if (!btn) return;
+
+        if (isVoiceOutputEnabled) {
+            btn.classList.add('bg-blue-50', 'border-blue-300');
+            showNotification('Voice output enabled', 'success');
+
+            // If we have something to speak (from last response), start playback
+            const textToSpeak = lastSpokenText || lastAIMessage;
+            if (textToSpeak) {
+                speakText(textToSpeak);
+            }
+        } else {
+            btn.classList.remove('bg-blue-50', 'border-blue-300');
+            showNotification('Voice output disabled', 'info');
+
+            if (audio) {
+                audio.pause();
+                audio.currentTime = 0;
+            }
+        }
+    }
+
+    function stopSpeech() {
+        const audio = document.getElementById('ttsAudio');
+        if (audio && !audio.paused) {
+            audio.pause();
+            audio.currentTime = 0;
+            const voiceBtn = document.getElementById('voiceOutputBtn');
+            if (voiceBtn) {
                 if (isVoiceOutputEnabled) {
                     voiceBtn.classList.add('bg-blue-50', 'border-blue-300');
                 }
                 voiceBtn.classList.remove('bg-green-50', 'border-green-300');
-                showNotification('Voice playback stopped', 'info');
+            }
+            showNotification('Voice playback stopped', 'info');
         }
     }
 
-    function speakText(text) {
-        if ('speechSynthesis' in window && (isVoiceOutputEnabled || isRecording)) {
-            window.speechSynthesis.cancel();
-            
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = 1.0;
-            utterance.pitch = 1.0;
-            utterance.volume = 1.0;
-            
-            const voices = window.speechSynthesis.getVoices();
-            const femaleVoice = voices.find(voice => 
-                voice.name.includes('Female') || 
-                voice.name.includes('Zira') || 
-                voice.name.includes('Emma')
-            );
-            if (femaleVoice) {
-                utterance.voice = femaleVoice;
+    async function speakText(text) {
+        // Only speak when voice output is enabled or during recording
+        if (!text || (!isVoiceOutputEnabled && !isRecording)) {
+            return;
+        }
+
+        // Remember this text so the speaker button can replay it
+        lastSpokenText = text;
+
+        try {
+            const audio = document.getElementById('ttsAudio');
+            const voiceBtn = document.getElementById('voiceOutputBtn');
+            if (!audio) return;
+
+            // Stop existing playback
+            if (!audio.paused) {
+                audio.pause();
+                audio.currentTime = 0;
             }
 
-                // Add visual feedback when speech starts
-                utterance.onstart = () => {
-                    const voiceBtn = document.getElementById('voiceOutputBtn');
+            // Request TTS audio from backend (gTTS + langdetect)
+            const response = await fetch('/api/tts', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ text })
+            });
+
+            if (!response.ok) {
+                console.error('TTS error response:', response.status);
+                showNotification('Failed to play audio for this message.', 'error');
+                return;
+            }
+
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            audio.src = url;
+
+            // Visual feedback when audio starts
+            audio.onplay = () => {
+                if (voiceBtn) {
                     voiceBtn.classList.add('bg-green-50', 'border-green-300');
                     voiceBtn.classList.remove('bg-blue-50', 'border-blue-300');
-                };
+                }
+            };
 
-                // Remove visual feedback when speech ends
-                utterance.onend = () => {
-                    const voiceBtn = document.getElementById('voiceOutputBtn');
+            const resetVoiceButtonState = () => {
+                if (voiceBtn) {
                     if (isVoiceOutputEnabled) {
                         voiceBtn.classList.add('bg-blue-50', 'border-blue-300');
                     }
                     voiceBtn.classList.remove('bg-green-50', 'border-green-300');
-                };
+                }
+            };
 
-                // Remove visual feedback if speech is cancelled
-                utterance.onerror = () => {
-                    const voiceBtn = document.getElementById('voiceOutputBtn');
-                    if (isVoiceOutputEnabled) {
-                        voiceBtn.classList.add('bg-blue-50', 'border-blue-300');
-                    }
-                    voiceBtn.classList.remove('bg-green-50', 'border-green-300');
-                };
-            
-            window.speechSynthesis.speak(utterance);
+            audio.onended = resetVoiceButtonState;
+            audio.onerror = resetVoiceButtonState;
+
+            await audio.play();
+        } catch (error) {
+            console.error('Error in speakText:', error);
+            showNotification('Error playing audio. Please try again.', 'error');
         }
     }
 
@@ -8121,9 +8598,21 @@ async function initializeApp() {
                     <button onclick="showSidebar()" class="w-10 h-10 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg flex items-center justify-center transition-colors">
                         <i class="fas fa-bars w-6 h-6"></i>
                     </button>
-                    <button onclick="logout()" class="w-10 h-10 bg-white shadow hover:bg-gray-50 text-red-600 rounded-lg flex items-center justify-center transition-colors">
-                        <i class="fas fa-sign-out-alt text-[#F50D0D]"></i>
-                    </button>
+                    <div class="flex flex-col gap-2">
+                        <button onclick="openSettings()" class="w-10 h-10 bg-white shadow hover:bg-gray-50 text-iqbal-primary rounded-full flex items-center justify-center transition-colors relative group" title="Settings - {{ subscription_tier|title }} Plan">
+                            {% if subscription_tier == 'pro_plus' %}
+                                <span class="text-xs font-bold">P+</span>
+                            {% elif subscription_tier == 'pro' %}
+                                <span class="text-xs font-bold">P</span>
+                            {% else %}
+                                <span class="text-xs font-bold">F</span>
+                            {% endif %}
+                            <div class="absolute inset-0 rounded-full border-2 border-iqbal-primary opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                        </button>
+                        <button onclick="logout()" class="w-10 h-10 bg-white shadow hover:bg-gray-50 text-red-600 rounded-lg flex items-center justify-center transition-colors">
+                            <i class="fas fa-sign-out-alt"></i>
+                        </button>
+                    </div>
                 </div>
             `;
             sidebar.className = "w-16 bg-white shadow-md";
@@ -8222,16 +8711,49 @@ async function initializeApp() {
                     <span>New Chat</span>
                 </button>
 
-                <!-- Action Buttons -->
+                <!-- Action Buttons - Only visible to teachers and admins -->
+                {% if can_view_my_lessons() %}
                 <button onclick="openLessonGenerator()" class="hidden w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors" id="generateLessonBtn">
                     <img src="{{ url_for('static', filename='images/lesson.png') }}" alt="" class="w-3.5 h-3.5">
                     <span>Generate Lessons</span>
                 </button>
+                {% endif %}
 
                 <!-- View Lessons Button in Sidebar -->
                 <button onclick="openViewLessons()" class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors" id="viewLessonsBtn">
                     <img src="{{ url_for('static', filename='images/lesson.png') }}" alt="" class="w-3.5 h-3.5">
                     <span id="viewLessonsLabel">View Lessons</span>
+                </button>
+
+                <!-- Upload PDF Document Button - Only visible to teachers and admins -->
+                {% if can_upload_pdf() %}
+                <button onclick="showRAGUploadModal()"
+                    class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors"
+                    id="uploadPDFBtn">
+                    <i class="fas fa-file-pdf text-[#B7B7B7] w-3.5 h-3.5"></i>
+                    <span>Upload PDF</span>
+                </button>
+                {% endif %}
+
+                <!-- RAG Thread Selector -->
+                <div id="ragThreadSelector" class="hidden w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px]">
+                    <button onclick="toggleRAGThreadSelector()"
+                        class="w-full h-6 sm:h-7 lg:h-8 px-2 flex items-center justify-between font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors">
+                        <div class="flex items-center gap-1.5">
+                            <i class="fas fa-layer-group text-[#B7B7B7] w-3 h-3"></i>
+                            <span id="currentRAGThreadName">Thread 1</span>
+                        </div>
+                        <i class="fas fa-chevron-down text-[#666] w-2 h-2" id="ragThreadArrow"></i>
+                    </button>
+                    <div id="ragThreadDropdown" class="hidden mt-1.5 flex flex-col gap-1 w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] max-h-40 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-lg p-2">
+                        <!-- Threads will be populated here -->
+                    </div>
+                </div>
+
+                <!-- RAG Prompt Settings Button -->
+                <button onclick="showRAGPromptModal()" id="ragPromptBtn" class="hidden w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors">
+                    <i class="fas fa-cog text-[#B7B7B7] w-3.5 h-3.5"></i>
+                    <span>Set Prompt</span>
                 </button>
 
                 <button onclick="resetChat()" class="w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center gap-1.5 font-semibold text-xs text-gray-700 hover:bg-gray-50 rounded transition-colors">
@@ -8262,11 +8784,29 @@ async function initializeApp() {
                     </div>
                 </div>
 
-                <!-- Logout Button -->
-                <button onclick="logout()" class="fixed bottom-4 w-full max-w-[140px] sm:max-w-[160px] lg:max-w-[180px] h-6 sm:h-7 lg:h-8 px-2 flex items-center justify-center gap-1.5 font-semibold text-xs text-gray-700 bg-white shadow rounded hover:bg-gray-50 transition-colors">
-                    <i class="fas fa-sign-out-alt text-[#F50D0D] w-3 h-3"></i>
-                    <span class="text-[#F50D0D]">Log out</span>
-                </button>
+                <!-- Settings and Logout Buttons Container -->
+                <div class="fixed bottom-4 left-2 sm:left-3 flex gap-2 items-center">
+                    <!-- Settings Button - Circular with Plan -->
+                    <button onclick="openSettings()"
+                        class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white shadow-md hover:bg-gray-50 transition-colors flex items-center justify-center relative group"
+                        title="Settings - {{ subscription_tier|title }} Plan">
+                        {% if subscription_tier == 'pro_plus' %}
+                            <span class="text-xs sm:text-sm font-bold text-iqbal-primary">P+</span>
+                        {% elif subscription_tier == 'pro' %}
+                            <span class="text-xs sm:text-sm font-bold text-iqbal-primary">P</span>
+                        {% else %}
+                            <span class="text-xs sm:text-sm font-bold text-iqbal-primary">F</span>
+                        {% endif %}
+                        <div class="absolute inset-0 rounded-full border-2 border-iqbal-primary opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    </button>
+                    
+                    <!-- Logout Button -->
+                    <button onclick="logout()"
+                        class="flex-1 h-6 sm:h-7 lg:h-8 px-2 flex items-center justify-center gap-1.5 font-semibold text-xs text-gray-700 bg-white shadow rounded hover:bg-gray-50 transition-colors">
+                        <i class="fas fa-sign-out-alt text-[#F50D0D] w-3 h-3"></i>
+                        <span class="text-[#F50D0D] hidden sm:inline">Logout</span>
+                    </button>
+                </div>
 
             </div>
         `;
@@ -8281,6 +8821,35 @@ async function initializeApp() {
         // Re-apply role-based UI after restoring sidebar
         setupRoleBasedUI();
         updateChatHistoryDisplay();
+        
+        // Check if we're in RAG chat mode and show/hide buttons accordingly
+        // Use setTimeout to ensure DOM is ready
+        setTimeout(() => {
+            if (isRAGChatMode && currentRAGThreadId) {
+                // Show thread selector and prompt button if in RAG mode
+                const selector = document.getElementById('ragThreadSelector');
+                const promptBtn = document.getElementById('ragPromptBtn');
+                if (selector) {
+                    selector.classList.remove('hidden');
+                    // Update thread selector with current thread info
+                    updateRAGThreadSelector();
+                }
+                if (promptBtn) {
+                    promptBtn.classList.remove('hidden');
+                }
+            } else {
+                // Hide thread selector and prompt button if not in RAG mode
+                const selector = document.getElementById('ragThreadSelector');
+                const promptBtn = document.getElementById('ragPromptBtn');
+                if (selector) {
+                    selector.classList.add('hidden');
+                }
+                if (promptBtn) {
+                    promptBtn.classList.add('hidden');
+                }
+            }
+        }, 0);
+        
         isCollapsed = false;
     }
 
@@ -8299,6 +8868,10 @@ async function initializeApp() {
                 arrow.classList.add('fa-chevron-down');
             }
         }
+    }
+
+    function openSettings() {
+        window.location.href = '/subscription/settings';
     }
 
     async function logout() {
@@ -8653,6 +9226,22 @@ async function initializeApp() {
                 #messageInput:focus {
                     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
                 }
+
+                /* Recording Interface Styles */
+                #recordingInterface {
+                    transition: all 0.3s ease;
+                }
+
+                .waveform-bar {
+                    transition: height 0.1s ease, background-color 0.1s ease;
+                }
+
+                #waveformContainer {
+                    min-height: 24px;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                }
                 
                 .typing-indicator {
                     animation: fadeIn 0.3s ease-in;
@@ -8999,6 +9588,9 @@ async function initializeApp() {
         if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
             sendMessage();
+        } else if (event.key === 'Escape' && recordingModeActive) {
+            event.preventDefault();
+            cancelRecording();
         }
     }
 
@@ -9901,73 +10493,128 @@ async function initializeApp() {
             qnaDiv.scrollTop = qnaDiv.scrollHeight;
         }
 
-        // Open chatbot modal for student
-        function openStudentChatBot(lessonId, lessonTitle) {
+        // Open chatbot modal for student with lesson content visible
+        async function openStudentChatBot(lessonId, lessonTitle) {
             // Check if chatbot already exists
             let chatbotModal = document.getElementById('studentChatBotModal');
             if (chatbotModal) {
                 chatbotModal.remove();
             }
 
+            // Fetch lesson data to display content
+            let lessonContent = '';
+            let lessonData = null;
+            try {
+                const response = await fetch(`/api/lessons/lesson/${lessonId}`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.lesson) {
+                        lessonData = data.lesson;
+                        lessonContent = lessonData.content || '';
+                    }
+                }
+            } catch (error) {
+                console.error('Error fetching lesson:', error);
+            }
+
             const modal = document.createElement('div');
             modal.id = 'studentChatBotModal';
-            modal.className = 'fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm';
+            modal.className = 'fixed inset-0 z-[9999] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-2 sm:p-4';
             modal.innerHTML = `
-                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-4xl h-[85vh] flex flex-col border border-gray-200 overflow-hidden">
-                    <!-- Chat Header -->
-                    <div class="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-6 py-4 flex items-center justify-between border-b border-blue-500">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                                <i class="fas fa-robot text-xl"></i>
+                <div class="bg-white rounded-2xl shadow-2xl w-full max-w-7xl h-[90vh] sm:h-[85vh] flex flex-col border border-gray-200 overflow-hidden">
+                    <!-- Header -->
+                    <div class="bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between border-b border-blue-500 flex-shrink-0">
+                        <div class="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                            <div class="w-8 h-8 sm:w-10 sm:h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center flex-shrink-0">
+                                <i class="fas fa-book-reader text-base sm:text-xl"></i>
                             </div>
-                            <div>
-                                <h3 class="text-lg font-bold">Lesson Q&A Assistant</h3>
-                                <p class="text-xs text-blue-100">Ask questions about: ${lessonTitle}</p>
+                            <div class="min-w-0 flex-1">
+                                <h3 class="text-base sm:text-lg font-bold truncate">${lessonTitle}</h3>
+                                <p class="text-[10px] sm:text-xs text-blue-100 truncate">Ask questions while viewing the lesson content</p>
                             </div>
                         </div>
-                        <button onclick="closeStudentChatBot()" class="w-8 h-8 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-full flex items-center justify-center transition-colors">
-                            <i class="fas fa-times"></i>
+                        <button onclick="closeStudentChatBot()" class="w-8 h-8 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-full flex items-center justify-center transition-colors flex-shrink-0 ml-2">
+                            <i class="fas fa-times text-sm"></i>
                         </button>
                     </div>
 
-                    <!-- Chat Messages Area -->
-                    <div id="studentChatMessages" class="flex-1 overflow-y-auto p-6 bg-gradient-to-b from-gray-50 to-white space-y-4" style="scroll-behavior: smooth;">
-                        <div class="flex items-center justify-center py-8">
-                            <div class="text-center">
-                                <div class="w-16 h-16 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                                    <i class="fas fa-comments text-white text-2xl"></i>
-                                </div>
-                                <p class="text-gray-600 font-medium">Welcome! Ask me anything about this lesson.</p>
-                                <p class="text-sm text-gray-400 mt-1">I'm here to help you understand the content better.</p>
+                    <!-- Split View: Lesson Content and Chat -->
+                    <div class="flex-1 flex flex-col lg:flex-row overflow-hidden" style="height: calc(90vh - 120px); min-height: 0;">
+                        <!-- Left Side: Lesson Content -->
+                        <div class="w-full lg:w-1/2 border-b lg:border-b-0 lg:border-r border-gray-200 flex flex-col overflow-hidden bg-gray-50" id="lessonContentContainer">
+                            <div class="bg-white px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+                                <h4 class="text-xs sm:text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <i class="fas fa-file-alt text-blue-600 text-sm"></i>
+                                    <span class="hidden sm:inline">Lesson Content</span>
+                                    <span class="sm:hidden">Content</span>
+                                </h4>
+                                <button onclick="toggleLessonContentPanel()" class="text-gray-400 hover:text-gray-600 p-1 lg:hidden" title="Toggle Content Panel">
+                                    <i class="fas fa-chevron-down" id="lessonContentToggleIcon"></i>
+                                </button>
+                            </div>
+                            <div id="lessonContentPanel" class="flex-1 overflow-y-auto p-4 sm:p-6 prose prose-blue max-w-none markdown-content zoomable-content">
+                                ${lessonContent ? formatLessonContentWithNumbers(lessonContent) : '<div class="text-center py-16"><i class="fas fa-file-alt text-5xl mb-4 text-gray-300"></i><p class="text-gray-500 text-lg font-medium">No content available</p></div>'}
                             </div>
                         </div>
-                    </div>
 
-                    <!-- Chat Input Area -->
-                    <div class="border-t border-gray-200 bg-white p-4">
-                        <div class="flex items-end gap-3">
-                            <div class="flex-1 relative">
-                                <textarea 
-                                    id="studentChatInput" 
-                                    rows="2" 
-                                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition-all text-gray-800 placeholder-gray-400"
-                                    placeholder="Type your question here..."
-                                    onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submitStudentChatQuestion(${lessonId}, '${lessonTitle.replace(/'/g, "\\'")}'); }"
-                                ></textarea>
+                        <!-- Right Side: Chat Interface -->
+                        <div class="w-full lg:w-1/2 flex flex-col bg-white overflow-hidden" id="chatContainer">
+                            <div class="bg-gradient-to-r from-blue-50 to-cyan-50 px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
+                                <h4 class="text-xs sm:text-sm font-semibold text-gray-700 flex items-center gap-2">
+                                    <i class="fas fa-robot text-blue-600 text-sm"></i>
+                                    Q&A Assistant
+                                </h4>
+                                <button onclick="toggleChatPanel()" class="text-gray-400 hover:text-gray-600 p-1 hidden lg:hidden" id="chatToggleBtn" title="Toggle Chat Panel">
+                                    <i class="fas fa-chevron-up" id="chatToggleIcon"></i>
+                                </button>
                             </div>
-                            <button 
-                                onclick="submitStudentChatQuestion(${lessonId}, '${lessonTitle.replace(/'/g, "\\'")}')" 
-                                class="px-6 py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 font-semibold flex items-center gap-2"
-                                id="submitStudentChatBtn"
-                            >
-                                <i class="fas fa-paper-plane"></i>
-                                <span class="hidden sm:inline">Send</span>
-                            </button>
+                            
+                            <!-- Chat Messages Area -->
+                            <div id="studentChatMessages" class="flex-1 overflow-y-auto p-4 sm:p-6 bg-gradient-to-b from-gray-50 to-white space-y-4" style="scroll-behavior: smooth;">
+                                <div class="flex items-center justify-center py-6 sm:py-8">
+                                    <div class="text-center">
+                                        <div class="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-r from-blue-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                                            <i class="fas fa-comments text-white text-lg sm:text-2xl"></i>
+                                        </div>
+                                        <p class="text-gray-600 font-medium text-sm sm:text-base">Welcome! Ask me anything about this lesson.</p>
+                                        <p class="text-xs sm:text-sm text-gray-400 mt-1">I'm here to help you understand the content better.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Chat Input Area -->
+                            <div class="border-t border-gray-200 bg-white p-3 sm:p-4 flex-shrink-0">
+                                <div class="flex items-end gap-2 sm:gap-3">
+                                    <div class="flex-1 relative">
+                                        <textarea 
+                                            id="studentChatInput" 
+                                            rows="2" 
+                                            class="w-full px-3 sm:px-4 py-2 sm:py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none transition-all text-gray-800 placeholder-gray-400 text-sm sm:text-base"
+                                            placeholder="Type your question about the lesson content..."
+                                            onkeydown="if(event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); submitStudentChatQuestion(${lessonId}, '${lessonTitle.replace(/'/g, "\\'")}'); }"
+                                        ></textarea>
+                                    </div>
+                                    <button 
+                                        onclick="submitStudentChatQuestion(${lessonId}, '${lessonTitle.replace(/'/g, "\\'")}')" 
+                                        class="px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-xl hover:from-blue-700 hover:to-cyan-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 font-semibold flex items-center gap-2 text-sm sm:text-base"
+                                        id="submitStudentChatBtn"
+                                    >
+                                        <i class="fas fa-paper-plane"></i>
+                                        <span class="hidden sm:inline">Send</span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             `;
             document.body.appendChild(modal);
+
+            // Store lesson data for reference
+            window.currentStudentLessonData = lessonData;
 
             // Load chat history
             loadStudentChatHistory(lessonId);
@@ -9977,6 +10624,96 @@ async function initializeApp() {
                 const input = document.getElementById('studentChatInput');
                 if (input) input.focus();
             }, 100);
+        }
+
+        // Toggle lesson content panel visibility
+        function toggleLessonContentPanel() {
+            const contentContainer = document.getElementById('lessonContentContainer');
+            const panel = document.getElementById('lessonContentPanel');
+            const chatContainer = document.getElementById('chatContainer');
+            const toggleIcon = document.getElementById('lessonContentToggleIcon');
+            const chatToggleBtn = document.getElementById('chatToggleBtn');
+            
+            if (contentContainer && panel && chatContainer) {
+                // On mobile, toggle panel visibility
+                if (window.innerWidth < 1024) {
+                    if (panel.style.display === 'none' || panel.classList.contains('hidden')) {
+                        panel.style.display = 'block';
+                        panel.classList.remove('hidden');
+                        if (toggleIcon) toggleIcon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+                    } else {
+                        panel.style.display = 'none';
+                        panel.classList.add('hidden');
+                        if (toggleIcon) toggleIcon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+                    }
+                } else {
+                    // Desktop: toggle side panel
+                    if (contentContainer.classList.contains('hidden')) {
+                        contentContainer.classList.remove('hidden');
+                        contentContainer.classList.remove('w-0');
+                        contentContainer.classList.add('lg:w-1/2');
+                        chatContainer.classList.remove('w-full');
+                        chatContainer.classList.add('lg:w-1/2');
+                        if (toggleIcon) toggleIcon.classList.replace('fa-chevron-right', 'fa-chevron-left');
+                        if (chatToggleBtn) chatToggleBtn.classList.add('hidden');
+                    } else {
+                        contentContainer.classList.add('hidden');
+                        contentContainer.classList.add('w-0');
+                        contentContainer.classList.remove('lg:w-1/2');
+                        chatContainer.classList.remove('lg:w-1/2');
+                        chatContainer.classList.add('w-full');
+                        if (toggleIcon) toggleIcon.classList.replace('fa-chevron-left', 'fa-chevron-right');
+                        if (chatToggleBtn) chatToggleBtn.classList.remove('hidden');
+                    }
+                }
+            }
+        }
+
+        // Toggle chat panel visibility
+        function toggleChatPanel() {
+            const chatContainer = document.getElementById('chatContainer');
+            const messagesDiv = document.getElementById('studentChatMessages');
+            const contentContainer = document.getElementById('lessonContentContainer');
+            const chatToggleIcon = document.getElementById('chatToggleIcon');
+            const contentToggleBtn = document.querySelector('#studentChatBotModal button[onclick="toggleLessonContentPanel()"]');
+            
+            if (chatContainer && messagesDiv) {
+                // On mobile, toggle panel visibility
+                if (window.innerWidth < 1024) {
+                    if (messagesDiv.style.display === 'none' || messagesDiv.classList.contains('hidden')) {
+                        messagesDiv.style.display = 'block';
+                        messagesDiv.classList.remove('hidden');
+                        if (chatToggleIcon) chatToggleIcon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+                    } else {
+                        messagesDiv.style.display = 'none';
+                        messagesDiv.classList.add('hidden');
+                        if (chatToggleIcon) chatToggleIcon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+                    }
+                } else {
+                    // Desktop: toggle side panel
+                    if (chatContainer.classList.contains('hidden')) {
+                        chatContainer.classList.remove('hidden');
+                        chatContainer.classList.remove('w-0');
+                        chatContainer.classList.add('lg:w-1/2');
+                        if (contentContainer) {
+                            contentContainer.classList.remove('w-full');
+                            contentContainer.classList.add('lg:w-1/2');
+                        }
+                        if (chatToggleIcon) chatToggleIcon.classList.replace('fa-chevron-left', 'fa-chevron-right');
+                        if (contentToggleBtn) contentToggleBtn.classList.remove('hidden');
+                    } else {
+                        chatContainer.classList.add('hidden');
+                        chatContainer.classList.add('w-0');
+                        chatContainer.classList.remove('lg:w-1/2');
+                        if (contentContainer) {
+                            contentContainer.classList.remove('lg:w-1/2');
+                            contentContainer.classList.add('w-full');
+                        }
+                        if (chatToggleIcon) chatToggleIcon.classList.replace('fa-chevron-right', 'fa-chevron-left');
+                        if (contentToggleBtn) contentToggleBtn.classList.add('hidden');
+                    }
+                }
+            }
         }
 
         // Close chatbot modal

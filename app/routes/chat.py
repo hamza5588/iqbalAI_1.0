@@ -1,5 +1,5 @@
 # app/routes/chat.py
-from flask import Blueprint, redirect, request, session, jsonify, render_template, url_for
+from flask import Blueprint, redirect, request, session, jsonify, render_template, url_for, send_file
 from app.services import ChatService, PromptService
 from app.models.models import SurveyModel, LessonModel
 # from app.utils.decorators import login_required
@@ -9,6 +9,12 @@ import logging
 from app.utils.db import get_db
 import time
 from functools import lru_cache
+from io import BytesIO
+from langdetect import detect
+from gtts import gTTS
+import os
+
+from openai import OpenAI
 
 logger = logging.getLogger(__name__)
 bp = Blueprint('chat', __name__)
@@ -22,6 +28,17 @@ def health_check():
     """Health check endpoint for container orchestration"""
     return jsonify({'status': 'healthy'}), 200
 
+
+def _get_openai_client():
+    """
+    Lazily create an OpenAI client for Whisper STT.
+    Expects OPENAI_API_KEY in environment.
+    """
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise RuntimeError("OPENAI_API_KEY environment variable is not set")
+    return OpenAI(api_key=api_key)
+
 @bp.route('/')
 @login_required
 def index():
@@ -31,10 +48,19 @@ def index():
         survey_model = SurveyModel(session['user_id'])
         has_submitted_survey = survey_model.has_submitted_survey()
         
-        return render_template('chat.html', has_submitted_survey=has_submitted_survey)
+        # Get user subscription tier
+        from app.utils.db import get_db
+        from app.models.database_models import User as DBUser
+        db = get_db()
+        user = db.query(DBUser).filter(DBUser.id == session['user_id']).first()
+        subscription_tier = user.subscription_tier if user and user.subscription_tier else 'free'
+        
+        return render_template('chat.html', 
+                             has_submitted_survey=has_submitted_survey,
+                             subscription_tier=subscription_tier)
     except Exception as e:
         logger.error(f"Error in index route: {str(e)}")
-        return render_template('chat.html', has_submitted_survey=False)
+        return render_template('chat.html', has_submitted_survey=False, subscription_tier='free')
 
 # Add these routes to chat.py
 
@@ -408,6 +434,52 @@ def get_user_info():
         logger.error(f"Error getting user info: {str(e)}")
         return jsonify({'error': 'Failed to get user info'}), 500
 
+
+@bp.route('/api/stt', methods=['POST'])
+@login_required
+def speech_to_text():
+    """
+    Convert uploaded speech audio to text using OpenAI Whisper.
+
+    Expects multipart/form-data with field "audio".
+    Returns JSON: {"text": "..."} on success.
+    """
+    try:
+        if 'audio' not in request.files:
+            return jsonify({'error': 'No audio file provided'}), 400
+
+        audio_file = request.files['audio']
+        if audio_file.filename == '':
+            return jsonify({'error': 'Empty audio filename'}), 400
+
+        # OpenAI client for Whisper
+        client = _get_openai_client()
+
+        # Whisper works best with binary file-like objects
+        # We read into memory here as recordings are short (voice messages)
+        from tempfile import NamedTemporaryFile
+
+        with NamedTemporaryFile(delete=False, suffix=".webm") as tmp:
+            audio_file.save(tmp.name)
+            tmp_path = tmp.name
+
+        with open(tmp_path, "rb") as f:
+            transcription = client.audio.transcriptions.create(
+                model="whisper-1",
+                file=f,
+                response_format="json"
+            )
+
+        text = getattr(transcription, "text", None) or transcription.get("text")  # handle both object/dict
+        if not text:
+            return jsonify({'error': 'Transcription failed'}), 500
+
+        return jsonify({'text': text})
+
+    except Exception as e:
+        logger.error(f"Error in speech_to_text: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Failed to transcribe audio'}), 500
+
 @bp.route('/chatbot', methods=['GET'])
 @teacher_required
 def chatbot():
@@ -432,3 +504,104 @@ def chatbot_update():
     except Exception as e:
         logger.error(f"Error rendering chatbot_update page: {str(e)}", exc_info=True)
         return jsonify({'error': f'Failed to render page: {str(e)}'}), 500
+
+
+
+
+import re
+from io import BytesIO
+from flask import request, jsonify, send_file
+from gtts import gTTS
+from langdetect import detect
+
+def clean_text_for_tts(text: str) -> str:
+    """
+    Remove markdown and unwanted symbols so TTS only speaks readable text.
+    Keeps letters (including Urdu/Arabic), numbers, punctuation, and spaces.
+    """
+    # Remove markdown & special symbols
+    text = re.sub(r"[#*_~`>|=\[\]{}()^]", "", text)
+
+    # Remove multiple spaces
+    text = re.sub(r"\s+", " ", text)
+
+    return text.strip()
+
+@bp.route('/api/tts', methods=['POST'])
+@login_required
+def text_to_speech():
+    """
+    Convert text to speech using gTTS.
+    Cleans symbols before sending text to TTS.
+    """
+    try:
+        data = request.get_json() or {}
+        text = (data.get('text') or '').strip()
+
+        if not text:
+            return jsonify({'error': 'Text is required'}), 400
+
+        # ✅ Clean text before TTS
+        text = clean_text_for_tts(text)
+
+        # Detect language; fallback to English
+        try:
+            lang = detect(text)
+        except Exception as e:
+            logger.warning(f"Language detection failed, defaulting to 'en': {str(e)}")
+            lang = 'en'
+
+        # Generate speech
+        tts = gTTS(text=text, lang=lang)
+        audio_fp = BytesIO()
+        tts.write_to_fp(audio_fp)
+        audio_fp.seek(0)
+
+        return send_file(
+            audio_fp,
+            mimetype='audio/mpeg',
+            as_attachment=False,
+            download_name='tts.mp3'
+        )
+
+    except Exception as e:
+        logger.error(f"Error in text_to_speech: {str(e)}", exc_info=True)
+        return jsonify({'error': 'Failed to generate speech'}), 500
+
+
+
+# def text_to_speech():
+#     """
+#     Convert text to speech using gTTS and return an audio stream.
+#     This replaces browser-based SpeechSynthesis so it also works for Urdu and other languages.
+#     """
+#     try:
+#         data = request.get_json() or {}
+#         text = (data.get('text') or '').strip()
+
+#         if not text:
+#             return jsonify({'error': 'Text is required'}), 400
+
+#         # Detect language; fallback to English on failure
+#         try:
+#             lang = detect(text)
+#         except Exception as e:
+#             logger.warning(f"Language detection failed, defaulting to 'en': {str(e)}")
+#             lang = 'en'
+
+#         # Generate speech with gTTS
+#         tts = gTTS(text=text, lang=lang)
+#         audio_fp = BytesIO()
+#         tts.write_to_fp(audio_fp)
+#         audio_fp.seek(0)
+
+#         # Return audio as an MP3 stream
+#         return send_file(
+#             audio_fp,
+#             mimetype='audio/mpeg',
+#             as_attachment=False,
+#             download_name='tts.mp3'
+#         )
+#     except Exception as e:
+#         logger.error(f"Error in text_to_speech: {str(e)}", exc_info=True)
+#         return jsonify({'error': 'Failed to generate speech'}), 500
