@@ -25,6 +25,26 @@ def chat():
         return jsonify(chatbot_response)
     except ValueError as e:
         print(f"ValueError in chat route: {str(e)}")  # Debug log
+        error_msg = str(e)
+        # Check if Groq is selected and API key is missing
+        from app.utils.db import get_db
+        from app.models.database_models import SystemSettings
+        try:
+            db = get_db()
+            setting = db.query(SystemSettings).filter(SystemSettings.key == 'llm_provider').first()
+            provider = setting.value if setting else 'openai'
+            
+            if provider == 'groq' and ('API key' in error_msg or 'Groq' in error_msg):
+                return jsonify({
+                    "redirect": False,
+                    "message": "Groq API key is required. Please configure your Groq API key using the key icon (🔑) next to the download button in the chat interface.",
+                    "whatsapp_url": "",
+                    "requires_api_key": True,
+                    "provider": "groq"
+                }), 400
+        except:
+            pass
+        
         return jsonify({
             "redirect": True,
             "message": "Please set up your API key in your account settings.",

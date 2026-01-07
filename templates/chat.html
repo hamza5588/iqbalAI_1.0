@@ -836,7 +836,11 @@
             </div>
             
             <div class="flex items-center gap-2">
-                    
+                    <button id="apiKeyConfigBtn" onclick="showApiKeyModal()"
+                        class="hidden w-8 h-8 sm:w-10 sm:h-10 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-colors" 
+                        title="Configure API Key">
+                        <i class="fas fa-key text-gray-500 text-xs sm:text-sm"></i>
+                    </button>
                     <button id="chatDownloadBtn" onclick="downloadCurrentChat()"
                         class="w-8 h-8 sm:w-10 sm:h-10 border border-gray-200 rounded-lg flex items-center justify-center hover:bg-gray-50 transition-colors">
                         <i class="fas fa-download text-gray-500 text-xs sm:text-sm"></i>
@@ -1088,14 +1092,14 @@
                                     </div>
                                     
                                     <div id="selectedFileName" class="hidden mt-4 p-4 bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-xl shadow">
-                                        <div class="flex items-center justify-between">
+                                        <div class="flex items-center justify-between mb-3">
                                             <div class="flex items-center gap-2">
                                                 <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
                                                     <i class="fas fa-check text-green-600 text-xs"></i>
                                                 </div>
                                                 <div>
                                                     <p class="text-green-800 font-semibold text-xs">File Selected</p>
-                                                    <span class="text-green-700 font-medium text-xs"></span>
+                                                    <span id="selectedFileSize" class="text-green-700 font-medium text-xs"></span>
                                                 </div>
                                             </div>
                                             <div class="flex items-center gap-2">
@@ -1105,6 +1109,31 @@
                                                 <button type="button" onclick="removeSelectedFile()" class="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded-full transition-colors" title="Remove file">
                                                     <i class="fas fa-trash text-xs"></i>
                                                 </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Upload Progress Bar -->
+                                        <div id="lessonUploadProgress" class="hidden">
+                                            <div class="flex items-center justify-between mb-2">
+                                                <div class="flex items-center gap-2">
+                                                    <i class="fas fa-upload text-blue-600 text-xs"></i>
+                                                    <span id="lessonUploadStatus" class="text-sm text-gray-700">Uploading...</span>
+                                                </div>
+                                                <div class="flex items-center gap-3">
+                                                    <span id="lessonUploadSpeed" class="text-xs text-gray-500"></span>
+                                                    <span id="lessonUploadPercent" class="text-sm font-medium text-blue-600">0%</span>
+                                                </div>
+                                            </div>
+                                            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+                                                <div id="lessonUploadBar" class="bg-gradient-to-r from-blue-500 to-blue-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                                            </div>
+                                            <div class="flex items-center justify-between">
+                                                <span id="lessonUploadInfo" class="text-xs text-gray-500">0 MB / 0 MB</span>
+                                                <span id="lessonUploadETA" class="text-xs text-gray-500"></span>
+                                            </div>
+                                            <div id="lessonUploadWarning" class="hidden mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+                                                <i class="fas fa-exclamation-triangle mr-1"></i>
+                                                <span>Slow upload detected. Please check your internet connection.</span>
                                             </div>
                                         </div>
                                     </div>
@@ -1734,6 +1763,7 @@
     let currentLessonChatId = null; // Store the lesson ID for interactive chat
     let isRAGChatMode = false; // Track if we're in RAG chat mode
     let currentRAGThreadId = null; // Store the RAG thread ID
+    let currentRAGConversationId = null; // Store the RAG conversation ID for chat history
     let ragThreads = []; // Array of {thread_id, name, filename, created_at}
     let lastAIMessage = ''; // Store the last AI message for finalization
     let lastSpokenText = ''; // Store last text used for TTS so speaker button can replay it
@@ -1793,11 +1823,11 @@
                 ...options
             });
             
-            // Check for authentication errors
-            if (response.status === 401 || response.status === 403) {
-                console.log('Authentication error detected, redirecting to login');
-                handleAuthenticationFailure();
-                return null;
+            // Only handle 401 (authentication) - 403 is authorization and should be handled by caller
+            // Don't redirect automatically - let the caller handle it
+            if (response.status === 401) {
+                console.warn('Authentication error detected (401) - session may have expired');
+                // Don't redirect automatically - return the response so caller can handle it
             }
             
             return response;
@@ -1809,11 +1839,36 @@
 
     // Initialize
    // Initialize
+        // Check LLM provider on page load
+        checkLLMProvider();
+        
         window.onload = function () {
     initializeApp();
 };
 
 // Initialize the application
+    // Check LLM provider and show/hide API key button
+    async function checkLLMProvider() {
+        try {
+            const providerResponse = await fetch('/admin/settings/llm-provider');
+            const providerData = await providerResponse.json();
+            const apiKeyBtn = document.getElementById('apiKeyConfigBtn');
+            
+            if (apiKeyBtn && providerData.success && providerData.provider === 'groq') {
+                apiKeyBtn.classList.remove('hidden');
+            } else if (apiKeyBtn) {
+                apiKeyBtn.classList.add('hidden');
+            }
+        } catch (error) {
+            console.warn('Could not check LLM provider:', error);
+            // Hide button on error (default to OpenAI)
+            const apiKeyBtn = document.getElementById('apiKeyConfigBtn');
+            if (apiKeyBtn) {
+                apiKeyBtn.classList.add('hidden');
+            }
+        }
+    }
+
 async function initializeApp() {
     // Initialize message focus effects
     addMessageFocusEffect();
@@ -1971,6 +2026,7 @@ async function initializeApp() {
         const viewLessonsTitle = document.getElementById('viewLessonsTitle');
         const viewLessonsSubtitle = document.getElementById('viewLessonsSubtitle');
         const uploadPDFBtn = document.getElementById('uploadPDFBtn');
+        const ragPromptBtn = document.getElementById('ragPromptBtn');
 
         
         if (userRole === 'teacher' || userRole === 'admin') {
@@ -1988,7 +2044,15 @@ async function initializeApp() {
             if (generateLessonTopBtn) generateLessonTopBtn.style.display = 'none';
             // Hide Upload PDF button for students
             if (uploadPDFBtn) uploadPDFBtn.style.display = 'none';
-
+        }
+        
+        // Show Set Prompt button if in RAG mode OR if user is teacher/admin
+        if (ragPromptBtn) {
+            if (isRAGChatMode || (userRole === 'teacher' || userRole === 'admin')) {
+                ragPromptBtn.classList.remove('hidden');
+            } else {
+                ragPromptBtn.classList.add('hidden');
+            }
         }
         
         // Update lessons display based on role
@@ -3602,7 +3666,13 @@ async function initializeApp() {
             
             currentLessonFile = file;
             const fileNameDisplay = document.getElementById('selectedFileName');
-            fileNameDisplay.querySelector('span').textContent = file.name;
+            const fileSizeSpan = document.getElementById('selectedFileSize');
+            if (fileSizeSpan) {
+                const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+                fileSizeSpan.textContent = `${file.name} (${fileSizeMB} MB)`;
+            } else {
+                fileNameDisplay.querySelector('span').textContent = file.name;
+            }
             fileNameDisplay.classList.remove('hidden');
             // Hide dropzone when a file is selected
             const dropZone = document.getElementById('lessonDropZone');
@@ -3613,7 +3683,10 @@ async function initializeApp() {
                 const isPdf = /\.pdf$/i.test(file.name) || file.type === 'application/pdf';
                 viewBtn.classList.toggle('hidden', !isPdf);
             }
-            showNotification('File uploaded successfully! You can now fill in the lesson details.', 'success');
+            // Hide upload progress initially
+            const uploadProgress = document.getElementById('lessonUploadProgress');
+            if (uploadProgress) uploadProgress.classList.add('hidden');
+            showNotification('File selected! Click "Generate Lesson" to upload and process.', 'success');
         }
     }
 
@@ -3623,10 +3696,38 @@ async function initializeApp() {
         currentLessonFile = null;
         const viewBtn = document.getElementById('viewPdfTextBtn');
         if (viewBtn) viewBtn.classList.add('hidden');
+        // Hide upload progress
+        const uploadProgress = document.getElementById('lessonUploadProgress');
+        if (uploadProgress) uploadProgress.classList.add('hidden');
         // Show dropzone again when file is removed
         const dropZone = document.getElementById('lessonDropZone');
         if (dropZone) dropZone.classList.remove('hidden');
         showNotification('File removed successfully', 'info');
+    }
+    
+    // Helper function to format file size
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(2) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+    
+    // Helper function to format time
+    function formatTime(seconds) {
+        if (seconds < 60) return Math.round(seconds) + 's';
+        const mins = Math.floor(seconds / 60);
+        const secs = Math.round(seconds % 60);
+        return mins + 'm ' + secs + 's';
+    }
+    
+    // Helper function to detect slow upload
+    function detectSlowUpload(speedMBps, elapsedSeconds) {
+        // Consider upload slow if:
+        // 1. Speed is less than 0.1 MB/s after 5 seconds
+        // 2. Speed is less than 0.5 MB/s after 10 seconds
+        if (elapsedSeconds > 10 && speedMBps < 0.5) return true;
+        if (elapsedSeconds > 5 && speedMBps < 0.1) return true;
+        return false;
     }
 
     // Drag and Drop functionality for lesson upload
@@ -4219,6 +4320,24 @@ async function initializeApp() {
             return;
         }
         
+        // Show upload progress in lesson upload area
+        const uploadProgress = document.getElementById('lessonUploadProgress');
+        const uploadBar = document.getElementById('lessonUploadBar');
+        const uploadPercent = document.getElementById('lessonUploadPercent');
+        const uploadStatus = document.getElementById('lessonUploadStatus');
+        const uploadSpeed = document.getElementById('lessonUploadSpeed');
+        const uploadInfo = document.getElementById('lessonUploadInfo');
+        const uploadETA = document.getElementById('lessonUploadETA');
+        const uploadWarning = document.getElementById('lessonUploadWarning');
+        
+        // Show progress bar
+        if (uploadProgress) {
+            uploadProgress.classList.remove('hidden');
+        }
+        if (uploadStatus) uploadStatus.textContent = 'Uploading PDF...';
+        if (uploadInfo) uploadInfo.textContent = `0 MB / ${formatFileSize(file.size)}`;
+        if (uploadWarning) uploadWarning.classList.add('hidden');
+        
         // Disable button and show loading
         generateBtn.disabled = true;
         generateBtnText.textContent = 'Uploading PDF...';
@@ -4233,15 +4352,108 @@ async function initializeApp() {
             formData.append('file', file);
             formData.append('create_new_thread', 'true'); // Always create new thread for new uploads
             
-            const response = await fetch('/api/rag/ingest', {
-                method: 'POST',
-                body: formData,
-                credentials: 'include'
+            // Use XMLHttpRequest for better progress tracking
+            const xhr = new XMLHttpRequest();
+            let uploadStartTime = Date.now();
+            
+            // Set timeout to 30 minutes
+            xhr.timeout = 30 * 60 * 1000;
+            
+            // Track upload progress
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    const elapsed = (Date.now() - uploadStartTime) / 1000; // seconds
+                    const speed = e.loaded / elapsed / 1024 / 1024; // MB/s
+                    const remaining = (e.total - e.loaded) / 1024 / 1024; // MB remaining
+                    const eta = remaining / speed; // seconds
+                    
+                    // Update progress bar
+                    if (uploadBar) uploadBar.style.width = percentComplete + '%';
+                    if (uploadPercent) uploadPercent.textContent = percentComplete.toFixed(0) + '%';
+                    if (uploadInfo) {
+                        uploadInfo.textContent = `${formatFileSize(e.loaded)} / ${formatFileSize(e.total)}`;
+                    }
+                    if (uploadSpeed) {
+                        uploadSpeed.textContent = speed > 0 ? `${speed.toFixed(2)} MB/s` : '';
+                    }
+                    if (uploadETA && speed > 0) {
+                        uploadETA.textContent = `ETA: ${formatTime(eta)}`;
+                    }
+                    
+                    // Update button text
+                    if (generateBtnText) {
+                        generateBtnText.textContent = `Uploading... ${percentComplete.toFixed(0)}%`;
+                    }
+                    
+                    // Detect slow upload
+                    if (uploadWarning) {
+                        const isSlow = detectSlowUpload(speed, elapsed);
+                        if (isSlow) {
+                            uploadWarning.classList.remove('hidden');
+                        } else {
+                            uploadWarning.classList.add('hidden');
+                        }
+                    }
+                }
             });
             
-            const data = await response.json();
+            // Create promise wrapper
+            const uploadPromise = new Promise((resolve, reject) => {
+                xhr.addEventListener('load', () => {
+                    // Check if we got redirected (status 200 but HTML response means redirect happened)
+                    if (xhr.status === 200 && xhr.responseText && xhr.responseText.trim().startsWith('<!DOCTYPE')) {
+                        reject(new Error('Session expired. Please refresh the page and try again.'));
+                        // Don't redirect automatically - show error and let user refresh
+                        console.warn('Got HTML response instead of JSON - session may have expired');
+                        return;
+                    }
+                    
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        try {
+                            const data = JSON.parse(xhr.responseText);
+                            resolve(data);
+                        } catch (e) {
+                            reject(new Error('Invalid JSON response'));
+                        }
+                    } else if (xhr.status === 401) {
+                        // Unauthorized - session expired
+                        try {
+                            const errorData = JSON.parse(xhr.responseText);
+                            reject(new Error(errorData.error || 'Session expired. Please refresh the page and try again.'));
+                            // Don't redirect automatically - show error and let user refresh manually
+                            console.warn('Authentication failed during upload:', errorData);
+                        } catch (e) {
+                            reject(new Error('Session expired. Please refresh the page and try again.'));
+                            console.warn('Authentication failed during upload - could not parse error');
+                        }
+                    } else {
+                        try {
+                            const errorData = JSON.parse(xhr.responseText);
+                            reject(new Error(errorData.error || `Server error: ${xhr.status}`));
+                        } catch (e) {
+                            reject(new Error(`Server error: ${xhr.status} ${xhr.statusText}`));
+                        }
+                    }
+                });
+                
+                xhr.addEventListener('error', () => {
+                    reject(new Error('Network error during upload. Please check your internet connection.'));
+                });
+                
+                xhr.addEventListener('timeout', () => {
+                    reject(new Error('Upload timeout - the file is too large or connection is too slow. Please try again.'));
+                });
+                
+                xhr.open('POST', '/api/rag/ingest', true);
+                xhr.withCredentials = true;
+                xhr.send(formData);
+            });
             
-            if (response.ok && data.success) {
+            const data = await uploadPromise;
+            
+            if (data.success) {
+                if (uploadStatus) uploadStatus.textContent = 'Upload completed!';
                 showNotification('PDF uploaded successfully! Switching to chat...', 'success');
                 
                 // Reload threads from database
@@ -4254,8 +4466,13 @@ async function initializeApp() {
             }
         } catch (error) {
             console.error('RAG upload error:', error);
+            if (uploadStatus) uploadStatus.textContent = 'Upload failed';
             showNotification('Failed to upload PDF: ' + error.message, 'error');
         } finally {
+            // Hide progress bar
+            if (uploadProgress) {
+                uploadProgress.classList.add('hidden');
+            }
             // Re-enable button
             if (generateBtn) {
                 generateBtn.disabled = false;
@@ -4411,6 +4628,20 @@ async function initializeApp() {
                 
                 // Show upload progress for large files
                 let uploadStartTime = Date.now();
+                const uploadProgress = document.getElementById('lessonUploadProgress');
+                const uploadBar = document.getElementById('lessonUploadBar');
+                const uploadPercent = document.getElementById('lessonUploadPercent');
+                const uploadStatus = document.getElementById('lessonUploadStatus');
+                const uploadSpeed = document.getElementById('lessonUploadSpeed');
+                const uploadInfo = document.getElementById('lessonUploadInfo');
+                const uploadETA = document.getElementById('lessonUploadETA');
+                const uploadWarning = document.getElementById('lessonUploadWarning');
+                
+                // Show progress bar
+                if (uploadProgress) {
+                    uploadProgress.classList.remove('hidden');
+                }
+                
                 xhr.upload.addEventListener('progress', (e) => {
                     if (e.lengthComputable) {
                         const percentComplete = (e.loaded / e.total) * 100;
@@ -4419,7 +4650,28 @@ async function initializeApp() {
                         const remaining = (e.total - e.loaded) / 1024 / 1024; // MB remaining
                         const eta = remaining / speed; // seconds
                         
-                        console.log(`Upload progress: ${percentComplete.toFixed(1)}% (${(e.loaded / 1024 / 1024).toFixed(2)}MB / ${(e.total / 1024 / 1024).toFixed(2)}MB) - Speed: ${speed.toFixed(2)} MB/s - ETA: ${eta.toFixed(0)}s`);
+                        // Update progress bar
+                        if (uploadBar) uploadBar.style.width = percentComplete + '%';
+                        if (uploadPercent) uploadPercent.textContent = percentComplete.toFixed(0) + '%';
+                        if (uploadInfo) {
+                            uploadInfo.textContent = `${formatFileSize(e.loaded)} / ${formatFileSize(e.total)}`;
+                        }
+                        if (uploadSpeed) {
+                            uploadSpeed.textContent = speed > 0 ? `${speed.toFixed(2)} MB/s` : '';
+                        }
+                        if (uploadETA && speed > 0) {
+                            uploadETA.textContent = `ETA: ${formatTime(eta)}`;
+                        }
+                        
+                        // Detect slow upload
+                        if (uploadWarning) {
+                            const isSlow = detectSlowUpload(speed, elapsed);
+                            if (isSlow) {
+                                uploadWarning.classList.remove('hidden');
+                            } else {
+                                uploadWarning.classList.add('hidden');
+                            }
+                        }
                         
                         // Update button text with progress
                         if (generateBtnText && percentComplete < 100) {
@@ -4469,6 +4721,14 @@ async function initializeApp() {
                 try {
                     const data = await uploadPromise;
                     
+                    // Hide progress bar on success
+                    if (uploadProgress) {
+                        uploadProgress.classList.add('hidden');
+                    }
+                    if (uploadStatus) {
+                        uploadStatus.textContent = 'Upload completed!';
+                    }
+                    
                     // Fetch the full lesson from the backend using the new lesson_id
                     const lessonResp = await fetch(`/api/lessons/lesson/${data.lesson_id}`, {
                         method: 'GET',
@@ -4497,6 +4757,13 @@ async function initializeApp() {
                         showNotification('Failed to fetch full lesson content', 'error');
                     }
                 } catch (uploadError) {
+                    // Hide progress bar on error
+                    if (uploadProgress) {
+                        uploadProgress.classList.add('hidden');
+                    }
+                    if (uploadStatus) {
+                        uploadStatus.textContent = 'Upload failed';
+                    }
                     console.error('Upload error:', uploadError);
                     showNotification(uploadError.message || 'Error uploading file. Please try again.', 'error');
                     throw uploadError; // Re-throw to be caught by outer catch
@@ -4670,9 +4937,9 @@ async function initializeApp() {
         loadRAGThreads().then(() => {
             updateRAGThreadSelector();
             showRAGThreadSelector();
-            // Show prompt button (prompts apply to all threads, so show when in RAG chat mode)
+            // Show prompt button (prompts apply to all threads, so show when in RAG chat mode OR user is teacher/admin)
             const promptBtn = document.getElementById('ragPromptBtn');
-            if (promptBtn && isRAGChatMode) {
+            if (promptBtn && (isRAGChatMode || (userRole === 'teacher' || userRole === 'admin'))) {
                 promptBtn.classList.remove('hidden');
             }
         });
@@ -4680,6 +4947,19 @@ async function initializeApp() {
         // Check if lesson is finalized for this thread
         if (threadId) {
             checkThreadLessonStatus(threadId);
+            
+            // Try to load chat history if conversation_id exists
+            // Extract conversation_id from thread_id if it's in the format user_{user_id}_conv_{conversation_id}
+            const threadConvMatch = threadId.match(/user_\d+_conv_(\d+)/);
+            if (threadConvMatch) {
+                const convId = parseInt(threadConvMatch[1]);
+                currentRAGConversationId = convId;
+                currentChatId = convId;
+                loadRAGChatHistory(convId);
+            } else if (currentRAGConversationId) {
+                // Use stored conversation_id
+                loadRAGChatHistory(currentRAGConversationId);
+            }
         }
         
         // Add welcome message only when uploading a new file (filename provided)
@@ -4714,7 +4994,8 @@ async function initializeApp() {
                 },
                 body: JSON.stringify({
                     message: message,
-                    thread_id: currentRAGThreadId
+                    thread_id: currentRAGThreadId || null, // Send null if not set, backend will auto-select
+                    conversation_id: currentRAGConversationId // Send conversation_id if available
                 })
             });
             
@@ -4740,6 +5021,21 @@ async function initializeApp() {
             
             // Get the AI response
             const aiResponse = data.message || 'No response received';
+            
+            // Store conversation_id if returned from backend
+            if (data.conversation_id) {
+                currentRAGConversationId = data.conversation_id;
+                // Also set currentChatId so download/export functions work
+                currentChatId = data.conversation_id;
+                localStorage.setItem('currentChatId', currentChatId);
+            }
+            
+            // Store thread_id if returned from backend (for auto-selected threads)
+            if (data.thread_id && !currentRAGThreadId) {
+                currentRAGThreadId = data.thread_id;
+                localStorage.setItem('currentRAGThreadId', currentRAGThreadId);
+                console.log(`Auto-selected thread ${currentRAGThreadId} from backend response`);
+            }
             
             // Add the AI message to chat
             addMessageToChat('ai', aiResponse);
@@ -4791,11 +5087,25 @@ async function initializeApp() {
                         </div>
                         <div id="ragUploadProgress" class="hidden mb-4">
                             <div class="flex items-center justify-between mb-2">
-                                <span class="text-sm text-gray-600">Uploading...</span>
-                                <span id="ragUploadPercent" class="text-sm font-medium text-blue-600">0%</span>
+                                <div class="flex items-center gap-2">
+                                    <i class="fas fa-upload text-blue-600 text-xs"></i>
+                                    <span id="ragUploadStatus" class="text-sm text-gray-700">Uploading...</span>
+                                </div>
+                                <div class="flex items-center gap-3">
+                                    <span id="ragUploadSpeed" class="text-xs text-gray-500"></span>
+                                    <span id="ragUploadPercent" class="text-sm font-medium text-blue-600">0%</span>
+                                </div>
                             </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2">
-                                <div id="ragUploadBar" class="bg-blue-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 mb-2">
+                                <div id="ragUploadBar" class="bg-gradient-to-r from-blue-500 to-blue-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                            <div class="flex items-center justify-between mb-2">
+                                <span id="ragUploadInfo" class="text-xs text-gray-500">0 MB / 0 MB</span>
+                                <span id="ragUploadETA" class="text-xs text-gray-500"></span>
+                            </div>
+                            <div id="ragUploadWarning" class="hidden p-2 bg-yellow-50 border border-yellow-200 rounded text-xs text-yellow-800">
+                                <i class="fas fa-exclamation-triangle mr-1"></i>
+                                <span>Slow upload detected. Please check your internet connection.</span>
                             </div>
                         </div>
                         <div class="flex gap-3 mt-4">
@@ -5017,7 +5327,7 @@ async function initializeApp() {
         }
     }
 
-    // Handle RAG file upload from modal
+    // Handle RAG file upload from modal with backend progress tracking
     async function handleRAGFileUploadFromModal(file) {
         if (!file.type.includes('pdf')) {
             showNotification('Please upload a PDF file', 'error');
@@ -5026,11 +5336,17 @@ async function initializeApp() {
 
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('create_new_thread', 'true'); // Always create new thread for new uploads
+        formData.append('create_new_thread', 'true');
+        formData.append('stream', 'true'); // Enable SSE streaming
         
         const uploadProgress = document.getElementById('ragUploadProgress');
         const uploadBar = document.getElementById('ragUploadBar');
         const uploadPercent = document.getElementById('ragUploadPercent');
+        const uploadStatus = document.getElementById('ragUploadStatus');
+        const uploadSpeed = document.getElementById('ragUploadSpeed');
+        const uploadInfo = document.getElementById('ragUploadInfo');
+        const uploadETA = document.getElementById('ragUploadETA');
+        const uploadWarning = document.getElementById('ragUploadWarning');
         const fileInput = document.getElementById('ragFileInput');
         const uploadArea = document.getElementById('ragUploadArea');
         
@@ -5038,37 +5354,154 @@ async function initializeApp() {
         fileInput.disabled = true;
         uploadArea.style.pointerEvents = 'none';
         uploadArea.style.opacity = '0.6';
+        
+        // Reset progress
+        if (uploadBar) uploadBar.style.width = '0%';
+        if (uploadPercent) uploadPercent.textContent = '0%';
+        if (uploadStatus) uploadStatus.textContent = 'Uploading file...';
+        if (uploadInfo) uploadInfo.textContent = `0 MB / ${formatFileSize(file.size)}`;
+        if (uploadWarning) uploadWarning.classList.add('hidden');
 
         try {
+            // Use fetch with SSE for backend processing progress
+            // Note: fetch doesn't support upload progress, so we show backend processing steps
+            if (uploadStatus) uploadStatus.textContent = 'Uploading and processing PDF...';
+            if (uploadInfo) uploadInfo.textContent = `Uploading ${formatFileSize(file.size)}...`;
+            
             const response = await fetch('/api/rag/ingest', {
                 method: 'POST',
                 body: formData,
-                credentials: 'include'
+                credentials: 'include',
+                redirect: 'manual'  // Prevent automatic redirect following
             });
-
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-                showNotification('PDF uploaded successfully!', 'success');
-                closeRAGUploadModal();
-                
-                // Reload threads from database
-                await loadRAGThreads();
-                
-                switchToRAGChatMode(data.thread_id, data.filename);
-            } else {
-                throw new Error(data.error || 'Upload failed');
+            
+            // Check if we got redirected (status 0 or 3xx means redirect)
+            // With redirect: 'manual', we should never get here, but handle it just in case
+            if (response.status === 0 || (response.status >= 300 && response.status < 400)) {
+                showNotification('Session expired. Please refresh the page and try again.', 'error');
+                // Don't redirect automatically - let user stay on page
+                console.warn('Got redirect response, but not redirecting automatically');
+                return;
             }
+            
+            if (response.status === 401) {
+                try {
+                    const errorData = await response.json();
+                    showNotification(errorData.error || 'Session expired. Please refresh the page and try again.', 'error');
+                    // Don't redirect immediately - let user stay on page and refresh manually
+                    // Only show notification, don't force redirect
+                    console.warn('Authentication failed:', errorData);
+                    return;
+                } catch (e) {
+                    showNotification('Session expired. Please refresh the page and try again.', 'error');
+                    console.warn('Authentication failed - could not parse error response:', e);
+                    return;
+                }
+            }
+            
+            if (!response.ok) {
+                try {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error || `Server error: ${response.status}`);
+                } catch (e) {
+                    throw new Error(`Server error: ${response.status} ${response.statusText}`);
+                }
+            }
+            
+            // Check if response is SSE stream
+            const contentType = response.headers.get('content-type') || '';
+            if (contentType.includes('text/event-stream')) {
+                // Handle SSE stream for backend processing progress
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let result = null;
+                
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+                    
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                
+                                // Update progress (backend sends 0-100%)
+                                const progress = data.progress || 0;
+                                
+                                if (uploadBar) uploadBar.style.width = progress + '%';
+                                if (uploadPercent) uploadPercent.textContent = Math.round(progress) + '%';
+                                if (uploadStatus) uploadStatus.textContent = data.message || 'Processing...';
+                                
+                                // Update info with step details
+                                if (data.step && uploadInfo) {
+                                    uploadInfo.textContent = data.message || `Step: ${data.step}`;
+                                }
+                                
+                                if (data.step === 'complete') {
+                                    result = data.result || data;
+                                } else if (data.step === 'error') {
+                                    throw new Error(data.message || 'Processing failed');
+                                }
+                            } catch (e) {
+                                console.error('Error parsing SSE data:', e);
+                            }
+                        }
+                    }
+                }
+                
+                if (result) {
+                    if (uploadStatus) uploadStatus.textContent = 'Upload completed!';
+                    showNotification('PDF uploaded and processed successfully!', 'success');
+                    closeRAGUploadModal();
+                    
+                    await loadRAGThreads();
+                    // Use thread_id from result, not filename
+                    const threadId = result.thread_id || result.threadId;
+                    if (threadId) {
+                        switchToRAGChatMode(threadId, result.filename);
+                    } else {
+                        // If no thread_id in result, find the most recent thread with document
+                        if (ragThreads && ragThreads.length > 0) {
+                            const threadWithDoc = ragThreads.find(t => t.has_document);
+                            if (threadWithDoc) {
+                                switchToRAGChatMode(threadWithDoc.thread_id, threadWithDoc.filename);
+                            }
+                        }
+                    }
+                } else {
+                    throw new Error('Processing completed but no result received');
+                }
+            } else {
+                // Regular JSON response (non-streaming fallback)
+                const data = await response.json();
+                if (data.success) {
+                    if (uploadStatus) uploadStatus.textContent = 'Upload completed!';
+                    showNotification('PDF uploaded successfully!', 'success');
+                    closeRAGUploadModal();
+                    
+                    await loadRAGThreads();
+                    switchToRAGChatMode(data.thread_id, data.filename);
+                } else {
+                    throw new Error(data.error || 'Upload failed');
+                }
+            }
+            
         } catch (error) {
             console.error('Upload error:', error);
+            if (uploadStatus) uploadStatus.textContent = 'Upload failed';
             showNotification('Failed to upload PDF: ' + error.message, 'error');
         } finally {
             uploadProgress.classList.add('hidden');
             fileInput.disabled = false;
             uploadArea.style.pointerEvents = 'auto';
             uploadArea.style.opacity = '1';
-            uploadBar.style.width = '0%';
-            uploadPercent.textContent = '0%';
+            if (uploadBar) uploadBar.style.width = '0%';
+            if (uploadPercent) uploadPercent.textContent = '0%';
         }
     }
 
@@ -5264,9 +5697,9 @@ async function initializeApp() {
         if (selector) {
             selector.classList.remove('hidden');
         }
-        // Also show prompt button when in RAG chat mode (prompts apply to all threads)
+        // Also show prompt button when in RAG chat mode OR if user is teacher/admin (prompts apply to all threads)
         const promptBtn = document.getElementById('ragPromptBtn');
-        if (promptBtn && isRAGChatMode) {
+        if (promptBtn && (isRAGChatMode || (userRole === 'teacher' || userRole === 'admin'))) {
             promptBtn.classList.remove('hidden');
         }
     }
@@ -7818,8 +8251,8 @@ async function initializeApp() {
                 let response;
                 
                 // Check if we're in RAG chat mode
-                if (isRAGChatMode && currentRAGThreadId) {
-                    // Use RAG chat API
+                if (isRAGChatMode) {
+                    // Use RAG chat API (backend will auto-select thread with document if currentRAGThreadId is null)
                     await handleRAGChat(message);
                 } else if (isLessonChatMode && currentLessonChatId) {
                     // Use interactive chat API for lesson
@@ -8834,7 +9267,8 @@ async function initializeApp() {
                     // Update thread selector with current thread info
                     updateRAGThreadSelector();
                 }
-                if (promptBtn) {
+                // Show prompt button if in RAG chat mode OR if user is teacher/admin
+                if (promptBtn && (isRAGChatMode || (userRole === 'teacher' || userRole === 'admin'))) {
                     promptBtn.classList.remove('hidden');
                 }
             } else {
@@ -8886,13 +9320,16 @@ async function initializeApp() {
                 if (data.success && data.redirect_url) {
                     window.location.href = data.redirect_url;
                 } else {
-                    window.location.href = '/auth/login';
+                    // Don't redirect - show error instead
+                    showNotification('Session expired. Please refresh the page and try again.', 'error');
                 }
             } else {
-                window.location.href = '/auth/login';
+                // Don't redirect - show error instead
+                showNotification('Session expired. Please refresh the page and try again.', 'error');
             }
         } catch (error) {
-            window.location.href = '/auth/login';
+            // Don't redirect - show error instead
+            showNotification('Session expired. Please refresh the page and try again.', 'error');
         }
     }
 
@@ -9689,6 +10126,49 @@ async function initializeApp() {
             console.error('Error loading chat history:', error);
         }
     }
+    
+    // Load RAG chat history for a specific conversation
+    async function loadRAGChatHistory(conversationId) {
+        if (!conversationId) return;
+        
+        try {
+            const response = await fetch(`/get_messages/${conversationId}`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.messages && data.messages.length > 0) {
+                    const chatMessages = document.getElementById('chatMessages');
+                    if (chatMessages) {
+                        // Clear existing messages (but keep welcome message if it exists)
+                        const existingMessages = chatMessages.querySelectorAll('.flex.items-start.gap-4');
+                        const welcomeMsg = Array.from(existingMessages).find(msg => 
+                            msg.querySelector('.bg-blue-100')?.textContent?.includes('uploaded successfully')
+                        );
+                        
+                        chatMessages.innerHTML = '';
+                        
+                        // Restore welcome message if it existed
+                        if (welcomeMsg) {
+                            chatMessages.appendChild(welcomeMsg);
+                        }
+                        
+                        // Add all messages from history
+                        data.messages.forEach(msg => {
+                            addMessageToChat(msg.role === 'bot' ? 'ai' : 'user', msg.message, false);
+                        });
+                        
+                        // Scroll to bottom
+                        chatMessages.scrollTop = chatMessages.scrollHeight;
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error loading RAG chat history:', error);
+        }
+    }
 
     function saveChatToHistory() {
         // This would typically be handled by the server
@@ -9851,6 +10331,102 @@ async function initializeApp() {
         }
     }
 
+    // API Key Configuration Functions
+    async function showApiKeyModal() {
+        const modal = document.getElementById('apiKeyModal');
+        modal.classList.remove('hidden');
+        
+        // Load current provider and API key status
+        await loadApiKeyStatus();
+    }
+
+    function closeApiKeyModal() {
+        const modal = document.getElementById('apiKeyModal');
+        modal.classList.add('hidden');
+        document.getElementById('groqApiKeyInput').value = '';
+    }
+
+    async function loadApiKeyStatus() {
+        try {
+            // Get current LLM provider (accessible to all users)
+            let currentProvider = 'openai';
+            try {
+                const providerResponse = await fetch('/admin/settings/llm-provider');
+                const providerData = await providerResponse.json();
+                if (providerData.success) {
+                    currentProvider = providerData.provider;
+                }
+            } catch (e) {
+                console.warn('Could not fetch provider, defaulting to OpenAI:', e);
+            }
+            
+            document.getElementById('currentProviderDisplay').textContent = currentProvider.toUpperCase();
+            
+            // Get user's API key status
+            const apiKeyResponse = await fetch('/api-key/status');
+            const apiKeyData = await apiKeyResponse.json();
+            
+            const inputSection = document.getElementById('apiKeyInputSection');
+            const statusSection = document.getElementById('apiKeyStatusSection');
+            const statusText = document.getElementById('apiKeyStatusText');
+            
+            if (currentProvider === 'groq') {
+                // Show API key input when Groq is selected
+                inputSection.classList.remove('hidden');
+                
+                if (apiKeyData.success && apiKeyData.has_api_key) {
+                    statusText.textContent = 'You have a Groq API key configured.';
+                    statusText.className = 'text-sm text-green-600';
+                    document.getElementById('groqApiKeyInput').placeholder = 'Enter new key to update...';
+                } else {
+                    statusText.textContent = 'Please configure your Groq API key to use the chat feature.';
+                    statusText.className = 'text-sm text-yellow-600';
+                }
+            } else {
+                // Hide API key input when OpenAI is selected
+                inputSection.classList.add('hidden');
+                statusText.textContent = 'OpenAI is currently selected. API key configuration is not needed.';
+                statusText.className = 'text-sm text-gray-600';
+            }
+        } catch (error) {
+            console.error('Error loading API key status:', error);
+            document.getElementById('apiKeyStatusText').textContent = 'Error loading status.';
+            document.getElementById('apiKeyStatusText').className = 'text-sm text-red-600';
+        }
+    }
+
+    async function saveApiKey() {
+        const apiKey = document.getElementById('groqApiKeyInput').value.trim();
+        
+        if (!apiKey) {
+            showNotification('Please enter an API key', 'warning');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api-key/update', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                credentials: 'include',
+                body: JSON.stringify({api_key: apiKey})
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showNotification('API key saved successfully!', 'success');
+                closeApiKeyModal();
+                // Reload page to ensure session is updated
+                window.location.reload();
+            } else {
+                showNotification('Error saving API key: ' + (data.error || 'Unknown error'), 'error');
+            }
+        } catch (error) {
+            console.error('Error saving API key:', error);
+            showNotification('Error saving API key', 'error');
+        }
+    }
+
     async function resetChat() {
         if (confirm('Are you sure you want to reset the current chat?')) {
             try {
@@ -9918,7 +10494,10 @@ async function initializeApp() {
 
     // Handle authentication failure by redirecting to login
     function handleAuthenticationFailure() {
-        window.location.href = '/login';
+        // Don't redirect automatically - show notification instead
+        console.warn('Authentication failure detected - user should refresh the page');
+        showNotification('Session expired. Please refresh the page and try again.', 'error');
+        // Don't redirect - let user stay on page
     }
 
     // View lesson details and versions
@@ -12405,6 +12984,58 @@ async function initializeApp() {
     <div class="bg-white rounded-lg shadow-lg px-6 py-5 flex items-center gap-3">
       <i class="fas fa-spinner fa-spin text-xl text-purple-600"></i>
       <span id="globalSpinnerText" class="text-gray-700">Loading...</span>
+    </div>
+  </div>
+
+  <!-- API Key Configuration Modal -->
+  <div id="apiKeyModal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full transform transition-all">
+      <!-- Modal Header -->
+      <div class="bg-gradient-to-r from-[#05B0FC] via-blue-500 to-blue-600 px-6 py-4 flex justify-between items-center rounded-t-2xl">
+        <div class="flex items-center">
+          <div class="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center mr-3">
+            <i class="fas fa-key text-white"></i>
+          </div>
+          <h3 class="text-xl font-bold text-white">Configure API Key</h3>
+        </div>
+        <button onclick="closeApiKeyModal()" class="w-8 h-8 bg-white bg-opacity-10 hover:bg-opacity-20 rounded-full flex items-center justify-center transition-all">
+          <i class="fas fa-times text-white"></i>
+        </button>
+      </div>
+      
+      <!-- Modal Content -->
+      <div class="p-6">
+        <div id="apiKeyProviderInfo" class="mb-4 p-3 bg-blue-50 border-l-4 border-blue-500 rounded">
+          <p class="text-sm text-blue-800">
+            <strong>Current Provider:</strong> <span id="currentProviderDisplay">Loading...</span>
+          </p>
+        </div>
+        
+        <div id="apiKeyInputSection" class="hidden">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Groq API Key</label>
+          <input type="password" id="groqApiKeyInput" 
+                 placeholder="Enter your Groq API key..."
+                 class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#05B0FC] focus:border-transparent mb-3">
+          <p class="text-xs text-gray-500 mb-4">
+            Get your API key from <a href="https://console.groq.com/" target="_blank" class="text-blue-600 hover:underline">console.groq.com</a>
+          </p>
+        </div>
+        
+        <div id="apiKeyStatusSection" class="mb-4">
+          <p class="text-sm text-gray-600" id="apiKeyStatusText">Checking API key status...</p>
+        </div>
+        
+        <div class="flex gap-3">
+          <button onclick="saveApiKey()" id="saveApiKeyBtn"
+                  class="flex-1 bg-[#05B0FC] text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors">
+            <i class="fas fa-save mr-2"></i>Save
+          </button>
+          <button onclick="closeApiKeyModal()" 
+                  class="flex-1 bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition-colors">
+            Cancel
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 

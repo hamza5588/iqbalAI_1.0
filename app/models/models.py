@@ -1039,13 +1039,36 @@ class ChatModel:
         """Lazy initialization of chat model"""
         if not self._chat_model:
             try:
-                # Use dynamic LLM factory - supports OpenAI and vLLM via environment variables
-                # For OpenAI, use the api_key from self.api_key if available
+                # Get LLM provider from system settings
+                from app.utils.db import get_db
+                from app.models.database_models import SystemSettings
+                db = get_db()
+                setting = db.query(SystemSettings).filter(SystemSettings.key == 'llm_provider').first()
+                provider = setting.value if setting else os.getenv('LLM_PROVIDER', 'openai').lower()
+                
+                # If OpenAI is set from admin, use environment variable instead of database key
+                api_key_to_use = None
+                if provider == 'openai' and setting:
+                    api_key_to_use = os.getenv('OPENAI_API_KEY')
+                elif provider in ['openai', 'groq']:
+                    api_key_to_use = self.api_key
+                
+                # Enforce Groq-only when Groq is selected - no fallback to OpenAI
+                if provider == 'groq':
+                    if not api_key_to_use:
+                        raise ValueError(
+                            "Groq API key is required when Groq is selected as the LLM provider. "
+                            "Please configure your Groq API key in the chat interface."
+                        )
+                
+                # Use dynamic LLM factory - supports OpenAI, Groq, and vLLM
+                # For OpenAI and Groq, use the api_key (from env if OpenAI set from admin, else from self.api_key)
                 # For vLLM, api_key is not needed
                 self._chat_model = create_llm(
                     temperature=0.7,
                     max_tokens=1024,
-                    api_key=self.api_key if os.getenv('LLM_PROVIDER', 'openai').lower() == 'openai' else None
+                    api_key=api_key_to_use,
+                    provider=provider
                 )
             except Exception as e:
                 logger.error(f"Failed to initialize chat model: {str(e)}")

@@ -116,8 +116,31 @@ def chat():
         if not user_input:
             return jsonify({'error': 'Empty message'}), 400
 
+        # Check LLM provider and ensure API key is available when Groq is selected
+        import os
+        from app.utils.db import get_db
+        from app.models.database_models import SystemSettings
+        db = get_db()
+        setting = db.query(SystemSettings).filter(SystemSettings.key == 'llm_provider').first()
+        provider = setting.value if setting else os.getenv('LLM_PROVIDER', 'openai').lower()
+        
+        # When Groq is selected, API key is mandatory - no fallback to OpenAI
+        api_key = session.get('groq_api_key', '')
+        if provider == 'groq' and not api_key:
+            # Try to get from database
+            from app.models import UserModel
+            user = UserModel.get_user_by_id(session['user_id'])
+            api_key = user.get('groq_api_key', '') if user else ''
+            
+            if not api_key:
+                return jsonify({
+                    'error': 'Groq API key is required. Please configure your Groq API key using the key icon in the chat interface.',
+                    'requires_api_key': True,
+                    'provider': 'groq'
+                }), 400
+        
         # Initialize services
-        chat_service = ChatService(session['user_id'], session['groq_api_key'])
+        chat_service = ChatService(session['user_id'], api_key)
         prompt_service = PromptService(session['user_id'])
 
         # Get system prompt
@@ -130,8 +153,26 @@ def chat():
                 conversation_id=conversation_id
             )
             return jsonify(result)
+        except ValueError as e:
+            # Handle missing API key errors specifically
+            error_msg = str(e)
+            if 'API key' in error_msg or 'Groq' in error_msg:
+                logger.error(f"API key error: {error_msg}")
+                return jsonify({
+                    'error': error_msg,
+                    'requires_api_key': True,
+                    'provider': provider
+                }), 400
+            raise
         except Exception as e:
             logger.error(f"Error generating response: {str(e)}")
+            # Check if it's a Groq API key issue
+            if provider == 'groq' and ('API key' in str(e) or 'Groq' in str(e)):
+                return jsonify({
+                    'error': 'Groq API key is required. Please configure your Groq API key using the key icon in the chat interface.',
+                    'requires_api_key': True,
+                    'provider': 'groq'
+                }), 400
             return jsonify({
                 'error': """1:Your free key has expired,please login after 24 hours
                             2:Create another gmail account and login

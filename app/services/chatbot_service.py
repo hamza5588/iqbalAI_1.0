@@ -270,29 +270,62 @@ class DocumentChatBot:
     def __init__(self, user_id: Optional[int] = None, document_path: Optional[Union[str, Path]] = None):
         self.user_id = user_id
         
+        # Get LLM provider from system settings first
+        from app.utils.db import get_db
+        from app.models.database_models import SystemSettings
+        db = get_db()
+        setting = db.query(SystemSettings).filter(SystemSettings.key == 'llm_provider').first()
+        provider = setting.value if setting else os.getenv('LLM_PROVIDER', 'openai').lower()
+        
         # Get API keys from database if user_id is provided, otherwise from environment
         if user_id:
-            user_model = UserModel(user_id)
-            self.groq_api_key = user_model.get_api_key()
-            if not self.groq_api_key:
-                raise ValueError(f"User {user_id} does not have a GROQ API key set")
+            # If OpenAI is set from admin, use environment variable instead of database key
+            if provider == 'openai' and setting:
+                self.groq_api_key = os.getenv('OPENAI_API_KEY')
+            else:
+                from app.models.database_models import User as DBUser
+                user = db.query(DBUser).filter(DBUser.id == user_id).first()
+                if user:
+                    self.groq_api_key = user.groq_api_key or None
+                else:
+                    self.groq_api_key = None
+                
+                # If no API key in database, try to get from environment as fallback
+                if not self.groq_api_key:
+                    if provider == 'groq':
+                        self.groq_api_key = os.getenv('GROQ_API_KEY')
+                    elif provider == 'openai':
+                        self.groq_api_key = os.getenv('OPENAI_API_KEY')
+            
+            # Enforce Groq-only when Groq is selected - no fallback to OpenAI
+            if provider == 'groq' and not self.groq_api_key:
+                raise ValueError(
+                    f"User {user_id} does not have a Groq API key set. "
+                    "Please configure your Groq API key in the chat interface. "
+                    "Groq is currently selected as the LLM provider."
+                )
         else:
             self.groq_api_key = os.getenv('GROQ_API_KEY')
-            if not self.groq_api_key:
-                raise ValueError("GROQ_API_KEY environment variable not set")
+            if provider == 'groq' and not self.groq_api_key:
+                raise ValueError(
+                    "GROQ_API_KEY environment variable is required when Groq is selected. "
+                    "Please set GROQ_API_KEY in your environment or configure it in the chat interface."
+                )
         
         # NOMIC API key is still from environment as it's not user-specific
         self.nomic_api_key = os.getenv('NOMIC_API_KEY')
         if not self.nomic_api_key:
             raise ValueError("NOMIC_API_KEY environment variable not set")
             
-        # Use dynamic LLM factory - supports OpenAI and vLLM via environment variables
-        # For OpenAI, use groq_api_key as the OpenAI API key (legacy naming)
+        # Use dynamic LLM factory - supports OpenAI, Groq, and vLLM
+        # For OpenAI and Groq, use groq_api_key as the API key (legacy naming)
         # For vLLM, api_key is not needed
+        # IMPORTANT: When Groq is selected, we ONLY use Groq - no fallback to OpenAI
         self.llm = create_llm(
             temperature=0.7,
             max_tokens=1024,
-            api_key=self.groq_api_key if os.getenv('LLM_PROVIDER', 'openai').lower() == 'openai' else None
+            api_key=self.groq_api_key if provider in ['openai', 'groq'] else None,
+            provider=provider
         )
         self.prompt = self._create_prompt()
         self.vectors = None

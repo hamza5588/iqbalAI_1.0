@@ -188,7 +188,7 @@ def init_db(app):
         Base, User, Lesson, Conversation, ChatHistory, SurveyResponse,
         UserPrompt, UserDocument, UserTokenUsage, TokenResetHistory,
         LessonFAQ, LessonChatHistory, EmailVerificationToken, PasswordResetToken,
-        RAGThread, RAGPrompt, Coupon, CouponRedemption
+        RAGThread, RAGPrompt, Coupon, CouponRedemption, GlobalPrompt
     )
     from sqlalchemy import inspect
     import time

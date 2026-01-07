@@ -141,5 +141,227 @@
     "num_pages": 3,
     "pages": 3,
     "chunks": 13
+  },
+  "user_1_thread_1766670751_520da60d": {
+    "filename": "rag.pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1766670751_520da60d_rag.pdf",
+    "user_id": 1,
+    "documents": 2,
+    "num_pages": 2,
+    "pages": 2,
+    "chunks": 3
+  },
+  "user_1_thread_1766670780_1564c64a": {
+    "filename": "cirrus_6000.pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1766670780_1564c64a_cirrus_6000.pdf",
+    "user_id": 1,
+    "documents": 488,
+    "num_pages": 488,
+    "pages": 488,
+    "chunks": 956
+  },
+  "user_1_thread_1766671891_c1b0fe4c": {
+    "filename": "cirrus_6000.pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1766671891_c1b0fe4c_cirrus_6000.pdf",
+    "user_id": 1,
+    "documents": 488,
+    "num_pages": 488,
+    "pages": 488,
+    "chunks": 956
+  },
+  "user_1_thread_1766672997_8feddd15": {
+    "filename": "cirrus_6000.pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1766672997_8feddd15_cirrus_6000.pdf",
+    "user_id": 1,
+    "documents": 488,
+    "num_pages": 488,
+    "pages": 488,
+    "chunks": 956
+  },
+  "user_3_thread_1766710009_0a35f4ca": {
+    "filename": "2018_De Agenlis et al._Long-term follow-up comparison of two different bi-layer dermal subsititutes (1).pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_3_thread_1766710009_0a35f4ca_2018_De Agenlis et al._Long-term follow-up comparison of two different bi-layer dermal subsititutes 1.pdf",
+    "user_id": 3,
+    "documents": 12,
+    "num_pages": 12,
+    "pages": 12,
+    "chunks": 66
+  },
+  "user_6_thread_1766723139_466d9fe2": {
+    "filename": "LangChain and RAG Components (1).pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_6_thread_1766723139_466d9fe2_LangChain and RAG Components 1.pdf",
+    "user_id": 6,
+    "documents": 1,
+    "num_pages": 1,
+    "pages": 1,
+    "chunks": 2
+  },
+  "user_7_thread_1766723194_848b0b72": {
+    "filename": "LangChain and RAG Components (1).pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_7_thread_1766723194_848b0b72_LangChain and RAG Components 1.pdf",
+    "user_id": 7,
+    "documents": 1,
+    "num_pages": 1,
+    "pages": 1,
+    "chunks": 2
+  },
+  "user_7_thread_1766723624_c8132b5d": {
+    "filename": "LangChain and RAG Components (1).pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_7_thread_1766723624_c8132b5d_LangChain and RAG Components 1.pdf",
+    "user_id": 7,
+    "documents": 1,
+    "num_pages": 1,
+    "pages": 1,
+    "chunks": 2
+  },
+  "user_7_thread_1766723807_cc02ad3f": {
+    "filename": "Hamza.pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_7_thread_1766723807_cc02ad3f_Hamza.pdf",
+    "user_id": 7,
+    "documents": 3,
+    "num_pages": 3,
+    "pages": 3,
+    "chunks": 13
+  },
+  "user_1_thread_1767711216_836647f1": {
+    "filename": "Hamza-Ai-engineer.pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1767711216_836647f1_Hamza-Ai-engineer.pdf",
+    "user_id": 1,
+    "documents": 2,
+    "num_pages": 2,
+    "pages": 2,
+    "chunks": 8
+  },
+  "user_1_thread_1767711395_5989da5a": {
+    "filename": "Hamza-Ai-Engineerr.pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1767711395_5989da5a_Hamza-Ai-Engineerr.pdf",
+    "user_id": 1,
+    "documents": 2,
+    "num_pages": 2,
+    "pages": 2,
+    "chunks": 8
+  },
+  "user_1_thread_1767711620_fa7a9c4c": {
+    "filename": "Hamza-Ai-Engineerr.pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1767711620_fa7a9c4c_Hamza-Ai-Engineerr.pdf",
+    "user_id": 1,
+    "documents": 2,
+    "num_pages": 2,
+    "pages": 2,
+    "chunks": 8
+  },
+  "user_1_thread_1767711958_2b987763": {
+    "filename": "Hamza-Ai-engineer.pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1767711958_2b987763_Hamza-Ai-engineer.pdf",
+    "user_id": 1,
+    "documents": 2,
+    "num_pages": 2,
+    "pages": 2,
+    "chunks": 8,
+    "lesson_finalized": true,
+    "last_lesson_text": "Hamza is an AI engineer with expertise in various technologies such as Python, LangChain, Groq, OpenAI, and more. He is available for work and open to relocation. His contact information is: Phone: +92 317 516106 Email: y7hamzakhanswati@gmail.com LinkedIn: https://linkedin.com/in/hamza-nawaz-6785b261",
+    "lesson_title": "Introduction to Hamza's Profile"
+  },
+  "user_1_thread_1767790434_a663154d": {
+    "filename": "CIE PHYSICS-8 Electricity-9 Magnets Currents.pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1767790434_a663154d_CIE PHYSICS-8 Electricity-9 Magnets Currents.pdf",
+    "user_id": 1,
+    "documents": 51,
+    "num_pages": 51,
+    "pages": 51,
+    "chunks": 159
+  },
+  "user_1_thread_1767790654_66c52146": {
+    "filename": "CIE PHYSICS-8 Electricity-9 Magnets Currents.pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1767790654_66c52146_CIE PHYSICS-8 Electricity-9 Magnets Currents.pdf",
+    "user_id": 1,
+    "documents": 51,
+    "num_pages": 51,
+    "pages": 51,
+    "chunks": 159
+  },
+  "user_1_thread_1767791887_344e6b36": {
+    "filename": "CIE PHYSICS-8 Electricity-9 Magnets Currents.pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1767791887_344e6b36_CIE PHYSICS-8 Electricity-9 Magnets Currents.pdf",
+    "user_id": 1,
+    "documents": 51,
+    "num_pages": 51,
+    "pages": 51,
+    "chunks": 159
+  },
+  "user_1_thread_1767793639_4abf33e6": {
+    "filename": "CIE PHYSICS-8 Electricity-9 Magnets Currents.pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1767793639_4abf33e6_CIE PHYSICS-8 Electricity-9 Magnets Currents.pdf",
+    "user_id": 1,
+    "documents": 51,
+    "num_pages": 51,
+    "pages": 51,
+    "chunks": 159
+  },
+  "user_1_thread_1767796181_71d95aa2": {
+    "filename": "Hamza Nawaz AI Engineer (3).pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1767796181_71d95aa2_Hamza Nawaz AI Engineer 3.pdf",
+    "user_id": 1,
+    "documents": 5,
+    "num_pages": 5,
+    "pages": 5,
+    "chunks": 16
+  },
+  "user_1_thread_1767797416_2fbe5d76": {
+    "filename": "Hamza Nawaz AI Engineer (3).pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1767797416_2fbe5d76_Hamza Nawaz AI Engineer 3.pdf",
+    "user_id": 1,
+    "documents": 5,
+    "num_pages": 5,
+    "pages": 5,
+    "chunks": 16
+  },
+  "user_1_thread_1767797978_ac464beb": {
+    "filename": "Hamza-Ai-engineer.pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1767797978_ac464beb_Hamza-Ai-engineer.pdf",
+    "user_id": 1,
+    "documents": 2,
+    "num_pages": 2,
+    "pages": 2,
+    "chunks": 6
+  },
+  "user_1_thread_1767799496_7f82ce52": {
+    "filename": "Hamza-Ai-engineer.pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1767799496_7f82ce52_Hamza-Ai-engineer.pdf",
+    "user_id": 1,
+    "documents": 2,
+    "num_pages": 2,
+    "pages": 2,
+    "chunks": 6
+  },
+  "user_1_thread_1767799609_6d559da4": {
+    "filename": "CIE PHYSICS-8 Electricity-9 Magnets Currents.pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1767799609_6d559da4_CIE PHYSICS-8 Electricity-9 Magnets Currents.pdf",
+    "user_id": 1,
+    "documents": 51,
+    "num_pages": 51,
+    "pages": 51,
+    "chunks": 109,
+    "lesson_finalized": true,
+    "last_lesson_text": "# Lesson on Resistance in Electric Circuits\n\n## Understanding Resistance in Electrical Circuits\n\nResistance in electrical circuits represents the hindrance to the flow of electric current through a conductor. It is crucial to have a voltage (PD) across the conductor to facilitate current flow, with resistance calculated using the formula \"resistance = PD / current.\" The unit of resistance is the ohm (Ω), and various components in circuits, such as resistors and heating elements, are intentionally designed to possess specific resistance values.\n\n## Factors Influencing Resistance\n\nThe resistance of a conductor is influenced by multiple factors, including its length, cross-sectional area, material composition, and temperature. Doubling the length of a wire doubles its resistance, while reducing the cross-sectional area increases resistance. Different materials exhibit varying levels of resistance, with temperature alterations affecting resistance differently in metals and semiconductors.\n\n## Practical Applications and Components\n\nResistors play a significant role in circuit design by controlling current levels, particularly in complex electronic devices like radios and computers. These components are available in a wide range of resistance values, from a few ohms to several million ohms, catering to diverse circuit requirements. Variable resistors, thermistors, light-dependent resistors, and diodes offer specific resistance characteristics for various applications, from volume control in hi-fi equipment to temperature sensing in electrical thermometers.\n\n## Resistance Calculation and Heating Effects\n\nThe calculation of resistance involves determining the ratio of voltage to current, with lower resistance demanding lesser voltage for a given current intensity. Even common connecting wires exhibit some resistance, albeit minimal. When current flows through a resistance, a heating effect occurs due to the energy exchange between electrons and atoms, leading to increased atomic vibrations and elevated temperatures in the conductor.\n\n## Significance of Resistance in Circuit Design\n\nUnderstanding resistance is essential for optimizing circuit performance, ensuring appropriate current levels, and managing heat dissipation within components. By grasping the impact of resistance on circuit behavior and component functionality, students can enhance their comprehension of electrical systems and their practical applications.\n\n## Practical Insights and Real-World Applications\n\nExploring resistance factors, measurement techniques, and the role of resistive components in circuits provides students with valuable insights into the intricacies of electrical circuits and the crucial role of resistance in circuit design. By examining resistance concepts in practical settings, learners can deepen their understanding of electrical principles and their practical implications.",
+    "lesson_title": "Understanding Resistance in Electric Circuits"
+  },
+  "user_1_thread_1767804630_f2aa0983": {
+    "filename": "Hamza Nawaz AI Engineer (3).pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1767804630_f2aa0983_Hamza Nawaz AI Engineer 3.pdf",
+    "user_id": 1,
+    "documents": 5,
+    "num_pages": 5,
+    "pages": 5,
+    "chunks": 11
+  },
+  "user_1_thread_1767805161_763cb75c": {
+    "filename": "Hamza Nawaz AI Engineer (3).pdf",
+    "file_path": "C:\\Users\\DCS\\Desktop\\New folder (10)\\iqbalAI_1.0\\uploaded_files\\user_1_thread_1767805161_763cb75c_Hamza Nawaz AI Engineer 3.pdf",
+    "user_id": 1,
+    "documents": 5,
+    "num_pages": 5,
+    "pages": 5,
+    "chunks": 11
   }
 }

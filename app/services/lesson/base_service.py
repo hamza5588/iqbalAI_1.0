@@ -112,19 +112,44 @@ class BaseLessonService:
         """Initialize the base service with API key"""
         self.api_key = groq_api_key
         
-        # Use dynamic LLM factory - supports OpenAI and vLLM via environment variables
-        # For OpenAI, use groq_api_key as the OpenAI API key (legacy naming)
+        # Get LLM provider from system settings
+        from app.utils.db import get_db
+        from app.models.database_models import SystemSettings
+        db = get_db()
+        setting = db.query(SystemSettings).filter(SystemSettings.key == 'llm_provider').first()
+        provider = setting.value if setting else os.getenv('LLM_PROVIDER', 'openai').lower()
+        
+        # If OpenAI is set from admin, use environment variable instead of passed API key
+        api_key_to_use = None
+        if provider == 'openai' and setting:
+            api_key_to_use = os.getenv('OPENAI_API_KEY')
+        elif provider in ['openai', 'groq']:
+            api_key_to_use = self.api_key
+        
+        # Enforce Groq-only when Groq is selected - no fallback to OpenAI
+        if provider == 'groq' and not api_key_to_use:
+            raise ValueError(
+                "Groq API key is required when Groq is selected as the LLM provider. "
+                "Please configure your Groq API key in the chat interface."
+            )
+        
+        # Use dynamic LLM factory - supports OpenAI, Groq, and vLLM
+        # For OpenAI and Groq, use api_key (from env if OpenAI set from admin, else from self.api_key)
         # For vLLM, api_key is not needed
+        # IMPORTANT: When Groq is selected, we ONLY use Groq - no fallback to OpenAI
         self.llm = create_llm(
             temperature=0.7,
             max_tokens=1024,
-            api_key=self.api_key if os.getenv('LLM_PROVIDER', 'openai').lower() == 'openai' else None
+            api_key=api_key_to_use,
+            provider=provider
         )
         
-        provider = os.getenv('LLM_PROVIDER', 'openai').lower()
         if provider == 'openai':
             model = os.getenv('OPENAI_MODEL', 'gpt-3.5-turbo')
             logger.info(f"Base lesson service initialized with OpenAI using model {model}")
+        elif provider == 'groq':
+            model = os.getenv('GROQ_MODEL', 'llama-3.3-70b-versatile')
+            logger.info(f"Base lesson service initialized with Groq using model {model}")
         else:
             api_base = os.getenv('VLLM_API_BASE', 'http://69.28.92.113:8000/v1')
             model = os.getenv('VLLM_MODEL', 'Qwen/Qwen2.5-14B-Instruct')

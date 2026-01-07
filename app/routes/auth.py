@@ -188,19 +188,17 @@ def register():
             # Get all required form fields with validation
             username = request.form.get('username')
             password = request.form.get('password')
-            class_standard = request.form.get('class_standard')
+            class_standard = request.form.get('class_standard', '')  # Optional field - defaults to empty string
             medium = request.form.get('medium')
             groq_api_key = request.form.get('groq_api_key', '')  # Optional field - defaults to empty string
             role = request.form.get('role')
             
-            # Validate required fields (groq_api_key is optional, so not included in validation)
+            # Validate required fields (groq_api_key and class_standard are optional, so not included in validation)
             missing_fields = []
             if not username:
                 missing_fields.append('username')
             if not password:
                 missing_fields.append('password')
-            if not class_standard:
-                missing_fields.append('class_standard')
             if not medium:
                 missing_fields.append('medium')
             if not role:
@@ -251,6 +249,11 @@ def login():
                 session['role'] = user.get('role', 'student')  # Store role in session
                 session['groq_api_key'] = user.get('groq_api_key', '')  # Default to empty string if not present
                 session.permanent = True  # Make session permanent for 24 hours
+                
+                # Redirect admins to admin dashboard
+                if user.get('role') == 'admin':
+                    return redirect('/admin/')
+                
                 return redirect(url_for('chat.index'))
             return render_template('login.html', error="Invalid credentials")
         except Exception as e:

@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify, session, render_template
+from flask import Blueprint, request, jsonify, session, render_template, Response, stream_with_context
 from app.utils.auth import login_required
 from app.utils.rag_service import (
     ingest_pdf,
@@ -14,6 +14,8 @@ import logging
 import uuid
 from datetime import datetime
 import os
+import json
+import time
 from tempfile import NamedTemporaryFile
 
 from openai import OpenAI
@@ -80,12 +82,16 @@ def ingest():
     Upload and ingest a PDF document for RAG.
     Expects a file in the 'file' field of the request.
     Optionally accepts 'thread_id' or 'conversation_id' in form data.
+    Supports progress streaming via Server-Sent Events if 'stream' parameter is 'true'.
     """
     try:
         if 'user_id' not in session:
             return jsonify({'error': 'Not authenticated'}), 401
         
         user_id = session['user_id']
+        
+        # Check if streaming is requested
+        stream_progress = request.form.get('stream', 'false').lower() == 'true'
         
         # Check if file is present
         if 'file' not in request.files:
@@ -127,6 +133,11 @@ def ingest():
         if not file_bytes:
             return jsonify({'error': 'File is empty'}), 400
 
+        # If streaming is requested, use SSE for backend processing progress
+        if stream_progress:
+            return _ingest_with_progress(file_bytes, thread_id, filename, user_id)
+        
+        # Otherwise, use regular ingestion
         # Ingest the PDF
         result = ingest_pdf(
             file_bytes=file_bytes,
@@ -135,35 +146,7 @@ def ingest():
         )
 
         # Save thread to database
-        db = get_db()
-        try:
-            # Check if thread already exists
-            existing_thread = db.query(RAGThread).filter_by(thread_id=thread_id).first()
-            if not existing_thread:
-                # Create new thread record
-                thread_name = f"Thread {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
-                rag_thread = RAGThread(
-                    user_id=user_id,
-                    thread_id=thread_id,
-                    name=thread_name,
-                    filename=filename
-                )
-                db.add(rag_thread)
-                db.commit()
-                db.refresh(rag_thread)
-            else:
-                # Update existing thread (only if it doesn't already have a document)
-                # This should not happen if create_new_thread is true, but handle it safely
-                if not thread_has_document(thread_id):
-                    existing_thread.filename = filename
-                    existing_thread.updated_at = datetime.utcnow()
-                    db.commit()
-                else:
-                    logger.warning(f"Attempted to update thread {thread_id} that already has a document")
-        except Exception as e:
-            logger.error(f"Error saving thread to database: {str(e)}")
-            db.rollback()
-            # Continue even if database save fails
+        _save_thread_to_db(user_id, thread_id, filename)
 
         return jsonify({
             'success': True,
@@ -182,6 +165,142 @@ def ingest():
     except Exception as e:
         logger.error(f"Error ingesting PDF: {str(e)}", exc_info=True)
         return jsonify({'error': f'Failed to ingest PDF: {str(e)}'}), 500
+
+
+def _save_thread_to_db(user_id: int, thread_id: str, filename: str):
+    """Helper function to save thread to database"""
+    db = get_db()
+    try:
+        # Check if thread already exists
+        existing_thread = db.query(RAGThread).filter_by(thread_id=thread_id).first()
+        if not existing_thread:
+            # Create new thread record
+            thread_name = f"Thread {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}"
+            rag_thread = RAGThread(
+                user_id=user_id,
+                thread_id=thread_id,
+                name=thread_name,
+                filename=filename
+            )
+            db.add(rag_thread)
+            db.commit()
+            db.refresh(rag_thread)
+        else:
+            # Update existing thread (only if it doesn't already have a document)
+            if not thread_has_document(thread_id):
+                existing_thread.filename = filename
+                existing_thread.updated_at = datetime.utcnow()
+                db.commit()
+            else:
+                logger.warning(f"Attempted to update thread {thread_id} that already has a document")
+    except Exception as e:
+        logger.error(f"Error saving thread to database: {str(e)}")
+        db.rollback()
+        # Continue even if database save fails
+
+
+def _ingest_with_progress(file_bytes: bytes, thread_id: str, filename: str, user_id: int):
+    """
+    Ingest PDF with Server-Sent Events (SSE) for real-time progress updates.
+    """
+    from flask import current_app
+    
+    # Capture the Flask app instance from the current request context
+    # This must be done before the generator function to capture the app
+    app = current_app._get_current_object()
+    
+    def generate():
+        """Generator function for SSE streaming"""
+        import queue
+        import threading
+        
+        progress_queue = queue.Queue()
+        ingestion_complete = threading.Event()
+        result_container = {'result': None, 'error': None}
+        
+        def progress_callback(step: str, progress: int, message: str):
+            """Callback to capture progress updates"""
+            try:
+                progress_queue.put({
+                    'step': step,
+                    'progress': progress,
+                    'message': message,
+                    'timestamp': time.time()
+                }, timeout=1)
+            except:
+                pass  # Ignore queue full errors
+        
+        def run_ingestion():
+            """Run ingestion in background with application context"""
+            # Push application context for database operations
+            with app.app_context():
+                try:
+                    result = ingest_pdf(
+                        file_bytes=file_bytes,
+                        thread_id=thread_id,
+                        filename=filename,
+                        progress_callback=progress_callback
+                    )
+                    # Ensure thread_id is in the result
+                    if 'thread_id' not in result:
+                        result['thread_id'] = thread_id
+                    result_container['result'] = result
+                    _save_thread_to_db(user_id, thread_id, filename)
+                except Exception as e:
+                    result_container['error'] = str(e)
+                    logger.error(f"Error during PDF ingestion: {str(e)}", exc_info=True)
+                finally:
+                    ingestion_complete.set()
+        
+        try:
+            # Send initial progress
+            yield f"data: {json.dumps({'step': 'start', 'progress': 0, 'message': 'Starting PDF ingestion...'})}\n\n"
+            
+            # Start ingestion in background thread
+            ingestion_thread = threading.Thread(target=run_ingestion)
+            ingestion_thread.daemon = True
+            ingestion_thread.start()
+            
+            # Stream progress updates
+            last_progress = 0
+            while not ingestion_complete.is_set() or not progress_queue.empty():
+                try:
+                    # Get progress update (with timeout)
+                    try:
+                        update = progress_queue.get(timeout=0.5)
+                        yield f"data: {json.dumps(update)}\n\n"
+                        last_progress = update.get('progress', last_progress)
+                    except queue.Empty:
+                        # Send heartbeat to keep connection alive
+                        yield f"data: {json.dumps({'step': 'processing', 'progress': last_progress, 'message': 'Processing...'})}\n\n"
+                except Exception as e:
+                    logger.warning(f"Error sending progress update: {e}")
+                    break
+            
+            # Wait for ingestion to complete
+            ingestion_thread.join(timeout=300)  # 5 minute timeout
+            
+            if result_container['error']:
+                error_msg = f"Error: {result_container['error']}"
+                yield f"data: {json.dumps({'step': 'error', 'progress': 0, 'message': error_msg, 'error': result_container['error']})}\n\n"
+            elif result_container['result']:
+                yield f"data: {json.dumps({'step': 'complete', 'progress': 100, 'message': 'PDF ingestion complete!', 'result': result_container['result']})}\n\n"
+            else:
+                yield f"data: {json.dumps({'step': 'error', 'progress': 0, 'message': 'Processing timeout or unknown error'})}\n\n"
+                
+        except Exception as e:
+            logger.error(f"Error in progress streaming: {str(e)}", exc_info=True)
+            yield f"data: {json.dumps({'step': 'error', 'progress': 0, 'message': f'Streaming error: {str(e)}', 'error': str(e)})}\n\n"
+    
+    return Response(
+        stream_with_context(generate()),
+        mimetype='text/event-stream',
+        headers={
+            'Cache-Control': 'no-cache',
+            'X-Accel-Buffering': 'no',  # Disable nginx buffering
+            'Connection': 'keep-alive'
+        }
+    )
 
 
 @bp.route('/chat', methods=['POST'])
@@ -251,7 +370,7 @@ def chat():
         if not message:
             return jsonify({'error': 'Message is required'}), 400
         
-        # Get thread_id from request or generate default
+        # Get thread_id from request or auto-select thread with document
         provided_thread_id = data.get('thread_id')
         conversation_id = data.get('conversation_id')
         
@@ -261,8 +380,26 @@ def chat():
                 return jsonify({'error': 'Invalid thread_id. You can only access your own threads.'}), 403
             thread_id = provided_thread_id
         else:
-            # Generate thread_id based on user_id
-            thread_id = _get_thread_id(user_id, conversation_id)
+            # Auto-select the most recent thread with a document for this user
+            db = get_db()
+            try:
+                # Get all threads for this user, ordered by most recent first
+                threads = db.query(RAGThread).filter_by(user_id=user_id).order_by(RAGThread.created_at.desc()).all()
+                
+                # Find the most recent thread that has a document
+                for thread in threads:
+                    if thread_has_document(thread.thread_id):
+                        thread_id = thread.thread_id
+                        logger.info(f"Auto-selected thread {thread_id} with document for user {user_id}")
+                        break
+                else:
+                    # No thread with document found, generate new thread_id
+                    thread_id = _get_thread_id(user_id, conversation_id)
+                    logger.info(f"No thread with document found, generated new thread_id: {thread_id}")
+            except Exception as e:
+                logger.warning(f"Error finding thread with document: {str(e)}, generating new thread_id")
+                # Fallback: generate thread_id based on user_id
+                thread_id = _get_thread_id(user_id, conversation_id)
 
         # Prepare config for LangGraph
         config = {
@@ -294,6 +431,100 @@ def chat():
             else:
                 response_content = str(last_msg)
 
+        # Save messages to database for chat history
+        db_conversation_id = None
+        try:
+            from app.models.models import ConversationModel
+            conversation_model = ConversationModel(user_id)
+            
+            # Extract conversation_id from thread_id if present (format: user_{user_id}_conv_{conversation_id})
+            # Or create/get a conversation for this thread
+            import re
+            # Import metadata functions
+            from app.utils.rag_service import _THREAD_METADATA, _save_metadata, _load_metadata
+            _load_metadata()  # Ensure we have latest metadata
+            
+            thread_conv_match = re.search(r'user_\d+_conv_(\d+)', thread_id)
+            if thread_conv_match:
+                # Conversation ID is in thread_id
+                db_conversation_id = int(thread_conv_match.group(1))
+                # Verify conversation belongs to user
+                conv = conversation_model.get_conversation_by_id(db_conversation_id)
+                if not conv:
+                    # Create new conversation if it doesn't exist or doesn't belong to user
+                    db_conversation_id = conversation_model.create_conversation(
+                        title=message[:50] if len(message) > 50 else message
+                    )
+                # Store in metadata
+                if thread_id not in _THREAD_METADATA:
+                    _THREAD_METADATA[thread_id] = {}
+                _THREAD_METADATA[thread_id]['conversation_id'] = db_conversation_id
+                _save_metadata()
+            elif conversation_id:
+                # Use provided conversation_id
+                conv = conversation_model.get_conversation_by_id(conversation_id)
+                if conv:
+                    db_conversation_id = conversation_id
+                else:
+                    # Create new conversation if it doesn't exist or doesn't belong to user
+                    db_conversation_id = conversation_model.create_conversation(
+                        title=message[:50] if len(message) > 50 else message
+                    )
+                # Store in metadata
+                if thread_id not in _THREAD_METADATA:
+                    _THREAD_METADATA[thread_id] = {}
+                _THREAD_METADATA[thread_id]['conversation_id'] = db_conversation_id
+                _save_metadata()
+            else:
+                # Check if we have a thread metadata with stored conversation_id
+                stored_conv_id = _THREAD_METADATA.get(thread_id, {}).get('conversation_id')
+                
+                if stored_conv_id:
+                    # Verify it still exists and belongs to user
+                    conv = conversation_model.get_conversation_by_id(stored_conv_id)
+                    if conv:
+                        db_conversation_id = stored_conv_id
+                    else:
+                        # Create new conversation
+                        db_conversation_id = conversation_model.create_conversation(
+                            title=message[:50] if len(message) > 50 else message
+                        )
+                        # Update metadata
+                        if thread_id not in _THREAD_METADATA:
+                            _THREAD_METADATA[thread_id] = {}
+                        _THREAD_METADATA[thread_id]['conversation_id'] = db_conversation_id
+                        _save_metadata()
+                else:
+                    # Create new conversation
+                    db_conversation_id = conversation_model.create_conversation(
+                        title=message[:50] if len(message) > 50 else message
+                    )
+                    
+                    # Store conversation_id in thread metadata for future reference
+                    if thread_id not in _THREAD_METADATA:
+                        _THREAD_METADATA[thread_id] = {}
+                    _THREAD_METADATA[thread_id]['conversation_id'] = db_conversation_id
+                    _save_metadata()
+            
+            # Save user message
+            conversation_model.save_message(
+                conversation_id=db_conversation_id,
+                message=message,
+                role='user'
+            )
+            
+            # Save AI response
+            conversation_model.save_message(
+                conversation_id=db_conversation_id,
+                message=response_content,
+                role='bot'  # Database constraint requires 'bot' not 'assistant'
+            )
+            
+            logger.info(f"Saved RAG chat messages to conversation {db_conversation_id} for thread {thread_id}")
+        except Exception as save_error:
+            # Don't fail the request if saving to database fails
+            logger.error(f"Failed to save RAG chat messages to database: {str(save_error)}", exc_info=True)
+
         # Get thread metadata to check if lesson is finalized
         metadata = thread_document_metadata(thread_id)
         lesson_finalized = metadata.get("lesson_finalized", False)
@@ -304,6 +535,7 @@ def chat():
             'success': True,
             'message': response_content,
             'thread_id': thread_id,
+            'conversation_id': db_conversation_id if db_conversation_id else conversation_id,
             'has_document': thread_has_document(thread_id),
             'lesson_finalized': lesson_finalized,
             'last_lesson_text': last_lesson_text,

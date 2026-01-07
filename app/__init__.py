@@ -239,6 +239,9 @@ def create_app():
     # Initialize database
     with app.app_context():
         init_db(app)
+        # Create default admin account if it doesn't exist
+        from app.utils.admin_init import create_default_admin
+        create_default_admin()
     
     # Register blueprints (import here to avoid circular imports)
     from app.routes.auth import bp as auth_bp
@@ -250,17 +253,19 @@ def create_app():
     from app.routes.lesson_routes import bp as lesson_bp
     from app.routes.rag_routes import bp as rag_bp
     from app.routes.subscription import bp as subscription_bp
+    from app.routes.admin_routes import bp as admin_bp
 
     # Register blueprints with appropriate prefixes
     app.register_blueprint(auth_bp, url_prefix='/auth')
     app.register_blueprint(chat_bp)
-    app.register_blueprint(api_key_bp)
+    app.register_blueprint(api_key_bp, url_prefix='/api-key')
     app.register_blueprint(file_bp)
     app.register_blueprint(chatbot_bp, url_prefix='/api')
     app.register_blueprint(survey_bp, url_prefix='/api')
     app.register_blueprint(lesson_bp, url_prefix='/api/lessons')
     app.register_blueprint(rag_bp, url_prefix='/api/rag')
     app.register_blueprint(subscription_bp, url_prefix='/subscription')
+    app.register_blueprint(admin_bp)
     
     # Register RBAC template helpers
     from app.rbac.template_helpers import TEMPLATE_HELPERS

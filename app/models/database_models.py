@@ -329,6 +329,18 @@ class RAGPrompt(Base):
     )
 
 
+class GlobalPrompt(Base):
+    """Global system prompt model (applies to all users)"""
+    __tablename__ = 'global_prompts'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    prompt = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, server_default=func.now())
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow,
+                       server_default=func.now(), server_onupdate=func.now())
+    updated_by = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+
+
 class Coupon(Base):
     """Coupon model for subscription coupons"""
     __tablename__ = 'coupons'
@@ -370,5 +382,22 @@ class CouponRedemption(Base):
         UniqueConstraint('coupon_id', 'user_id', name='unique_coupon_user'),
         Index('idx_coupon_redemptions_user_id', 'user_id'),
         Index('idx_coupon_redemptions_coupon_id', 'coupon_id'),
+    )
+
+
+class SystemSettings(Base):
+    """System settings model for storing application-wide configuration"""
+    __tablename__ = 'system_settings'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    key = Column(String(255), nullable=False, unique=True, index=True)
+    value = Column(Text, nullable=False)
+    description = Column(Text, nullable=True)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow,
+                       server_default=func.now(), server_onupdate=func.now())
+    updated_by = Column(Integer, ForeignKey('users.id', ondelete='SET NULL'), nullable=True)
+    
+    __table_args__ = (
+        Index('idx_system_settings_key', 'key'),
     )
 
