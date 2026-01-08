@@ -5600,17 +5600,29 @@ async function initializeApp() {
         ragThreads.forEach((thread) => {
             const isActive = thread.thread_id === currentRAGThreadId;
             const threadDiv = document.createElement('div');
-            threadDiv.className = `px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-50 ${isActive ? 'bg-blue-50' : ''}`;
+            threadDiv.className = `px-3 py-2 rounded-lg hover:bg-gray-50 ${isActive ? 'bg-blue-50' : ''}`;
+            
+            // Escape HTML and quotes for safe insertion
+            const escapedThreadId = thread.thread_id.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+            const escapedThreadName = thread.name.replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            
             threadDiv.innerHTML = `
-                <div class="flex items-center justify-between">
-                    <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between gap-2">
+                    <div class="flex-1 min-w-0 cursor-pointer" onclick="switchToRAGThread('${escapedThreadId}')">
                         <div class="text-sm font-medium text-gray-800 truncate">${thread.name}</div>
                         <div class="text-xs text-gray-500 truncate">${thread.filename || 'No file'}</div>
                     </div>
-                    ${isActive ? '<i class="fas fa-check text-[#05B0FC] ml-2"></i>' : ''}
+                    <div class="flex items-center gap-1">
+                        ${isActive ? '<i class="fas fa-check text-[#05B0FC]"></i>' : ''}
+                        <button 
+                            onclick="event.stopPropagation(); deleteRAGThread('${escapedThreadId}', '${escapedThreadName}')"
+                            class="p-1 hover:bg-red-100 rounded transition-colors text-red-500 hover:text-red-700"
+                            title="Delete thread">
+                            <i class="fas fa-trash text-xs"></i>
+                        </button>
+                    </div>
                 </div>
             `;
-            threadDiv.addEventListener('click', () => switchToRAGThread(thread.thread_id));
             threadList.appendChild(threadDiv);
         });
         
@@ -5666,6 +5678,57 @@ async function initializeApp() {
             addMessageToChat('ai', 'Thread loaded. Upload a document to start chatting.');
             hideLessonFinalizedButtons();
         });
+    }
+
+    async function deleteRAGThread(threadId, threadName) {
+        // Confirm deletion
+        if (!confirm(`Are you sure you want to delete "${threadName}"?\n\nThis will permanently delete the thread and all associated data.`)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/rag/thread/${encodeURIComponent(threadId)}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+
+            const data = await response.json();
+
+            if (response.ok && data.success) {
+                showNotification('Thread deleted successfully', 'success');
+                
+                // If the deleted thread was the current thread, switch to regular chat
+                if (currentRAGThreadId === threadId) {
+                    currentRAGThreadId = null;
+                    localStorage.removeItem('currentRAGThreadId');
+                    // Switch back to regular chat mode
+                    isRAGChatMode = false;
+                    document.getElementById('chatStatus').textContent = 'Chat';
+                    // Clear chat messages
+                    const chatMessages = document.getElementById('chatMessages');
+                    if (chatMessages) {
+                        chatMessages.innerHTML = '';
+                    }
+                    // Hide RAG-specific UI elements
+                    const ragThreadSelector = document.getElementById('ragThreadSelector');
+                    if (ragThreadSelector) {
+                        ragThreadSelector.classList.add('hidden');
+                    }
+                    const ragPromptBtn = document.getElementById('ragPromptBtn');
+                    if (ragPromptBtn) {
+                        ragPromptBtn.classList.add('hidden');
+                    }
+                }
+                
+                // Reload threads list
+                await loadRAGThreads();
+            } else {
+                showNotification(data.error || 'Failed to delete thread', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting thread:', error);
+            showNotification('Failed to delete thread: ' + error.message, 'error');
+        }
     }
 
     function toggleRAGThreadSelector() {

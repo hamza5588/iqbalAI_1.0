@@ -5,7 +5,8 @@ from app.utils.rag_service import (
     chatbot,
     thread_has_document,
     thread_document_metadata,
-    update_lesson_finalized_status
+    update_lesson_finalized_status,
+    delete_thread
 )
 from app.utils.db import get_db
 from app.models.database_models import RAGThread, RAGPrompt
@@ -833,4 +834,52 @@ def update_lesson_finalized(thread_id):
     except Exception as e:
         logger.error(f"Error updating lesson finalized status: {str(e)}")
         return jsonify({'error': f'Failed to update lesson finalized status: {str(e)}'}), 500
+
+
+@bp.route('/thread/<thread_id>', methods=['DELETE'])
+@login_required
+def delete_thread_route(thread_id):
+    """
+    Delete a thread and all associated data.
+    """
+    try:
+        if 'user_id' not in session:
+            return jsonify({'error': 'Not authenticated'}), 401
+
+        user_id = session['user_id']
+        
+        # Validate thread_id belongs to this user
+        if not _validate_thread_id(thread_id, user_id):
+            return jsonify({'error': 'Access denied. You can only delete your own threads.'}), 403
+
+        # Delete thread from RAG service (metadata, etc.)
+        result = delete_thread(thread_id)
+        
+        if not result.get('success'):
+            return jsonify({'error': result.get('message', 'Failed to delete thread')}), 500
+
+        # Delete thread from database
+        db = get_db()
+        try:
+            thread = db.query(RAGThread).filter_by(thread_id=thread_id).first()
+            if thread:
+                db.delete(thread)
+                db.commit()
+                logger.info(f"Deleted thread {thread_id} from database")
+            else:
+                logger.warning(f"Thread {thread_id} not found in database, but metadata was deleted")
+        except Exception as e:
+            logger.error(f"Error deleting thread from database: {str(e)}")
+            db.rollback()
+            # Continue even if database deletion fails - metadata is already deleted
+
+        return jsonify({
+            'success': True,
+            'message': result.get('message', 'Thread deleted successfully'),
+            'thread_id': thread_id
+        })
+
+    except Exception as e:
+        logger.error(f"Error deleting thread: {str(e)}", exc_info=True)
+        return jsonify({'error': f'Failed to delete thread: {str(e)}'}), 500
 

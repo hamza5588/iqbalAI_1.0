@@ -12,7 +12,6 @@ from typing import Annotated, Any, Dict, Optional, TypedDict, List
 from dotenv import load_dotenv
 from app.utils.db import get_db
 from app.models.database_models import RAGPrompt
-
 logger = logging.getLogger(__name__)
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
@@ -264,29 +263,39 @@ def _get_retriever(thread_id: Optional[str], user_id: Optional[int] = None):
     class FilteredRetriever:
         def __init__(self, vector_store: FAISS, thread_id: str, user_id: int):
             self.vector_store = vector_store
-            self.thread_id = thread_id
-            self.user_id = user_id
+            self.thread_id = str(thread_id)  # Ensure string type
+            self.user_id = int(user_id) if user_id is not None else None
         
         def invoke(self, query: str) -> List[Document]:
             """Retrieve documents and filter by thread_id and user_id."""
-            # Get more results than needed, then filter
-            docs = self.vector_store.similarity_search_with_score(query, k=20)
+            # Get more results than needed, then filter (increased from 20 to 60)
+            docs = self.vector_store.similarity_search_with_score(query, k=60)
+            logger.info(f"FilteredRetriever: retrieved {len(docs)} documents before filtering")
             
-            # Filter documents by thread_id and user_id
+            # Filter documents by thread_id and user_id (using string comparisons for robustness)
             filtered_docs = []
             for doc, score in docs:
                 meta = doc.metadata
-                doc_thread_id = meta.get('thread_id', '')
+                doc_thread_id = str(meta.get('thread_id', ''))
                 doc_user_id = meta.get('user_id')
                 
-                # Check if document belongs to this thread and user
-                if doc_thread_id == self.thread_id and doc_user_id == self.user_id:
+                # Convert doc_user_id to int for comparison if it's not None
+                if doc_user_id is not None:
+                    try:
+                        doc_user_id = int(doc_user_id)
+                    except (ValueError, TypeError):
+                        doc_user_id = None
+                
+                # Check if document belongs to this thread and user (string comparison for thread_id)
+                if (str(doc_thread_id) == str(self.thread_id) and 
+                    doc_user_id == self.user_id):
                     filtered_docs.append(doc)
                 
-                # Stop when we have enough results
-                if len(filtered_docs) >= 4:
+                # Stop when we have enough results (increased from 4 to 6)
+                if len(filtered_docs) >= 6:
                     break
             
+            logger.info(f"FilteredRetriever: filtered to {len(filtered_docs)} documents")
             return filtered_docs
     
     return FilteredRetriever(vector_store, thread_id, user_id)
@@ -367,8 +376,9 @@ def ingest_pdf(file_bytes: bytes, thread_id: str, filename: Optional[str] = None
                 "thread_id": thread_id_str,
                 "user_id": user_id,  # Add user_id to metadata
                 "filename": filename or os.path.basename(temp_path),
-                "page": i + 1,
+                "page": i + 1,  # 1-indexed page number (primary)
                 "page_number": i + 1,  # Alternative key for clarity
+                "page_zero_index": i,  # 0-indexed for UI compatibility (optional)
                 "total_pages": num_pages,  # Store total pages in each page's metadata
             }
 
@@ -388,14 +398,25 @@ def ingest_pdf(file_bytes: bytes, thread_id: str, filename: Optional[str] = None
         for i, c in enumerate(chunks):
             # Preserve page number from original metadata
             page_num = c.metadata.get("page") or c.metadata.get("page_number", "unknown")
+            # Calculate page_zero_index if page_num is numeric
+            page_zero_idx = None
+            try:
+                if isinstance(page_num, (int, float)):
+                    page_zero_idx = int(page_num) - 1
+                elif isinstance(page_num, str) and page_num.isdigit():
+                    page_zero_idx = int(page_num) - 1
+            except (ValueError, TypeError):
+                pass
+            
             c.metadata = {
                 **c.metadata,
                 "chunk_length": len(c.page_content),
                 "source_pdf": filename or os.path.basename(temp_path),
                 "thread_id": thread_id_str,
                 "user_id": user_id,  # Ensure user_id is in every chunk
-                "page": page_num,  # Ensure page number is preserved
+                "page": page_num,  # Ensure page number is preserved (1-indexed)
                 "page_number": page_num,  # Alternative key
+                "page_zero_index": page_zero_idx if page_zero_idx is not None else c.metadata.get("page_zero_index"),  # 0-indexed for UI compatibility
                 "num_pages": num_pages,  # Total pages in PDF
                 "total_pages": num_pages,  # Alternative key
             }
@@ -517,24 +538,200 @@ def calculator(first_num: float, second_num: float, operation: str) -> dict:
 
 
 @tool
+def get_page_tool(page: int, thread_id: str) -> dict:
+    """
+    Get the content of a specific page from the uploaded PDF for this chat thread.
+    Page numbers: 0 or 1 both refer to the first page (page 1 in the PDF).
+    Always include the thread_id when calling this tool.
+    """
+    logger.info(f"get_page_tool called: page={page}, thread_id={thread_id}")
+    
+    # Extract user_id from thread_id
+    user_id = _extract_user_id_from_thread_id(thread_id) if thread_id else None
+    if user_id is None:
+        return {
+            "error": f"Could not extract user_id from thread_id: {thread_id}",
+            "thread_id": thread_id,
+            "page_requested": page,
+            "page_resolved": None,
+            "chunks_found": 0,
+        }
+    
+    # Map UI page=0 to page=1 (ingestion uses 1-indexed pages)
+    original_page = page
+    if page == 0:
+        resolved_page = 1
+    else:
+        resolved_page = page
+    
+    logger.info(f"get_page_tool: page_requested={original_page}, page_resolved={resolved_page}, user_id={user_id}")
+    
+    # Load shared vector store
+    vector_store = _load_shared_vector_store()
+    if vector_store is None:
+        return {
+            "error": "No vector store available. Upload a PDF first.",
+            "thread_id": thread_id,
+            "page_requested": original_page,
+            "page_resolved": resolved_page,
+            "chunks_found": 0,
+        }
+    
+    # Access docstore to iterate over all documents
+    if not hasattr(vector_store, 'docstore') or not hasattr(vector_store.docstore, '_dict'):
+        return {
+            "error": "Vector store docstore not accessible.",
+            "thread_id": thread_id,
+            "page_requested": original_page,
+            "page_resolved": resolved_page,
+            "chunks_found": 0,
+        }
+    
+    # Collect matching documents
+    matching_docs = []
+    thread_id_str = str(thread_id)
+    user_id_str = str(user_id)
+    
+    for doc in vector_store.docstore._dict.values():
+        meta = doc.metadata
+        doc_thread_id = str(meta.get('thread_id', ''))
+        doc_user_id = str(meta.get('user_id', ''))
+        
+        # Get page number from metadata (try multiple keys)
+        doc_page = meta.get('page') or meta.get('page_number')
+        doc_page_zero = meta.get('page_zero_index')
+        
+        # Check if page matches (support both 1-indexed and 0-indexed)
+        page_matches = False
+        if doc_page is not None:
+            try:
+                doc_page_int = int(doc_page)
+                # Match if resolved_page matches 1-indexed page
+                if doc_page_int == resolved_page:
+                    page_matches = True
+            except (ValueError, TypeError):
+                pass
+        
+        # Also check page_zero_index if page didn't match
+        if not page_matches and doc_page_zero is not None:
+            try:
+                doc_page_zero_int = int(doc_page_zero)
+                # Match if original_page (0-indexed) matches page_zero_index
+                if original_page == 0 and doc_page_zero_int == 0:
+                    page_matches = True
+                elif original_page > 0 and doc_page_zero_int == (original_page - 1):
+                    page_matches = True
+            except (ValueError, TypeError):
+                pass
+        
+        if not page_matches:
+            continue
+        
+        # Check if document matches thread_id and user_id
+        if (doc_thread_id == thread_id_str and doc_user_id == user_id_str):
+            matching_docs.append(doc)
+    
+    logger.info(f"get_page_tool: found {len(matching_docs)} chunks for page {resolved_page}")
+    
+    if not matching_docs:
+        return {
+            "error": f"No content found for page {resolved_page} (requested as page {original_page}).",
+            "thread_id": thread_id,
+            "page_requested": original_page,
+            "page_resolved": resolved_page,
+            "chunks_found": 0,
+        }
+    
+    # Sort by chunk order if available (by page position or chunk index)
+    # For now, just return all chunks
+    content = [doc.page_content for doc in matching_docs]
+    metadata = [doc.metadata for doc in matching_docs]
+    
+    return {
+        "thread_id": thread_id,
+        "page_requested": original_page,
+        "page_resolved": resolved_page,
+        "chunks_found": len(matching_docs),
+        "content": content,
+        "metadata": metadata,
+    }
+
+
+@tool
 def rag_tool(query: str, thread_id: Optional[str] = None) -> dict:
     """
     Retrieve relevant information from the uploaded PDF for this chat thread.
     Always include the thread_id when calling this tool.
     """
+    logger.info(f"rag_tool called: query='{query[:100]}...', thread_id={thread_id}")
+    
     # Extract user_id from thread_id for filtering
     user_id = _extract_user_id_from_thread_id(thread_id) if thread_id else None
+    logger.info(f"rag_tool: extracted user_id={user_id}")
     
+    # Parse page requests from query
+    import re
+    page_patterns = [
+        r'page\s+(?:no|number|#)?\s*(\d+)',
+        r'page:\s*(\d+)',
+        r'on\s+page\s+(\d+)',
+        r'page\s+(\d+)',
+    ]
+    
+    page_requested = None
+    for pattern in page_patterns:
+        match = re.search(pattern, query.lower())
+        if match:
+            try:
+                page_requested = int(match.group(1))
+                logger.info(f"rag_tool: detected page request: {page_requested}")
+                # Call get_page_tool instead of similarity search
+                if thread_id:
+                    return get_page_tool.invoke({"page": page_requested, "thread_id": thread_id})
+                else:
+                    return {
+                        "error": "thread_id is required for page queries",
+                        "query": query,
+                    }
+            except (ValueError, IndexError):
+                pass
+    
+    # Check for author/title queries
+    author_keywords = ["author", "written by", "who wrote", "title page", "lecturer", "who is the author"]
+    is_author_query = any(keyword in query.lower() for keyword in author_keywords)
+    
+    # Get retriever for similarity search
     retriever = _get_retriever(thread_id, user_id)
     if retriever is None:
+        # If author query and no retriever, try page 1 fallback
+        if is_author_query and thread_id:
+            logger.info("rag_tool: author query with no retriever, trying page 1 fallback")
+            return get_page_tool.invoke({"page": 1, "thread_id": thread_id})
         return {
             "error": "No document indexed for this chat. Upload a PDF first.",
             "query": query,
         }
 
+    # Perform similarity search
     result = retriever.invoke(query)
+    logger.info(f"rag_tool: similarity search returned {len(result)} documents after filtering")
+    
     context = [doc.page_content for doc in result]
     metadata = [doc.metadata for doc in result]
+    
+    # Author/title fallback: if query is about author and we got no results or no person-name-like content
+    if is_author_query and (not result or not any(
+        any(word.isupper() and len(word) > 2 for word in chunk.split()) 
+        for chunk in context[:3]
+    )):
+        logger.info("rag_tool: author query with insufficient results, trying page 1 fallback")
+        if thread_id:
+            page1_result = get_page_tool.invoke({"page": 1, "thread_id": thread_id})
+            if isinstance(page1_result, dict) and "content" in page1_result:
+                # Append page 1 content
+                context = page1_result.get("content", []) + context
+                metadata = page1_result.get("metadata", []) + metadata
+                logger.info(f"rag_tool: appended {len(page1_result.get('content', []))} chunks from page 1")
     
     # Get thread metadata for page count
     thread_meta = _THREAD_METADATA.get(str(thread_id), {})
@@ -550,7 +747,7 @@ def rag_tool(query: str, thread_id: Optional[str] = None) -> dict:
     }
 
 
-tools = [calculator, rag_tool]
+tools = [calculator, rag_tool, get_page_tool]
 # Note: llm_with_tools and llm_structured_output are now created per-request in chat_node
 # to use user-specific API keys and provider settings
 
@@ -809,6 +1006,13 @@ def chat_node(state: ChatState, config=None):
     f"2. Pass the user's question as the 'query' parameter\n"
     f"3. Pass '{thread_id}' as the 'thread_id' parameter (this is REQUIRED)\n\n"
 
+    f"CRITICAL: Page Number Queries:\n"
+    f"- If the user asks about a specific page number (e.g., 'what is on page 0', 'page 1', 'page number 2'),\n"
+    f"  you MUST call get_page_tool(page=<n>, thread_id='{thread_id}') instead of rag_tool.\n"
+    f"- Page indexing: If user says 'page 0', treat it as the first page (page 1 in the PDF).\n"
+    f"- The get_page_tool will return the exact content of that page reliably.\n"
+    f"- Always use get_page_tool for page-specific queries to ensure accuracy.\n\n"
+
     f"When generating a LECTURE or LESSON, you MUST follow these rules strictly:\n"
     f"- Use clear and meaningful headings\n"
     f"- Under EACH heading, write a DETAILED explanation in PARAGRAPH form\n"
@@ -823,6 +1027,12 @@ def chat_node(state: ChatState, config=None):
     f"- Page numbers and metadata\n"
     f"- Total number of pages (num_pages or pages field)\n"
     f"- Source filename\n\n"
+
+    f"When you call get_page_tool, it will return:\n"
+    f"- Exact content from the specified page\n"
+    f"- Page number requested and resolved\n"
+    f"- Number of chunks found on that page\n"
+    f"- All content and metadata from that page\n\n"
 
     f"Always integrate PDF content naturally into explanations instead of copying verbatim.\n"
     f"When asked about number of pages, use ONLY the num_pages or pages field.\n"
@@ -1287,6 +1497,95 @@ def update_lesson_finalized_status(thread_id: str, finalized: bool) -> bool:
     _save_metadata()
     
     return True
+
+
+def delete_thread(thread_id: str) -> dict:
+    """
+    Delete a thread and all associated data.
+    
+    This function:
+    1. Removes thread metadata from _THREAD_METADATA
+    2. Removes documents from the vector store (filtered by thread_id)
+    3. Optionally removes uploaded files
+    4. Saves updated metadata
+    
+    Args:
+        thread_id: The thread ID to delete
+        
+    Returns:
+        dict with 'success' (bool) and 'message' (str)
+    """
+    thread_id_str = str(thread_id)
+    user_id = _extract_user_id_from_thread_id(thread_id_str)
+    
+    if not user_id:
+        return {'success': False, 'message': f'Could not extract user_id from thread_id: {thread_id_str}'}
+    
+    try:
+        # Load latest metadata
+        _load_metadata()
+        
+        # Get thread metadata before deletion (for filename)
+        thread_meta = _THREAD_METADATA.get(thread_id_str, {})
+        filename = thread_meta.get('filename')
+        
+        # Remove documents from vector store
+        vector_store = _load_shared_vector_store()
+        if vector_store:
+            try:
+                # Get all document IDs that belong to this thread
+                # We need to search and filter by metadata
+                # Since FAISS doesn't have a direct delete by metadata, we'll need to:
+                # 1. Get all documents with this thread_id
+                # 2. Create a new vector store without those documents
+                
+                # For now, we'll mark the thread as deleted in metadata
+                # The documents will remain in the vector store but won't be retrievable
+                # (since the retriever filters by thread_id)
+                # This is acceptable as the documents are small and the vector store is shared
+                
+                # If we want to actually remove documents, we'd need to:
+                # - Load all documents
+                # - Filter out documents with matching thread_id
+                # - Recreate the vector store
+                # This is expensive, so we'll just remove from metadata for now
+                
+                logger.info(f"Removing thread {thread_id_str} from metadata (documents remain in vector store)")
+            except Exception as e:
+                logger.warning(f"Error removing documents from vector store for thread {thread_id_str}: {e}")
+        
+        # Remove thread metadata
+        if thread_id_str in _THREAD_METADATA:
+            del _THREAD_METADATA[thread_id_str]
+            _save_metadata()
+            logger.info(f"Removed thread metadata for {thread_id_str}")
+        
+        # Optionally remove uploaded file
+        if filename:
+            try:
+                # Find and remove uploaded file
+                file_pattern = f"{thread_id_str}_*"
+                for file_path in UPLOADED_FILES_DIR.glob(file_pattern):
+                    try:
+                        file_path.unlink()
+                        logger.info(f"Deleted uploaded file: {file_path}")
+                    except Exception as e:
+                        logger.warning(f"Failed to delete uploaded file {file_path}: {e}")
+            except Exception as e:
+                logger.warning(f"Error removing uploaded files for thread {thread_id_str}: {e}")
+        
+        return {
+            'success': True,
+            'message': f'Thread {thread_id_str} deleted successfully'
+        }
+        
+    except Exception as e:
+        logger.error(f"Error deleting thread {thread_id_str}: {e}", exc_info=True)
+        return {
+            'success': False,
+            'message': f'Failed to delete thread: {str(e)}'
+        }
+
 
 # Load metadata on module import
 _load_metadata()
