@@ -107,12 +107,16 @@ def ingest():
             return jsonify({'error': 'Only PDF files are supported'}), 400
 
         # Get thread_id from request or create new thread
+        # IMPORTANT: By default, each PDF upload creates a NEW thread.
+        # This ensures that each uploaded document has its own separate thread/context.
         conversation_id = request.form.get('conversation_id', type=int)
         provided_thread_id = request.form.get('thread_id')
         create_new_thread = request.form.get('create_new_thread', 'true').lower() == 'true'
         
-        # If thread_id is provided and we're not creating a new thread, validate it belongs to this user
+        # If create_new_thread is False AND a thread_id is provided, use existing thread
+        # (This is rare - normally each upload creates a new thread)
         if provided_thread_id and not create_new_thread:
+            logger.info(f"Using existing thread {provided_thread_id} for PDF upload (create_new_thread=False)")
             if not _validate_thread_id(provided_thread_id, user_id):
                 return jsonify({'error': 'Invalid thread_id. You can only use your own threads.'}), 403
             
@@ -124,8 +128,10 @@ def ingest():
             
             thread_id = provided_thread_id
         else:
-            # Always create a new thread for new uploads
+            # Always create a new thread for new PDF uploads (default behavior)
+            # This ensures each uploaded PDF gets its own thread
             thread_id = _get_thread_id(user_id, conversation_id)
+            logger.info(f"Creating new thread {thread_id} for PDF upload (filename: {file.filename})")
         
         filename = file.filename
 
@@ -380,18 +386,25 @@ def chat():
             if not _validate_thread_id(provided_thread_id, user_id):
                 return jsonify({'error': 'Invalid thread_id. You can only access your own threads.'}), 403
             thread_id = provided_thread_id
+            logger.info(f"Using provided thread_id: {thread_id} for user {user_id}")
         else:
             # Auto-select the most recent thread with a document for this user
+            # IMPORTANT: Order by updated_at (when PDF was uploaded) not created_at to get the most recently uploaded PDF
             db = get_db()
             try:
-                # Get all threads for this user, ordered by most recent first
-                threads = db.query(RAGThread).filter_by(user_id=user_id).order_by(RAGThread.created_at.desc()).all()
+                # Get all threads for this user, ordered by most recently updated first
+                # This ensures we get the thread for the most recently uploaded PDF
+                threads = db.query(RAGThread).filter_by(user_id=user_id).order_by(
+                    RAGThread.updated_at.desc().nullslast(),
+                    RAGThread.created_at.desc()
+                ).all()
                 
                 # Find the most recent thread that has a document
+                # Check threads in order (most recently updated first)
                 for thread in threads:
                     if thread_has_document(thread.thread_id):
                         thread_id = thread.thread_id
-                        logger.info(f"Auto-selected thread {thread_id} with document for user {user_id}")
+                        logger.info(f"Auto-selected thread {thread_id} with document for user {user_id} (most recently updated)")
                         break
                 else:
                     # No thread with document found, generate new thread_id

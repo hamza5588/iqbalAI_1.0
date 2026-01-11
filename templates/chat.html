@@ -4948,17 +4948,29 @@ async function initializeApp() {
         if (threadId) {
             checkThreadLessonStatus(threadId);
             
-            // Try to load chat history if conversation_id exists
-            // Extract conversation_id from thread_id if it's in the format user_{user_id}_conv_{conversation_id}
-            const threadConvMatch = threadId.match(/user_\d+_conv_(\d+)/);
-            if (threadConvMatch) {
-                const convId = parseInt(threadConvMatch[1]);
-                currentRAGConversationId = convId;
-                currentChatId = convId;
-                loadRAGChatHistory(convId);
-            } else if (currentRAGConversationId) {
-                // Use stored conversation_id
-                loadRAGChatHistory(currentRAGConversationId);
+            // IMPORTANT: When a new PDF is uploaded (filename provided), start fresh - don't load old chat history
+            // Only load chat history when switching to an existing thread (filename is null)
+            if (filename) {
+                // New PDF upload - clear conversation history and start fresh
+                currentRAGConversationId = null;
+                currentChatId = null;
+                localStorage.removeItem('currentChatId');
+                console.log(`New PDF uploaded: ${filename}, starting fresh conversation for thread ${threadId}`);
+            } else {
+                // Switching to existing thread - try to load chat history if conversation_id exists
+                // Extract conversation_id from thread_id if it's in the format user_{user_id}_conv_{conversation_id}
+                const threadConvMatch = threadId.match(/user_\d+_conv_(\d+)/);
+                if (threadConvMatch) {
+                    const convId = parseInt(threadConvMatch[1]);
+                    currentRAGConversationId = convId;
+                    currentChatId = convId;
+                    loadRAGChatHistory(convId);
+                } else if (currentRAGConversationId) {
+                    // Use stored conversation_id (but only if it matches the current thread)
+                    // For safety, clear it if we're on a different thread
+                    currentRAGConversationId = null;
+                    currentChatId = null;
+                }
             }
         }
         
@@ -4967,7 +4979,7 @@ async function initializeApp() {
         // it will be added by switchToRAGThread after loading thread info
         if (filename) {
             const welcomeMessage = `PDF "${filename}" uploaded successfully! You can now ask questions about it.`;
-        addMessageToChat('ai', welcomeMessage);
+            addMessageToChat('ai', welcomeMessage);
         }
         
         // Focus on input
@@ -5030,11 +5042,17 @@ async function initializeApp() {
                 localStorage.setItem('currentChatId', currentChatId);
             }
             
-            // Store thread_id if returned from backend (for auto-selected threads)
-            if (data.thread_id && !currentRAGThreadId) {
+            // Store thread_id if returned from backend (for auto-selected threads when frontend didn't send one)
+            // Always update to ensure we're using the correct thread for subsequent messages
+            if (data.thread_id) {
+                // Log if thread changed (helps debug issues)
+                if (currentRAGThreadId && currentRAGThreadId !== data.thread_id) {
+                    console.log(`Thread ID changed: ${currentRAGThreadId} -> ${data.thread_id}`);
+                }
+                // Update current thread_id to match backend (important for new PDF uploads)
                 currentRAGThreadId = data.thread_id;
                 localStorage.setItem('currentRAGThreadId', currentRAGThreadId);
-                console.log(`Auto-selected thread ${currentRAGThreadId} from backend response`);
+                console.log(`Current RAG thread_id: ${currentRAGThreadId}`);
             }
             
             // Add the AI message to chat
@@ -5336,7 +5354,7 @@ async function initializeApp() {
 
         const formData = new FormData();
         formData.append('file', file);
-        formData.append('create_new_thread', 'true');
+        formData.append('create_new_thread', 'true'); // Always create new thread for each PDF upload
         formData.append('stream', 'true'); // Enable SSE streaming
         
         const uploadProgress = document.getElementById('ragUploadProgress');
@@ -5597,10 +5615,11 @@ async function initializeApp() {
             return;
         }
         
-        ragThreads.forEach((thread) => {
+        ragThreads.forEach((thread, index) => {
             const isActive = thread.thread_id === currentRAGThreadId;
+            const isNewest = index === 0; // First thread in list is most recent
             const threadDiv = document.createElement('div');
-            threadDiv.className = `px-3 py-2 rounded-lg hover:bg-gray-50 ${isActive ? 'bg-blue-50' : ''}`;
+            threadDiv.className = `px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors ${isActive ? 'bg-blue-50 border-l-2 border-[#05B0FC]' : ''}`;
             
             // Escape HTML and quotes for safe insertion
             const escapedThreadId = thread.thread_id.replace(/'/g, "\\'").replace(/"/g, '&quot;');
@@ -5609,11 +5628,14 @@ async function initializeApp() {
             threadDiv.innerHTML = `
                 <div class="flex items-center justify-between gap-2">
                     <div class="flex-1 min-w-0 cursor-pointer" onclick="switchToRAGThread('${escapedThreadId}')">
-                        <div class="text-sm font-medium text-gray-800 truncate">${thread.name}</div>
-                        <div class="text-xs text-gray-500 truncate">${thread.filename || 'No file'}</div>
+                        <div class="flex items-center gap-2">
+                            <div class="text-sm font-medium text-gray-800 truncate ${isActive ? 'text-[#05B0FC] font-semibold' : ''}">${thread.name}</div>
+                            ${isNewest && thread.has_document ? '<span class="px-1.5 py-0.5 text-xs font-semibold bg-green-100 text-green-700 rounded">NEW</span>' : ''}
+                        </div>
+                        <div class="text-xs text-gray-500 truncate mt-0.5">${thread.filename || 'No file'}</div>
                     </div>
                     <div class="flex items-center gap-1">
-                        ${isActive ? '<i class="fas fa-check text-[#05B0FC]"></i>' : ''}
+                        ${isActive ? '<i class="fas fa-check-circle text-[#05B0FC]"></i>' : ''}
                         <button 
                             onclick="event.stopPropagation(); deleteRAGThread('${escapedThreadId}', '${escapedThreadName}')"
                             class="p-1 hover:bg-red-100 rounded transition-colors text-red-500 hover:text-red-700"
@@ -5631,6 +5653,10 @@ async function initializeApp() {
             const currentThread = ragThreads.find(t => t.thread_id === currentRAGThreadId);
             if (currentThread && currentThreadName) {
                 currentThreadName.textContent = currentThread.name;
+                // Add tooltip with filename for better clarity
+                currentThreadName.title = currentThread.filename 
+                    ? `${currentThread.name} - ${currentThread.filename}` 
+                    : currentThread.name;
             }
         } else if (currentThreadName) {
             currentThreadName.textContent = 'No Thread';
@@ -10027,10 +10053,28 @@ async function initializeApp() {
                 <div class="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
                     AI
                 </div>
-                <div class="bg-gray-100 rounded-2xl px-4 py-3 w-full message-bubble">
-                    <div class="text-gray-700 leading-relaxed prose max-w-none markdown-content">${formattedMessage}</div>
+                <div class="bg-gray-100 rounded-2xl px-4 py-3 w-full message-bubble relative group">
+                    <div class="text-gray-700 leading-relaxed prose max-w-none markdown-content pr-8 pb-1">${formattedMessage}</div>
+                    <button 
+                        class="copy-message-btn absolute bottom-2 right-2 opacity-70 hover:opacity-100 transition-opacity duration-200 p-1.5 rounded-md hover:bg-gray-200 text-gray-600 hover:text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 z-10 flex-shrink-0"
+                        data-message-id="${messageId}"
+                        title="Copy message"
+                        aria-label="Copy message">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                    </button>
                 </div>
             `;
+            
+            // Add event listener to copy button
+            const copyBtn = messageDiv.querySelector('.copy-message-btn');
+            if (copyBtn) {
+                copyBtn.addEventListener('click', function() {
+                    const msgId = this.getAttribute('data-message-id');
+                    copyMessageToClipboard(this, msgId);
+                });
+            }
             
             // Remove save button from previous AI message if it exists
             if (window.lastAIMessage) {
@@ -10082,6 +10126,134 @@ async function initializeApp() {
             if (currentChatId) {
                 saveChatToLocalStorage();
             }
+    }
+
+    // Copy message to clipboard function
+    function copyMessageToClipboard(button, messageId) {
+        const messageDiv = document.getElementById(messageId);
+        if (!messageDiv) {
+            showNotification('Message not found', 'error');
+            return;
+        }
+        
+        // Get the markdown content element
+        const markdownContent = messageDiv.querySelector('.markdown-content');
+        if (!markdownContent) {
+            showNotification('Message content not found', 'error');
+            return;
+        }
+        
+        // Get the text content (strip HTML but preserve formatting)
+        let textToCopy = '';
+        
+        // Try to get plain text from markdown content
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = markdownContent.innerHTML;
+        
+        // Convert to plain text while preserving line breaks
+        const processNode = (node) => {
+            if (node.nodeType === Node.TEXT_NODE) {
+                return node.textContent;
+            } else if (node.nodeType === Node.ELEMENT_NODE) {
+                const tagName = node.tagName.toLowerCase();
+                let result = '';
+                
+                // Handle different elements
+                if (tagName === 'p' || tagName === 'div') {
+                    result = Array.from(node.childNodes).map(processNode).join('');
+                    return result + '\n\n';
+                } else if (tagName === 'br') {
+                    return '\n';
+                } else if (tagName === 'li') {
+                    result = Array.from(node.childNodes).map(processNode).join('');
+                    return '• ' + result + '\n';
+                } else if (tagName === 'ul' || tagName === 'ol') {
+                    result = Array.from(node.childNodes).map(processNode).join('');
+                    return result + '\n';
+                } else if (tagName === 'h1' || tagName === 'h2' || tagName === 'h3' || tagName === 'h4' || tagName === 'h5' || tagName === 'h6') {
+                    result = Array.from(node.childNodes).map(processNode).join('');
+                    return result + '\n\n';
+                } else if (tagName === 'code' && node.parentElement.tagName.toLowerCase() !== 'pre') {
+                    result = Array.from(node.childNodes).map(processNode).join('');
+                    return '`' + result + '`';
+                } else if (tagName === 'pre') {
+                    result = Array.from(node.childNodes).map(processNode).join('');
+                    return result + '\n';
+                } else {
+                    return Array.from(node.childNodes).map(processNode).join('');
+                }
+            }
+            return '';
+        };
+        
+        textToCopy = Array.from(tempDiv.childNodes).map(processNode).join('').trim();
+        
+        // Fallback: if we couldn't extract text properly, use textContent
+        if (!textToCopy || textToCopy.length < 10) {
+            textToCopy = markdownContent.textContent || markdownContent.innerText || '';
+        }
+        
+        // Copy to clipboard
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                // Show success feedback
+                const originalHTML = button.innerHTML;
+                button.innerHTML = `
+                    <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                `;
+                button.classList.remove('text-gray-600', 'hover:text-gray-800');
+                button.classList.add('text-green-600');
+                
+                showNotification('Message copied to clipboard!', 'success');
+                
+                // Reset button after 2 seconds
+                setTimeout(() => {
+                    button.innerHTML = originalHTML;
+                    button.classList.remove('text-green-600');
+                    button.classList.add('text-gray-600', 'hover:text-gray-800');
+                }, 2000);
+            }).catch(err => {
+                console.error('Failed to copy:', err);
+                showNotification('Failed to copy message', 'error');
+            });
+        } else {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = textToCopy;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            textArea.style.top = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            
+            try {
+                document.execCommand('copy');
+                const originalHTML = button.innerHTML;
+                button.innerHTML = `
+                    <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                `;
+                button.classList.remove('text-gray-600', 'hover:text-gray-800');
+                button.classList.add('text-green-600');
+                
+                showNotification('Message copied to clipboard!', 'success');
+                
+                setTimeout(() => {
+                    button.innerHTML = originalHTML;
+                    button.classList.remove('text-green-600');
+                    button.classList.add('text-gray-600', 'hover:text-gray-800');
+                }, 2000);
+            } catch (err) {
+                console.error('Failed to copy:', err);
+                showNotification('Failed to copy message', 'error');
+            }
+            
+            document.body.removeChild(textArea);
+        }
     }
 
     function handleKeyDown(event) {

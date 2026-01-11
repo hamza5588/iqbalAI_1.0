@@ -121,10 +121,23 @@ def get_rag_llm(api_key=None, provider=None):
         except:
             provider = os.getenv('LLM_PROVIDER', 'openai').lower()
     
+    # Increase timeout for OpenAI to handle longer requests
+    # Respect OPENAI_TIMEOUT env var if set, otherwise default to 120 seconds
+    timeout_override = None
+    if provider == 'openai':
+        # Check if OPENAI_TIMEOUT is explicitly set in environment
+        env_timeout = os.getenv('OPENAI_TIMEOUT')
+        if env_timeout:
+            timeout_override = int(env_timeout)
+        else:
+            # Default to 120 seconds if not set (increased from 60)
+            timeout_override = 120
+    
     return create_llm(
         temperature=0.7,
         api_key=api_key if provider in ['openai', 'groq'] else None,
-        provider=provider
+        provider=provider,
+        timeout=timeout_override
     )
 
 # Global fallback LLM (used when user API key is not available)
@@ -239,108 +252,363 @@ def _get_rag_prompt(user_id: Optional[int], thread_id: Optional[str] = None) -> 
         logger.error(f"Error retrieving RAG prompt: {str(e)}")
         return None
 
+
 def _get_retriever(thread_id: Optional[str], user_id: Optional[int] = None):
     """
     Get a retriever for a specific thread with metadata filtering.
     Filters results to only include documents from the specified thread_id and user_id.
+
+    NEW:
+    - Excludes documents with metadata["type"] == "page_full_text"
+      so similarity retrieval returns only content chunks.
     """
     if not thread_id:
         return None
-    
-    # Extract user_id from thread_id if not provided
+
     if user_id is None:
         user_id = _extract_user_id_from_thread_id(thread_id)
-    
+
     if user_id is None:
         return None
-    
-    # Load shared vector store
+
     vector_store = _load_shared_vector_store()
     if vector_store is None:
         return None
-    
-    # Create a custom retriever that filters by thread_id and user_id
+
     class FilteredRetriever:
         def __init__(self, vector_store: FAISS, thread_id: str, user_id: int):
             self.vector_store = vector_store
-            self.thread_id = str(thread_id)  # Ensure string type
-            self.user_id = int(user_id) if user_id is not None else None
-        
+            self.thread_id = str(thread_id)
+            self.user_id = int(user_id)
+
         def invoke(self, query: str) -> List[Document]:
-            """Retrieve documents and filter by thread_id and user_id."""
-            # Get more results than needed, then filter (increased from 20 to 60)
             docs = self.vector_store.similarity_search_with_score(query, k=60)
             logger.info(f"FilteredRetriever: retrieved {len(docs)} documents before filtering")
-            
-            # Filter documents by thread_id and user_id (using string comparisons for robustness)
+
             filtered_docs = []
             for doc, score in docs:
-                meta = doc.metadata
-                doc_thread_id = str(meta.get('thread_id', ''))
-                doc_user_id = meta.get('user_id')
-                
-                # Convert doc_user_id to int for comparison if it's not None
-                if doc_user_id is not None:
-                    try:
-                        doc_user_id = int(doc_user_id)
-                    except (ValueError, TypeError):
-                        doc_user_id = None
-                
-                # Check if document belongs to this thread and user (string comparison for thread_id)
-                if (str(doc_thread_id) == str(self.thread_id) and 
-                    doc_user_id == self.user_id):
+                meta = doc.metadata or {}
+                doc_thread_id = str(meta.get("thread_id", ""))
+                doc_user_id = meta.get("user_id")
+
+                # Exclude page_full_text docs from RAG retrieval
+                if meta.get("type") == "page_full_text":
+                    continue
+
+                try:
+                    doc_user_id = int(doc_user_id) if doc_user_id is not None else None
+                except (ValueError, TypeError):
+                    doc_user_id = None
+
+                if doc_thread_id == self.thread_id and doc_user_id == self.user_id:
                     filtered_docs.append(doc)
-                
-                # Stop when we have enough results (increased from 4 to 6)
+
                 if len(filtered_docs) >= 6:
                     break
-            
+
             logger.info(f"FilteredRetriever: filtered to {len(filtered_docs)} documents")
             return filtered_docs
-    
+
     return FilteredRetriever(vector_store, thread_id, user_id)
 
-def ingest_pdf(file_bytes: bytes, thread_id: str, filename: Optional[str] = None, progress_callback: Optional[callable] = None) -> dict:
+# def _get_retriever(thread_id: Optional[str], user_id: Optional[int] = None):
+#     """
+#     Get a retriever for a specific thread with metadata filtering.
+#     Filters results to only include documents from the specified thread_id and user_id.
+#     """
+#     if not thread_id:
+#         return None
+    
+#     # Extract user_id from thread_id if not provided
+#     if user_id is None:
+#         user_id = _extract_user_id_from_thread_id(thread_id)
+    
+#     if user_id is None:
+#         return None
+    
+#     # Load shared vector store
+#     vector_store = _load_shared_vector_store()
+#     if vector_store is None:
+#         return None
+    
+#     # Create a custom retriever that filters by thread_id and user_id
+#     class FilteredRetriever:
+#         def __init__(self, vector_store: FAISS, thread_id: str, user_id: int):
+#             self.vector_store = vector_store
+#             self.thread_id = str(thread_id)  # Ensure string type
+#             self.user_id = int(user_id) if user_id is not None else None
+        
+#         def invoke(self, query: str) -> List[Document]:
+#             """Retrieve documents and filter by thread_id and user_id."""
+#             # Get more results than needed, then filter (increased from 20 to 60)
+#             docs = self.vector_store.similarity_search_with_score(query, k=60)
+#             logger.info(f"FilteredRetriever: retrieved {len(docs)} documents before filtering")
+            
+#             # Filter documents by thread_id and user_id (using string comparisons for robustness)
+#             filtered_docs = []
+#             for doc, score in docs:
+#                 meta = doc.metadata
+#                 doc_thread_id = str(meta.get('thread_id', ''))
+#                 doc_user_id = meta.get('user_id')
+                
+#                 # Convert doc_user_id to int for comparison if it's not None
+#                 if doc_user_id is not None:
+#                     try:
+#                         doc_user_id = int(doc_user_id)
+#                     except (ValueError, TypeError):
+#                         doc_user_id = None
+                
+#                 # Check if document belongs to this thread and user (string comparison for thread_id)
+#                 if (str(doc_thread_id) == str(self.thread_id) and 
+#                     doc_user_id == self.user_id):
+#                     filtered_docs.append(doc)
+                
+#                 # Stop when we have enough results (increased from 4 to 6)
+#                 if len(filtered_docs) >= 6:
+#                     break
+            
+#             logger.info(f"FilteredRetriever: filtered to {len(filtered_docs)} documents")
+#             return filtered_docs
+    
+#     return FilteredRetriever(vector_store, thread_id, user_id)
+
+# def ingest_pdf(file_bytes: bytes, thread_id: str, filename: Optional[str] = None, progress_callback: Optional[callable] = None) -> dict:
+#     """
+#     Build a FAISS retriever for the uploaded PDF and store metadata inside the vector DB.
+#     Adds documents to the shared vector store with user_id and thread_id metadata.
+    
+#     Args:
+#         file_bytes: PDF file bytes
+#         thread_id: Thread ID for the document
+#         filename: Optional filename
+#         progress_callback: Optional callback function(step, progress, message) for progress updates
+#     """
+#     def _send_progress(step: str, progress: int, message: str):
+#         """Helper to send progress updates"""
+#         if progress_callback:
+#             try:
+#                 progress_callback(step, progress, message)
+#             except Exception as e:
+#                 logger.warning(f"Error sending progress update: {e}")
+    
+#     if not file_bytes:
+#         raise ValueError("No bytes received for ingestion.")
+
+#     _send_progress("init", 5, "Initializing PDF processing...")
+    
+#     thread_id_str = str(thread_id)
+#     user_id = _extract_user_id_from_thread_id(thread_id_str)
+    
+#     if user_id is None:
+#         raise ValueError(f"Could not extract user_id from thread_id: {thread_id_str}")
+    
+#     # Save the original PDF file
+#     safe_filename = filename or f"document_{thread_id_str}.pdf"
+#     # Sanitize filename
+#     safe_filename = "".join(c for c in safe_filename if c.isalnum() or c in "._- ")
+#     file_path = UPLOADED_FILES_DIR / f"{thread_id_str}_{safe_filename}"
+    
+#     _send_progress("saving", 10, "Saving PDF file...")
+#     with open(file_path, 'wb') as f:
+#         f.write(file_bytes)
+
+#     # Create temp file for PDF loader
+#     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
+#         temp_file.write(file_bytes)
+#         temp_path = temp_file.name
+
+#     try:
+#         _send_progress("loading", 15, "Reading PDF document...")
+#         loader = PyPDFLoader(temp_path)
+#         docs = loader.load()  # each item = 1 PDF page
+        
+#         # Calculate total number of pages - ensure we have valid pages
+#         num_pages = len(docs)
+#         if num_pages == 0:
+#             raise ValueError("PDF appears to be empty or could not be loaded. No pages found.")
+        
+#         _send_progress("validating", 25, f"Validating {num_pages} pages...")
+        
+#         # Verify pages have content
+#         valid_pages = [doc for doc in docs if doc.page_content and doc.page_content.strip()]
+#         if len(valid_pages) == 0:
+#             raise ValueError("PDF loaded but contains no extractable text content.")
+        
+#         # Use valid pages count if different
+#         if len(valid_pages) != num_pages:
+#             logger.warning(f"PDF has {num_pages} pages but only {len(valid_pages)} contain extractable text")
+#             # Still use original count for metadata, but note the difference
+#             num_pages = len(docs)  # Keep original page count
+
+#         _send_progress("metadata", 30, "Adding metadata to pages...")
+#         # Inject additional metadata directly INTO the documents before splitting
+#         for i, doc in enumerate(docs):
+#             doc.metadata = {
+#                 **doc.metadata,
+#                 "thread_id": thread_id_str,
+#                 "user_id": user_id,  # Add user_id to metadata
+#                 "filename": filename or os.path.basename(temp_path),
+#                 "page": i + 1,  # 1-indexed page number (primary)
+#                 "page_number": i + 1,  # Alternative key for clarity
+#                 "page_zero_index": i,  # 0-indexed for UI compatibility (optional)
+#                 "total_pages": num_pages,  # Store total pages in each page's metadata
+#             }
+
+#         _send_progress("splitting", 40, "Splitting document into chunks...")
+#         splitter = RecursiveCharacterTextSplitter(
+#             chunk_size=1600,
+#             chunk_overlap=600,
+#             separators=["\n\n", "\n", " ", ""]
+#         )
+
+#         # Split docs, keeping metadata automatically
+#         chunks = splitter.split_documents(docs)
+#         _send_progress("splitting", 50, f"Created {len(chunks)} text chunks from {num_pages} pages")
+
+#         _send_progress("chunk_metadata", 55, "Enriching chunk metadata...")
+#         # Add even richer metadata to each chunk
+#         for i, c in enumerate(chunks):
+#             # Preserve page number from original metadata
+#             page_num = c.metadata.get("page") or c.metadata.get("page_number", "unknown")
+#             # Calculate page_zero_index if page_num is numeric
+#             page_zero_idx = None
+#             try:
+#                 if isinstance(page_num, (int, float)):
+#                     page_zero_idx = int(page_num) - 1
+#                 elif isinstance(page_num, str) and page_num.isdigit():
+#                     page_zero_idx = int(page_num) - 1
+#             except (ValueError, TypeError):
+#                 pass
+            
+#             c.metadata = {
+#                 **c.metadata,
+#                 "chunk_length": len(c.page_content),
+#                 "source_pdf": filename or os.path.basename(temp_path),
+#                 "thread_id": thread_id_str,
+#                 "user_id": user_id,  # Ensure user_id is in every chunk
+#                 "page": page_num,  # Ensure page number is preserved (1-indexed)
+#                 "page_number": page_num,  # Alternative key
+#                 "page_zero_index": page_zero_idx if page_zero_idx is not None else c.metadata.get("page_zero_index"),  # 0-indexed for UI compatibility
+#                 "num_pages": num_pages,  # Total pages in PDF
+#                 "total_pages": num_pages,  # Alternative key
+#             }
+#             # Update progress for large documents
+#             if (i + 1) % 50 == 0:
+#                 _send_progress("chunk_metadata", 55 + int((i + 1) / len(chunks) * 5), f"Processing chunk {i + 1}/{len(chunks)}...")
+
+#         _send_progress("vector_store", 60, "Loading vector store...")
+#         # Load or create shared vector store
+#         global _SHARED_VECTOR_STORE
+#         vector_store = _load_shared_vector_store()
+        
+#         if vector_store is None:
+#             _send_progress("embeddings", 65, "Creating embeddings for chunks (this may take a moment)...")
+#             # Create new vector store
+#             vector_store = FAISS.from_documents(chunks, embeddings)
+#             _SHARED_VECTOR_STORE = vector_store
+#             _send_progress("embeddings", 80, f"Created embeddings for {len(chunks)} chunks")
+#         else:
+#             _send_progress("embeddings", 70, f"Adding {len(chunks)} chunks to vector store...")
+#             # Add new documents to existing vector store
+#             vector_store.add_documents(chunks)
+#             _SHARED_VECTOR_STORE = vector_store
+#             _send_progress("embeddings", 80, f"Added {len(chunks)} chunks to vector store")
+
+#         _send_progress("saving", 85, "Saving vector store to disk...")
+#         # Save vector store to disk
+#         _save_shared_vector_store()
+
+#         _send_progress("metadata", 90, "Saving document metadata...")
+#         # Save thread metadata (num_pages was already calculated above)
+#         _THREAD_METADATA[thread_id_str] = {
+#             "filename": filename or safe_filename,
+#             "file_path": str(file_path),
+#             "user_id": user_id,
+#             "documents": num_pages,  # Keep for backward compatibility
+#             "num_pages": num_pages,  # Explicit page count
+#             "pages": num_pages,  # Alternative key for clarity
+#             "chunks": len(chunks),
+#         }
+        
+#         # Persist metadata to disk
+#         _save_metadata()
+#         _send_progress("cleanup", 95, "Cleaning up temporary files...")
+
+#         # Delete temporary PDF file after chunks are created and stored
+#         try:
+#             if os.path.exists(temp_path):
+#                 os.remove(temp_path)
+#                 logger.debug(f"Deleted temporary PDF file: {temp_path}")
+#         except OSError as e:
+#             logger.warning(f"Failed to delete temporary PDF file {temp_path}: {e}")
+
+#         # Delete the uploaded file from uploaded_files directory after processing
+#         try:
+#             if file_path.exists():
+#                 os.remove(file_path)
+#                 logger.debug(f"Deleted uploaded PDF file: {file_path}")
+#         except OSError as e:
+#             logger.warning(f"Failed to delete uploaded PDF file {file_path}: {e}")
+
+#         _send_progress("complete", 100, f"PDF processing complete! Processed {num_pages} pages into {len(chunks)} chunks.")
+        
+#         return {
+#             "thread_id": thread_id_str,  # Include thread_id in response
+#             "filename": filename or safe_filename,
+#             "documents": num_pages,  # Keep for backward compatibility
+#             "num_pages": num_pages,  # Explicit page count
+#             "pages": num_pages,  # Alternative key
+#             "chunks": len(chunks),
+#         }
+
+#     finally:
+#         # Safety net: ensure temp file is deleted even if an error occurred
+#         try:
+#             if 'temp_path' in locals() and os.path.exists(temp_path):
+#                 os.remove(temp_path)
+#                 logger.debug(f"Deleted temporary PDF file in finally block: {temp_path}")
+#         except OSError as e:
+#             logger.warning(f"Failed to delete temporary PDF file in finally block {temp_path}: {e}")
+
+def ingest_pdf(
+    file_bytes: bytes,
+    thread_id: str,
+    filename: Optional[str] = None,
+    progress_callback: Optional[callable] = None
+) -> dict:
     """
     Build a FAISS retriever for the uploaded PDF and store metadata inside the vector DB.
     Adds documents to the shared vector store with user_id and thread_id metadata.
-    
-    Args:
-        file_bytes: PDF file bytes
-        thread_id: Thread ID for the document
-        filename: Optional filename
-        progress_callback: Optional callback function(step, progress, message) for progress updates
+
+    NEW:
+    - In addition to chunk documents, we also store 1 "page_full_text" Document per page.
+      This makes TOC/topic extraction much cleaner and more reliable.
     """
     def _send_progress(step: str, progress: int, message: str):
-        """Helper to send progress updates"""
         if progress_callback:
             try:
                 progress_callback(step, progress, message)
             except Exception as e:
                 logger.warning(f"Error sending progress update: {e}")
-    
+
     if not file_bytes:
         raise ValueError("No bytes received for ingestion.")
 
     _send_progress("init", 5, "Initializing PDF processing...")
-    
+
     thread_id_str = str(thread_id)
     user_id = _extract_user_id_from_thread_id(thread_id_str)
-    
     if user_id is None:
         raise ValueError(f"Could not extract user_id from thread_id: {thread_id_str}")
-    
-    # Save the original PDF file
+
     safe_filename = filename or f"document_{thread_id_str}.pdf"
-    # Sanitize filename
     safe_filename = "".join(c for c in safe_filename if c.isalnum() or c in "._- ")
     file_path = UPLOADED_FILES_DIR / f"{thread_id_str}_{safe_filename}"
-    
+
     _send_progress("saving", 10, "Saving PDF file...")
-    with open(file_path, 'wb') as f:
+    with open(file_path, "wb") as f:
         f.write(file_bytes)
 
-    # Create temp file for PDF loader
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
         temp_file.write(file_bytes)
         temp_path = temp_file.name
@@ -348,57 +616,59 @@ def ingest_pdf(file_bytes: bytes, thread_id: str, filename: Optional[str] = None
     try:
         _send_progress("loading", 15, "Reading PDF document...")
         loader = PyPDFLoader(temp_path)
-        docs = loader.load()  # each item = 1 PDF page
-        
-        # Calculate total number of pages - ensure we have valid pages
+        docs = loader.load()  # 1 Document per page
+
         num_pages = len(docs)
         if num_pages == 0:
             raise ValueError("PDF appears to be empty or could not be loaded. No pages found.")
-        
+
         _send_progress("validating", 25, f"Validating {num_pages} pages...")
-        
-        # Verify pages have content
-        valid_pages = [doc for doc in docs if doc.page_content and doc.page_content.strip()]
+
+        valid_pages = [d for d in docs if d.page_content and d.page_content.strip()]
         if len(valid_pages) == 0:
             raise ValueError("PDF loaded but contains no extractable text content.")
-        
-        # Use valid pages count if different
-        if len(valid_pages) != num_pages:
-            logger.warning(f"PDF has {num_pages} pages but only {len(valid_pages)} contain extractable text")
-            # Still use original count for metadata, but note the difference
-            num_pages = len(docs)  # Keep original page count
 
         _send_progress("metadata", 30, "Adding metadata to pages...")
-        # Inject additional metadata directly INTO the documents before splitting
         for i, doc in enumerate(docs):
             doc.metadata = {
-                **doc.metadata,
+                **(doc.metadata or {}),
                 "thread_id": thread_id_str,
-                "user_id": user_id,  # Add user_id to metadata
+                "user_id": user_id,
                 "filename": filename or os.path.basename(temp_path),
-                "page": i + 1,  # 1-indexed page number (primary)
-                "page_number": i + 1,  # Alternative key for clarity
-                "page_zero_index": i,  # 0-indexed for UI compatibility (optional)
-                "total_pages": num_pages,  # Store total pages in each page's metadata
+                "page": i + 1,            # 1-indexed
+                "page_number": i + 1,     # alias
+                "page_zero_index": i,     # 0-indexed
+                "total_pages": num_pages,
             }
+
+        # -------------------------------------------------------
+        # NEW: Create one "page_full_text" Document per page
+        # -------------------------------------------------------
+        _send_progress("page_docs", 35, "Creating page-level documents...")
+        page_docs: List[Document] = []
+        for d in docs:
+            page_docs.append(
+                Document(
+                    page_content=d.page_content,
+                    metadata={
+                        **(d.metadata or {}),
+                        "type": "page_full_text",  # IMPORTANT TAG
+                    },
+                )
+            )
 
         _send_progress("splitting", 40, "Splitting document into chunks...")
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=1600,
             chunk_overlap=600,
-            separators=["\n\n", "\n", " ", ""]
+            separators=["\n\n", "\n", " ", ""],
         )
-
-        # Split docs, keeping metadata automatically
         chunks = splitter.split_documents(docs)
         _send_progress("splitting", 50, f"Created {len(chunks)} text chunks from {num_pages} pages")
 
         _send_progress("chunk_metadata", 55, "Enriching chunk metadata...")
-        # Add even richer metadata to each chunk
         for i, c in enumerate(chunks):
-            # Preserve page number from original metadata
             page_num = c.metadata.get("page") or c.metadata.get("page_number", "unknown")
-            # Calculate page_zero_index if page_num is numeric
             page_zero_idx = None
             try:
                 if isinstance(page_num, (int, float)):
@@ -407,96 +677,96 @@ def ingest_pdf(file_bytes: bytes, thread_id: str, filename: Optional[str] = None
                     page_zero_idx = int(page_num) - 1
             except (ValueError, TypeError):
                 pass
-            
+
             c.metadata = {
-                **c.metadata,
+                **(c.metadata or {}),
                 "chunk_length": len(c.page_content),
                 "source_pdf": filename or os.path.basename(temp_path),
                 "thread_id": thread_id_str,
-                "user_id": user_id,  # Ensure user_id is in every chunk
-                "page": page_num,  # Ensure page number is preserved (1-indexed)
-                "page_number": page_num,  # Alternative key
-                "page_zero_index": page_zero_idx if page_zero_idx is not None else c.metadata.get("page_zero_index"),  # 0-indexed for UI compatibility
-                "num_pages": num_pages,  # Total pages in PDF
-                "total_pages": num_pages,  # Alternative key
+                "user_id": user_id,
+                "page": page_num,
+                "page_number": page_num,
+                "page_zero_index": page_zero_idx if page_zero_idx is not None else c.metadata.get("page_zero_index"),
+                "num_pages": num_pages,
+                "total_pages": num_pages,
+                "type": "chunk",  # OPTIONAL but helpful
             }
-            # Update progress for large documents
+
             if (i + 1) % 50 == 0:
-                _send_progress("chunk_metadata", 55 + int((i + 1) / len(chunks) * 5), f"Processing chunk {i + 1}/{len(chunks)}...")
+                _send_progress(
+                    "chunk_metadata",
+                    55 + int((i + 1) / max(len(chunks), 1) * 5),
+                    f"Processing chunk {i + 1}/{len(chunks)}...",
+                )
 
         _send_progress("vector_store", 60, "Loading vector store...")
-        # Load or create shared vector store
         global _SHARED_VECTOR_STORE
         vector_store = _load_shared_vector_store()
-        
+
+        all_docs_to_index = page_docs + chunks  # NEW: index both
+
         if vector_store is None:
-            _send_progress("embeddings", 65, "Creating embeddings for chunks (this may take a moment)...")
-            # Create new vector store
-            vector_store = FAISS.from_documents(chunks, embeddings)
+            _send_progress("embeddings", 65, "Creating embeddings for pages + chunks (may take a moment)...")
+            vector_store = FAISS.from_documents(all_docs_to_index, embeddings)
             _SHARED_VECTOR_STORE = vector_store
-            _send_progress("embeddings", 80, f"Created embeddings for {len(chunks)} chunks")
+            _send_progress("embeddings", 80, f"Created embeddings for {len(all_docs_to_index)} documents")
         else:
-            _send_progress("embeddings", 70, f"Adding {len(chunks)} chunks to vector store...")
-            # Add new documents to existing vector store
-            vector_store.add_documents(chunks)
+            _send_progress("embeddings", 70, f"Adding {len(all_docs_to_index)} documents to vector store...")
+            vector_store.add_documents(all_docs_to_index)
             _SHARED_VECTOR_STORE = vector_store
-            _send_progress("embeddings", 80, f"Added {len(chunks)} chunks to vector store")
+            _send_progress("embeddings", 80, f"Added {len(all_docs_to_index)} documents to vector store")
 
         _send_progress("saving", 85, "Saving vector store to disk...")
-        # Save vector store to disk
         _save_shared_vector_store()
 
         _send_progress("metadata", 90, "Saving document metadata...")
-        # Save thread metadata (num_pages was already calculated above)
         _THREAD_METADATA[thread_id_str] = {
             "filename": filename or safe_filename,
             "file_path": str(file_path),
             "user_id": user_id,
-            "documents": num_pages,  # Keep for backward compatibility
-            "num_pages": num_pages,  # Explicit page count
-            "pages": num_pages,  # Alternative key for clarity
+            "documents": num_pages,
+            "num_pages": num_pages,
+            "pages": num_pages,
             "chunks": len(chunks),
+            "page_docs": len(page_docs),  # NEW
         }
-        
-        # Persist metadata to disk
         _save_metadata()
+
         _send_progress("cleanup", 95, "Cleaning up temporary files...")
 
-        # Delete temporary PDF file after chunks are created and stored
         try:
             if os.path.exists(temp_path):
                 os.remove(temp_path)
-                logger.debug(f"Deleted temporary PDF file: {temp_path}")
         except OSError as e:
             logger.warning(f"Failed to delete temporary PDF file {temp_path}: {e}")
 
-        # Delete the uploaded file from uploaded_files directory after processing
         try:
             if file_path.exists():
                 os.remove(file_path)
-                logger.debug(f"Deleted uploaded PDF file: {file_path}")
         except OSError as e:
             logger.warning(f"Failed to delete uploaded PDF file {file_path}: {e}")
 
-        _send_progress("complete", 100, f"PDF processing complete! Processed {num_pages} pages into {len(chunks)} chunks.")
-        
+        _send_progress("complete", 100, f"PDF processing complete! Processed {num_pages} pages.")
+
         return {
-            "thread_id": thread_id_str,  # Include thread_id in response
+            "thread_id": thread_id_str,
             "filename": filename or safe_filename,
-            "documents": num_pages,  # Keep for backward compatibility
-            "num_pages": num_pages,  # Explicit page count
-            "pages": num_pages,  # Alternative key
+            "documents": num_pages,
+            "num_pages": num_pages,
+            "pages": num_pages,
             "chunks": len(chunks),
+            "page_docs": len(page_docs),
         }
 
     finally:
-        # Safety net: ensure temp file is deleted even if an error occurred
         try:
-            if 'temp_path' in locals() and os.path.exists(temp_path):
+            if "temp_path" in locals() and os.path.exists(temp_path):
                 os.remove(temp_path)
-                logger.debug(f"Deleted temporary PDF file in finally block: {temp_path}")
         except OSError as e:
             logger.warning(f"Failed to delete temporary PDF file in finally block {temp_path}: {e}")
+
+
+
 
 
 # -------------------
@@ -656,6 +926,473 @@ def get_page_tool(page: int, thread_id: str) -> dict:
         "metadata": metadata,
     }
 
+import re
+def _extract_topics_with_ai(page_docs: List[Document], user_id: int, thread_id: str) -> dict:
+    """
+    Helper function to use AI for extracting topics from document pages.
+    
+    Strategy:
+    1. First, check early pages (1-10) for Table of Contents using AI
+    2. If TOC found, extract topics from TOC
+    3. If no TOC, scan all pages in batches to extract headings
+    """
+    try:
+        # Get LLM instance for topic extraction
+        user_llm = get_rag_llm()
+        
+        # Phase 1: Check for TOC in early pages (first 10 pages)
+        early_pages = [d for d in page_docs[:10] if d.metadata.get("page", 0) <= 10]
+        
+        if early_pages:
+            # Combine first few pages for TOC detection
+            toc_candidates = []
+            for d in early_pages[:5]:  # Check first 5 pages
+                page_num = d.metadata.get("page") or d.metadata.get("page_number", "?")
+                text = d.page_content or ""
+                if len(text) > 100:  # Only check pages with substantial content
+                    toc_candidates.append(f"--- Page {page_num} ---\n{text[:2000]}")  # Limit text per page
+            
+            if toc_candidates:
+                toc_check_prompt = f"""Analyze the following pages from a document to determine if they contain a Table of Contents (TOC) or outline.
+
+Pages to analyze:
+{chr(10).join(toc_candidates)}
+
+Instructions:
+1. Determine if any of these pages contain a Table of Contents, Contents page, Outline, or Agenda
+2. If a TOC is found, extract ALL topics/sections listed in it
+3. Return your response as a JSON object with this structure:
+{{
+    "has_toc": true/false,
+    "toc_page": page number where TOC was found (or null),
+    "topics": ["topic 1", "topic 2", ...]  // List of all topics from TOC, empty if no TOC
+}}
+
+Important:
+- Only extract actual topics/sections from the TOC, not regular text
+- Remove page numbers, dots, and formatting from topic names
+- Keep topic names clean and meaningful
+- If no TOC is found, set "has_toc": false and "topics": []
+"""
+                
+                try:
+                    response = user_llm.invoke(toc_check_prompt)
+                    response_text = response.content if hasattr(response, 'content') else str(response)
+                    
+                    # Try to extract JSON from response
+                    import json
+                    # Look for JSON object in the response (more flexible pattern)
+                    json_patterns = [
+                        r'\{[^{}]*"has_toc"[^{}]*(?:\{[^{}]*\}[^{}]*)*\}',  # Nested objects
+                        r'\{[^}]*"has_toc"[^}]*\}',  # Simple object
+                    ]
+                    
+                    toc_result = None
+                    for pattern in json_patterns:
+                        json_match = re.search(pattern, response_text, re.DOTALL)
+                        if json_match:
+                            try:
+                                toc_result = json.loads(json_match.group(0))
+                                break
+                            except json.JSONDecodeError:
+                                continue
+                    
+                    # If no JSON found, try to parse as markdown code block
+                    if not toc_result:
+                        code_block = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', response_text, re.DOTALL)
+                        if code_block:
+                            try:
+                                toc_result = json.loads(code_block.group(1))
+                            except json.JSONDecodeError:
+                                pass
+                    
+                    if toc_result and toc_result.get("has_toc") and toc_result.get("topics"):
+                        topics = [{"topic": t.strip(), "page": toc_result.get("toc_page")} 
+                                 for t in toc_result.get("topics", []) if t.strip()]
+                        if topics:
+                            logger.info(f"Found TOC with {len(topics)} topics using AI")
+                            return {
+                                "topics": topics,
+                                "method": "ai_toc_extraction",
+                                "topics_count": len(topics)
+                            }
+                except Exception as e:
+                    logger.warning(f"Error in AI TOC extraction: {e}, falling back to heading extraction")
+        
+        # Phase 2: No TOC found, extract headings from all pages using AI
+        logger.info("No TOC found, extracting headings from all pages using AI")
+        
+        # Process pages in batches to avoid token limits
+        batch_size = 3  # Process 3 pages at a time
+        all_headings = []
+        seen_headings = set()
+        
+        for i in range(0, len(page_docs), batch_size):
+            batch = page_docs[i:i + batch_size]
+            batch_texts = []
+            batch_pages = []
+            
+            for d in batch:
+                page_num = d.metadata.get("page") or d.metadata.get("page_number", "?")
+                text = d.page_content or ""
+                if text:
+                    batch_texts.append(f"--- Page {page_num} ---\n{text[:3000]}")  # Limit to 3000 chars per page
+                    batch_pages.append(page_num)
+            
+            if not batch_texts:
+                continue
+            
+            heading_extraction_prompt = f"""Analyze the following pages from a document and identify ALL section headings, chapter titles, and major topics.
+
+Pages to analyze:
+{chr(10).join(batch_texts)}
+
+Instructions:
+1. Identify section headings, chapter titles, subsection headings, and major topics
+2. Ignore regular paragraph text, body content, and sentences
+3. Only extract actual headings/titles that indicate document structure
+4. Return your response as a JSON array of heading objects:
+[
+    {{"heading": "Heading text", "page": page_number}},
+    {{"heading": "Another heading", "page": page_number}},
+    ...
+]
+
+Important:
+- Extract only headings/titles, NOT regular text or sentences
+- Clean heading text (remove extra spaces, formatting)
+- Include the page number where each heading was found
+- If no headings found on these pages, return an empty array []
+- Do not include author names, page numbers alone, or footer/header text
+"""
+            
+            try:
+                response = user_llm.invoke(heading_extraction_prompt)
+                response_text = response.content if hasattr(response, 'content') else str(response)
+                
+                # Extract JSON array from response
+                import json
+                headings_batch = []
+                
+                # Try multiple patterns to extract JSON array
+                json_patterns = [
+                    r'\[[^\]]*\{[^}]+\}[^\]]*\]',  # Array with objects
+                    r'\[[^\]]*"heading"[^\]]*\]',  # Array with heading strings
+                ]
+                
+                for pattern in json_patterns:
+                    json_match = re.search(pattern, response_text, re.DOTALL)
+                    if json_match:
+                        try:
+                            headings_batch = json.loads(json_match.group(0))
+                            break
+                        except json.JSONDecodeError:
+                            continue
+                
+                # If no JSON found, try markdown code block
+                if not headings_batch:
+                    code_block = re.search(r'```(?:json)?\s*(\[.*?\])\s*```', response_text, re.DOTALL)
+                    if code_block:
+                        try:
+                            headings_batch = json.loads(code_block.group(1))
+                        except json.JSONDecodeError:
+                            pass
+                
+                # Process extracted headings
+                if headings_batch:
+                    for item in headings_batch:
+                        if isinstance(item, dict):
+                            heading_text = item.get("heading", "").strip()
+                            page_num = item.get("page")
+                            
+                            if heading_text and len(heading_text) > 2:
+                                # Normalize and deduplicate
+                                heading_lower = heading_text.lower().strip()
+                                if heading_lower not in seen_headings:
+                                    seen_headings.add(heading_lower)
+                                    all_headings.append({
+                                        "topic": heading_text,
+                                        "page": page_num
+                                    })
+                else:
+                    # Fallback: try to extract headings from plain text response
+                    lines = response_text.split('\n')
+                    for line in lines:
+                        line = line.strip()
+                        if line and (line.startswith('-') or line.startswith('*') or 
+                                    re.match(r'^\d+[\.\)]', line)):
+                            # Extract heading from list item
+                            heading = re.sub(r'^[-*\d+\.\)\s]+', '', line).strip()
+                            if heading and len(heading) > 2:
+                                heading_lower = heading.lower()
+                                if heading_lower not in seen_headings:
+                                    seen_headings.add(heading_lower)
+                                    all_headings.append({"topic": heading, "page": None})
+            except Exception as e:
+                logger.warning(f"Error extracting headings from batch {i//batch_size + 1}: {e}")
+                continue
+        
+        # Sort by page number if available
+        def sort_key(item):
+            page = item.get("page")
+            if page is None:
+                return 10**9
+            try:
+                return int(page)
+            except:
+                return 10**9
+        
+        all_headings.sort(key=sort_key)
+        
+        logger.info(f"AI extracted {len(all_headings)} headings from document")
+        
+        return {
+            "topics": all_headings,
+            "method": "ai_heading_extraction",
+            "topics_count": len(all_headings)
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in AI topic extraction: {e}")
+        raise
+
+
+@tool
+def list_topics_whole_doc_tool(thread_id: str) -> dict:
+    """
+    Extract a high-level outline of a document by identifying section titles,
+    headings, and topics across the entire PDF using AI analysis.
+
+    Use this tool when the user asks for:
+    - a list of topics or sections in the document
+    - the document outline or structure
+    - headings or major sections
+    - what the document covers at a high level
+    - a table of contents (explicit or inferred)
+    - navigation help such as "jump to section" or "what sections are there"
+
+    This tool uses AI to intelligently extract topics:
+    1. First checks for Table of Contents (TOC) in early pages
+    2. If TOC found, extracts topics from it
+    3. If no TOC, scans all pages to identify headings and major topics
+    4. Returns a clean, deduplicated list of topics with page numbers
+
+    Parameters:
+    - thread_id (str): The conversation thread identifier associated with the uploaded PDF.
+
+    Returns:
+    - dict with keys:
+        - "topics": list of topic objects with "topic" (str) and "page" (int) keys
+        - "topics_count": total number of unique topics found
+        - "method": extraction method used ("ai_toc_extraction" or "ai_heading_extraction")
+        - "chunks_scanned": number of document pages analyzed
+    """
+    user_id = _extract_user_id_from_thread_id(thread_id)
+    if user_id is None:
+        return {"error": f"Could not extract user_id from thread_id: {thread_id}"}
+
+    vector_store = _load_shared_vector_store()
+    if vector_store is None or not hasattr(vector_store, "docstore") or not hasattr(vector_store.docstore, "_dict"):
+        return {"error": "Vector store docstore not accessible. Upload a PDF first."}
+
+    thread_id_str = str(thread_id)
+    user_id_str = str(user_id)
+
+    # Prefer page_full_text documents if available (better for topic extraction)
+    page_docs = []
+    for doc in vector_store.docstore._dict.values():
+        meta = doc.metadata or {}
+        if (str(meta.get("thread_id", "")) == thread_id_str and 
+            str(meta.get("user_id", "")) == user_id_str):
+            # Prefer page_full_text, but also include regular chunks if needed
+            if meta.get("type") == "page_full_text":
+                page_docs.append(doc)
+    
+    # If no page_full_text docs, fall back to regular chunks
+    if not page_docs:
+        for doc in vector_store.docstore._dict.values():
+            meta = doc.metadata or {}
+            if (str(meta.get("thread_id", "")) == thread_id_str and 
+                str(meta.get("user_id", "")) == user_id_str):
+                page_docs.append(doc)
+
+    if not page_docs:
+        return {"error": "No document pages found for this thread."}
+
+    # Sort by page number
+    def _page_key(d):
+        meta = d.metadata or {}
+        p = meta.get("page") or meta.get("page_number") or 10**9
+        try:
+            return int(p)
+        except:
+            return 10**9
+
+    page_docs.sort(key=_page_key)
+
+    # Use AI to extract topics
+    try:
+        result = _extract_topics_with_ai(page_docs, user_id, thread_id)
+        result["thread_id"] = thread_id
+        result["chunks_scanned"] = len(page_docs)
+        return result
+    except Exception as e:
+        logger.error(f"Error in AI topic extraction: {e}")
+        return {
+            "error": f"Failed to extract topics using AI: {str(e)}",
+            "thread_id": thread_id,
+            "topics": [],
+            "topics_count": 0,
+            "chunks_scanned": len(page_docs)
+        }
+
+_WORD_RE = re.compile(r"\b[\w']+\b", re.UNICODE)
+
+def _count_words(text: str) -> int:
+    """
+    Count words in text with preprocessing:
+    - Remove extra whitespace (normalize to single spaces)
+    - Remove # symbols (hashtags/pound symbols)
+    - Strip leading/trailing whitespace
+    """
+    if not text:
+        return 0
+    
+    # Preprocess: Remove # symbols first
+    text = text.replace('#', '')
+    
+    # Normalize whitespace: replace multiple spaces/tabs/newlines with single space
+    text = re.sub(r'\s+', ' ', text)
+    
+    # Strip leading/trailing whitespace
+    text = text.strip()
+    
+    if not text:
+        return 0
+    
+    # Count words using word boundary regex
+    words = _WORD_RE.findall(text)
+    return len(words)
+
+
+
+
+@tool
+def count_pdf_words_tool(
+    thread_id: str,
+    page: Optional[int] = None,
+    start_page: Optional[int] = None,
+    end_page: Optional[int] = None,
+    include_per_page: bool = False
+) -> dict:
+    """Count words in uploaded PDF for this thread. Supports whole doc, single page, or page range."""
+    user_id = _extract_user_id_from_thread_id(thread_id)
+    if user_id is None:
+        return {"error": f"Could not extract user_id from thread_id: {thread_id}"}
+
+    vector_store = _load_shared_vector_store()
+    if vector_store is None or not hasattr(vector_store, "docstore") or not hasattr(vector_store.docstore, "_dict"):
+        return {"error": "Vector store docstore not accessible. Upload a PDF first."}
+
+    thread_id_str = str(thread_id)
+    user_id_str = str(user_id)
+
+    def norm(p: Optional[int]) -> Optional[int]:
+        if p is None:
+            return None
+        try:
+            p = int(p)
+        except Exception:
+            return None
+        return 1 if p == 0 else p  # treat page 0 as page 1
+
+    page_n = norm(page)
+    start_n = norm(start_page)
+    end_n = norm(end_page)
+
+    if page_n is not None:
+        start_n, end_n = page_n, page_n
+    if start_n is not None and end_n is None:
+        end_n = start_n
+    if end_n is not None and start_n is None:
+        start_n = 1
+
+    # Prefer page_full_text
+    page_docs = []
+    for doc in vector_store.docstore._dict.values():
+        meta = doc.metadata or {}
+        if (
+            str(meta.get("thread_id", "")) == thread_id_str
+            and str(meta.get("user_id", "")) == user_id_str
+            and meta.get("type") == "page_full_text"
+        ):
+            page_docs.append(doc)
+
+    if not page_docs:
+        return {"error": "No page_full_text docs found for this thread."}
+
+    def page_key(d):
+        p = (d.metadata or {}).get("page") or (d.metadata or {}).get("page_number") or 10**9
+        try:
+            return int(p)
+        except Exception:
+            return 10**9
+
+    page_docs.sort(key=page_key)
+
+    # Apply range
+    selected = page_docs
+    if start_n is not None and end_n is not None:
+        selected = []
+        for d in page_docs:
+            p = d.metadata.get("page") or d.metadata.get("page_number")
+            try:
+                p = int(p)
+            except Exception:
+                continue
+            if start_n <= p <= end_n:
+                selected.append(d)
+
+    if not selected:
+        return {"error": "No pages matched the requested page/range."}
+
+    total = 0
+    per_page = {}
+    for d in selected:
+        p = d.metadata.get("page") or d.metadata.get("page_number")
+        try:
+            p = int(p)
+        except Exception:
+            p = None
+        wc = _count_words(d.page_content or "")
+        total += wc
+        if p is not None:
+            per_page[p] = wc
+
+    meta = _THREAD_METADATA.get(thread_id_str, {})
+    num_pages = meta.get("num_pages") or meta.get("pages") or meta.get("documents")
+
+    out = {
+        "thread_id": thread_id,
+        "source_file": meta.get("filename"),
+        "num_pages": num_pages,
+        "page": page_n,
+        "start_page": start_n,
+        "end_page": end_n,
+        "total_words": total,
+        "note": "Count is based on extracted text; scanned PDFs may require OCR for accurate word counts."
+    }
+    if include_per_page:
+        out["per_page_words"] = dict(sorted(per_page.items(), key=lambda x: x[0]))
+    return out
+
+@tool
+def count_words_in_text_tool(text: str, label: str = "text") -> dict:
+    """Count words in a given text."""
+    return {"label": label, "words": _count_words(text)}
+
+
+
 
 @tool
 def rag_tool(query: str, thread_id: Optional[str] = None) -> dict:
@@ -747,13 +1484,17 @@ def rag_tool(query: str, thread_id: Optional[str] = None) -> dict:
     }
 
 
-tools = [calculator, rag_tool, get_page_tool]
+
+
+tools = [calculator, rag_tool, get_page_tool, list_topics_whole_doc_tool,count_pdf_words_tool,count_words_in_text_tool]
 # Note: llm_with_tools and llm_structured_output are now created per-request in chat_node
 # to use user-specific API keys and provider settings
 
 # -------------------
 # 5. State
 # -------------------
+
+
 class ChatState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
     lesson_in_progress: bool
@@ -769,6 +1510,7 @@ class LessonState(TypedDict):
 # -------------------
 # 6. Nodes
 # -------------------
+
 
 def chat_node(state: ChatState, config=None):
     """LLM node that may answer or request a tool call."""
@@ -1013,6 +1755,18 @@ def chat_node(state: ChatState, config=None):
     f"- The get_page_tool will return the exact content of that page reliably.\n"
     f"- Always use get_page_tool for page-specific queries to ensure accuracy.\n\n"
 
+    f"CRITICAL: Topics/Outline/Chapters Queries:\n"
+    f"- If the user asks for a list of topics, outline, chapters, headings, table of contents, or topics for the whole PDF,\n"
+    f"  you MUST call list_topics_whole_doc_tool(thread_id='{thread_id}') immediately.\n"
+    f"- Examples of queries that require this tool:\n"
+    f"  * 'show me the list of topics'\n"
+    f"  * 'what are the topics in this document'\n"
+    f"  * 'list all chapters'\n"
+    f"  * 'show me the outline'\n"
+    f"  * 'what topics are covered'\n"
+    f"  * 'table of contents'\n"
+    f"- After calling the tool, summarize the 'topics' list from the response for the user.\n\n"
+
     f"When generating a LECTURE or LESSON, you MUST follow these rules strictly:\n"
     f"- Use clear and meaningful headings\n"
     f"- Under EACH heading, write a DETAILED explanation in PARAGRAPH form\n"
@@ -1049,7 +1803,47 @@ def chat_node(state: ChatState, config=None):
     f"  * Example titles: 'AI-Based Scheduling Systems', 'Conversational SaaS Platforms'\n"
     f"  * DO NOT use generic titles like 'Lesson' or 'Lecture'\n"
     f"- The output should be more than 15 to 16 lines in each heading in lesson creation\n"
-    f"- In each heading the minimum words should be 120 to 150"
+    f"- In each heading the minimum words should be 120 to 150\n\n"
+
+    f"CRITICAL: Word Count Requests (LLM must decide scope):\n"
+    f"- If the user asks about 'word count', 'how many words', or similar, you MUST determine the target scope.\n"
+    f"- Possible targets:\n"
+    f"  (A) Uploaded PDF/document (entire document or specific pages)\n"
+    f"  (B) Last assistant-generated content (e.g., lecture, article, explanation)\n"
+    f"  (C) Last user message\n"
+    f"  (D) Whole conversation (recent messages)\n\n"
+
+    f"- First, inspect the last assistant message:\n"
+    f"  • If it is long-form educational content (lecture, article, tutorial, explanation), "
+    f"    treat it as 'last lecture/content' rather than 'last message'.\n\n"
+
+    f"- If the user does NOT clearly specify the target, you MUST ask ONE clarification question only:\n"
+    f"  • If the last assistant output is long-form content:\n"
+    f"    'Do you mean the word count of the uploaded PDF, the whole conversation, or the last lecture I generated?'\n"
+    f"  • Otherwise:\n"
+    f"    'Do you mean the word count of the uploaded PDF, the whole conversation, or just the last message?'\n\n"
+
+    f"- Once the target is clear, follow these rules strictly:\n"
+    f"  • If user says PDF/document/pages → call count_pdf_words_tool(thread_id='{thread_id}', page=..., start_page=..., end_page=...)\n"
+    f"  • If user says 'your answer', 'this lecture', 'last lecture', 'this explanation' → "
+    f"    call count_words_in_text_tool(text=<last assistant message>, label='last_assistant')\n"
+    f"  • If user says 'my message' → call count_words_in_text_tool(text=<last user message>, label='last_user')\n"
+    f"  • If user says 'whole conversation', 'chat so far' → "
+    f"    call count_words_in_text_tool(text=<join recent chat messages>, label='conversation')\n"
+
+
+     f"CRITICAL OVERRIDE — Word Count Intent Resolution:\n"
+    f"- If the user explicitly mentions any of the following:\n"
+    f"  * pdf\n"
+    f"  * document\n"
+    f"  * uploaded file\n"
+    f"  * pages\n"
+    f"  THEN the request is NOT ambiguous\n"
+    f"- In this case:\n"
+    f"  * DO NOT ask a clarification question\n"
+    f"  * IMMEDIATELY call the PDF word count tool\n"
+    f"  * NEVER guess or estimate the word count\n\n"
+
 )
 
         # Combine custom prompt with default RAG instructions
@@ -1238,32 +2032,77 @@ def chat_node(state: ChatState, config=None):
             if provider == 'groq':
                 groq_rate_limiter.record_success()
             
+            # Extract lesson text from AI response
+            response_content = response.content if hasattr(response, 'content') else str(response)
+            
             # Try to get lesson state, but make it optional to save tokens and avoid rate limits
             # Skip lesson_state call for Groq to reduce API calls and avoid rate limits
+
+            last_user_msg_text = ""
+            try:
+                from langchain_core.messages import HumanMessage
+                for msg in reversed(conversation_messages):
+                    if isinstance(msg, HumanMessage):
+                        last_user_msg_text = (msg.content or "")
+                        break
+            except Exception:
+                last_user_msg_text = ""
+
+            msg_lower = last_user_msg_text.lower()
+
+            needs_lesson_state = any(k in msg_lower for k in [
+                "lesson", "lecture", "lesson plan", "generate a lesson", "create a lesson",
+                "finalize", "finalise", "save the lesson", "complete the lesson",
+                "lesson title", "make this final"
+            ])
+
             lesson_state = None
-            if provider != 'groq':
-                # Only call lesson_state for non-Groq providers to avoid rate limits
+
+            # Only make the second call when needed
+            if provider != "groq" and needs_lesson_state:
                 try:
-                    # Add delay before the second call to avoid rate limits
-                    time.sleep(0.5)  # 500ms for other providers
+                    # time.sleep(0.5)  # optional
                     lesson_state = user_llm_structured_output.invoke(messages, config=config)
                 except Exception as lesson_error:
                     logger.warning(f"Failed to get lesson state (non-critical): {str(lesson_error)}")
                     lesson_state = {
                         "lesson_in_progress": False,
                         "lesson_finalized": False,
-                        "last_lesson_text": "",
+                        "last_lesson_text": response_content,
                         "lesson_title": ""
                     }
             else:
-                # For Groq, skip lesson_state to avoid rate limits and save tokens
-                logger.debug("Skipping lesson_state call for Groq to avoid rate limits")
+                # No second call: still keep a consistent structure for downstream logic
                 lesson_state = {
                     "lesson_in_progress": False,
                     "lesson_finalized": False,
-                    "last_lesson_text": "",
+                    "last_lesson_text": response_content,
                     "lesson_title": ""
                 }
+            # lesson_state = None
+            # if provider != 'groq':
+            #     # Only call lesson_state for non-Groq providers to avoid rate limits
+            #     try:
+            #         # Add delay before the second call to avoid rate limits
+            #         # time.sleep(0.5)  # 500ms for other providers
+            #         lesson_state = user_llm_structured_output.invoke(messages, config=config)
+            #     except Exception as lesson_error:
+            #         logger.warning(f"Failed to get lesson state (non-critical): {str(lesson_error)}")
+            #         lesson_state = {
+            #             "lesson_in_progress": False,
+            #             "lesson_finalized": False,
+            #             "last_lesson_text": response_content,  # Fallback: use response content
+            #             "lesson_title": ""
+            #         }
+            # else:
+            #     # For Groq, skip lesson_state to avoid rate limits and save tokens
+            #     logger.debug("Skipping lesson_state call for Groq to avoid rate limits")
+            #     lesson_state = {
+            #         "lesson_in_progress": False,
+            #         "lesson_finalized": False,
+            #         "last_lesson_text": response_content,
+            #         "lesson_title": ""
+            #     }
           
             # lesson_state is a dict (TypedDict), so access it with dictionary syntax
             # Only finalize lesson if user explicitly requests it
@@ -1289,6 +2128,32 @@ def chat_node(state: ChatState, config=None):
                     ]
                     user_wants_to_finalize = any(keyword in last_user_msg for keyword in finalization_keywords)
             
+            # Save AI response text for metadata tracking
+            is_likely_lesson = False
+            if thread_id_str and response_content:
+                if thread_id_str not in _THREAD_METADATA:
+                    _THREAD_METADATA[thread_id_str] = {}
+                
+                # Always save last AI response
+                _THREAD_METADATA[thread_id_str]["last_response_text"] = response_content
+                
+                # Also check if this looks like a lesson/lecture response
+                is_likely_lesson = (
+                    len(response_content) > 200 or  # Substantial content
+                    '#' in response_content or  # Has markdown headers
+                    '\n\n' in response_content  # Has paragraphs
+                )
+                
+                if is_likely_lesson:
+                    # Also save as lesson text if it appears to be a lesson
+                    _THREAD_METADATA[thread_id_str]["last_lesson_text"] = response_content
+                    logger.debug(f"Saved response text (lesson detected) - {len(response_content)} characters")
+                else:
+                    logger.debug(f"Saved last AI response text - {len(response_content)} characters")
+                
+                # Save metadata to disk
+                _save_metadata()
+            
             # Only process if lesson_state was successfully retrieved AND user explicitly wants to finalize
             if lesson_state and lesson_state.get("lesson_finalized", False) and user_wants_to_finalize:
                 # Update the lesson state
@@ -1296,7 +2161,9 @@ def chat_node(state: ChatState, config=None):
                     if thread_id_str not in _THREAD_METADATA:
                         _THREAD_METADATA[thread_id_str] = {}
                     _THREAD_METADATA[thread_id_str]["lesson_finalized"] = True
-                    _THREAD_METADATA[thread_id_str]["last_lesson_text"] = lesson_state.get("last_lesson_text", "")
+                    # Use lesson_state text if available, otherwise use response content
+                    lesson_text = lesson_state.get("last_lesson_text", "") or response_content
+                    _THREAD_METADATA[thread_id_str]["last_lesson_text"] = lesson_text
                     _THREAD_METADATA[thread_id_str]["lesson_title"] = lesson_state.get("lesson_title", "")
                     _save_metadata()
             elif lesson_state and lesson_state.get("lesson_finalized", False) and not user_wants_to_finalize:
@@ -1307,9 +2174,14 @@ def chat_node(state: ChatState, config=None):
                     if thread_id_str not in _THREAD_METADATA:
                         _THREAD_METADATA[thread_id_str] = {}
                     _THREAD_METADATA[thread_id_str]["lesson_finalized"] = False
-                    _THREAD_METADATA[thread_id_str]["last_lesson_text"] = lesson_state.get("last_lesson_text", "")
+                    # Use lesson_state text if available, otherwise use response content
+                    lesson_text = lesson_state.get("last_lesson_text", "") or response_content
+                    _THREAD_METADATA[thread_id_str]["last_lesson_text"] = lesson_text
                     _THREAD_METADATA[thread_id_str]["lesson_title"] = lesson_state.get("lesson_title", "")
                     _save_metadata()
+            elif thread_id_str and is_likely_lesson:
+                # Save lesson text even if not finalized
+                _save_metadata()
 
             # Log if we had to reduce messages
             if attempt > 0:
@@ -1319,10 +2191,18 @@ def chat_node(state: ChatState, config=None):
             
         except Exception as e:
             error_msg = str(e)
-            logger.warning(f"LLM API error in chat_node (attempt {attempt + 1} with {current_max} messages): {error_msg}")
+            error_type = type(e).__name__
+            logger.warning(f"LLM API error in chat_node (attempt {attempt + 1} with {current_max} messages): {error_type}: {error_msg}")
+            
+            # Check for timeout exceptions by type (in addition to string matching)
+            is_timeout_exception = (
+                'Timeout' in error_type or 
+                'TimeoutError' in error_type or
+                hasattr(e, '__class__') and 'timeout' in e.__class__.__name__.lower()
+            )
             
             # Record 429 errors for rate limiter adjustment
-            if provider == 'groq' and '429' in error_msg or 'Rate limit' in error_msg:
+            if provider == 'groq' and ('429' in error_msg or 'Rate limit' in error_msg):
                 groq_rate_limiter.record_429_error()
             
             # Check if it's a Groq daily token limit error (429 with type 'tokens')
@@ -1367,6 +2247,37 @@ def chat_node(state: ChatState, config=None):
                 except Exception as parse_error:
                     logger.error(f"Error parsing Groq token limit error: {parse_error}")
                     # Fall through to generic error handling
+            
+            # Check if it's a timeout error (by exception type or message)
+            is_timeout_error = is_timeout_exception or (
+                "timeout" in error_msg.lower() or 
+                "timed out" in error_msg.lower() or
+                "Request timed out" in error_msg
+            )
+            
+            if is_timeout_error:
+                # For timeout errors, try once more with fewer messages if not last attempt
+                if attempt < max_attempts - 1:
+                    logger.info(f"Timeout error detected, retrying with fewer messages (current: {current_max}, next: {current_max - 2 if current_max > 2 else 1})")
+                    continue  # Retry with fewer messages
+                else:
+                    # Last attempt failed with timeout
+                    logger.error(f"Request timed out after {max_attempts} attempts. Final attempt with {current_max} messages.")
+                    error_response = AIMessage(
+                        content=(
+                            "⚠️ **Request Timeout**: The request took too long to process.\n\n"
+                            "This can happen when:\n"
+                            "- The conversation history is very long\n"
+                            "- The AI service is experiencing high load\n"
+                            "- The network connection is slow\n\n"
+                            "**Suggestions:**\n"
+                            "- Try starting a new conversation\n"
+                            "- Reduce the conversation history\n"
+                            "- Try again in a few moments\n\n"
+                            f"*The request timed out after multiple retry attempts.*"
+                        )
+                    )
+                    return {"messages": [error_response]}
             
             # Check if it's a token error (context length)
             if _is_token_error(error_msg):
