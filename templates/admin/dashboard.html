@@ -564,6 +564,11 @@
         </div>
     </div>
 
+    <!-- Dashboard stats data from server -->
+    <script type="application/json" id="dashboard-stats-data">
+        {{ (stats | default({})) | tojson | safe }}
+    </script>
+
     <script>
         // Global state
         let currentPage = {
@@ -575,7 +580,8 @@
         // Load dashboard stats
         function loadDashboardStats() {
             // Stats are passed from server-side rendering
-            const stats = {{ stats | tojson }};
+            const statsDataElement = document.getElementById('dashboard-stats-data');
+            const stats = statsDataElement ? JSON.parse(statsDataElement.textContent) : {};
             if (stats) {
                 document.getElementById('stat-total-users').textContent = stats.total_users || 0;
                 document.getElementById('stat-total-teachers').textContent = stats.total_teachers || 0;

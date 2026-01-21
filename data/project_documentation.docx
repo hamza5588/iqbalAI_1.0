@@ -1,0 +1,205 @@
+# Education AI Update Project Documentation
+# Last Updated: April 25, 2024
+
+## Table of Contents
+1. Project Overview
+2. Project Structure
+3. Dependencies
+4. Configuration Files
+5. Application Structure
+6. Security Features
+7. Development Tools
+8. Deployment
+9. Testing
+10. File Processing
+11. AI Integration
+12. Monitoring and Logging
+13. Best Practices
+14. Future Improvements
+15. Support and Maintenance
+16. License and Copyright
+17. Contact Information
+
+## 1. Project Overview
+This is an AI-powered educational platform that provides intelligent assistance and learning capabilities. The project uses modern web technologies, AI models, and database systems to deliver educational content and interactive features.
+
+## 2. Project Structure
+```
+EducationAiUpdate/
+├── app/                    # Main application code
+├── data/                   # Data storage directory
+├── docs/                   # Documentation files
+├── instance/              # Instance-specific configuration
+├── static/                # Static files (CSS, JS, images)
+├── templates/             # HTML templates
+├── tests/                 # Test files
+├── uploads/               # User upload directory
+├── .dockerignore         # Docker ignore rules
+├── .gitignore            # Git ignore rules
+├── Dockerfile            # Main Docker configuration
+├── Dockerfile.nginx      # Nginx Docker configuration
+├── docker-compose.yml    # Docker compose configuration
+├── nginx.conf            # Nginx server configuration
+├── requirements.txt      # Python dependencies
+├── run.py                # Application entry point
+└── README.md             # Project readme
+```
+
+## 3. Dependencies
+### 3.1 Web Framework
+- Flask==3.1.0: Web application framework
+- flask-cors==5.0.1: Cross-Origin Resource Sharing support
+- Flask-Mail==0.10.0: Email functionality
+- Werkzeug==3.1.3: WSGI utilities
+
+### 3.2 AI and Machine Learning
+- langchain==0.3.19: Framework for developing applications powered by language models
+- langchain-community==0.3.17: Community-contributed components
+- langchain-core==0.3.35: Core functionality
+- langchain-groq==0.2.4: Groq integration
+- faiss-cpu==1.8.0: Vector similarity search
+- fastembed: Fast embedding generation
+
+### 3.3 Data Processing
+- pandas==2.2.3: Data manipulation and analysis
+- numpy==1.26.4: Numerical computing
+- docx2txt==0.8: DOCX to text conversion
+- pdfminer.six==20231228: PDF processing
+- python-docx==1.1.2: DOCX file handling
+
+### 3.4 Database
+- SQLAlchemy==2.0.38: SQL toolkit and ORM
+
+### 3.5 Authentication and Security
+- PyJWT==2.10.1: JSON Web Token implementation
+- cryptography==44.0.2: Cryptographic operations
+- google-auth>=2.22.0: Google authentication
+
+### 3.6 Utilities
+- python-dotenv==1.0.1: Environment variable management
+- loguru==0.7.3: Logging
+- tqdm==4.67.1: Progress bars
+- requests==2.32.3: HTTP requests
+
+## 4. Configuration Files
+### 4.1 Docker Configuration
+- Dockerfile: Defines the main application container
+- Dockerfile.nginx: Defines the Nginx web server container
+- docker-compose.yml: Orchestrates multiple containers
+- .dockerignore: Specifies files to exclude from Docker builds
+
+### 4.2 Nginx Configuration
+- nginx.conf: Web server configuration including:
+  - Server blocks
+  - SSL configuration
+  - Proxy settings
+  - Static file serving
+  - Security headers
+
+## 5. Application Structure
+### 5.1 Main Application (app/)
+The application follows a modular structure with:
+- Models: Database models and schemas
+- Views: Route handlers and controllers
+- Templates: HTML templates
+- Static: Static assets
+- Utils: Utility functions
+
+### 5.2 Database
+- Uses SQLAlchemy ORM
+- Supports multiple database backends
+- Includes migration support
+
+### 5.3 API Endpoints
+The application provides RESTful API endpoints for:
+- User authentication
+- Content management
+- AI interactions
+- File uploads
+- Data retrieval
+
+## 6. Security Features
+- JWT-based authentication
+- CORS protection
+- Input validation
+- Secure file uploads
+- Environment variable management
+- SSL/TLS support
+
+## 7. Development Tools
+- pytest for testing
+- Docker for containerization
+- Git for version control
+- Nginx for web serving
+
+## 8. Deployment
+The project can be deployed using:
+- Docker containers
+- Nginx as reverse proxy
+- Environment-specific configurations
+- Automated deployment scripts
+
+## 9. Testing
+- Unit tests in tests/ directory
+- Integration tests
+- API endpoint testing
+- Database testing
+
+## 10. File Processing
+Supports multiple file formats:
+- DOCX
+- PDF
+- Text files
+- Images
+
+## 11. AI Integration
+- Language model integration
+- Vector embeddings
+- Text processing
+- Content generation
+- Question answering
+
+## 12. Monitoring and Logging
+- Comprehensive logging system
+- Error tracking
+- Performance monitoring
+- User activity logging
+
+## 13. Best Practices
+- Code follows PEP 8 standards
+- Modular architecture
+- Secure coding practices
+- Documentation standards
+- Version control practices
+
+## 14. Future Improvements
+- Enhanced AI capabilities
+- Additional file format support
+- Performance optimizations
+- Extended API features
+- Improved documentation
+
+## 15. Support and Maintenance
+- Regular updates
+- Bug fixes
+- Security patches
+- Performance improvements
+- Feature additions
+
+## 16. License and Copyright
+[Add license information here]
+
+## 17. Contact Information
+[Add contact details here]
+
+[Rest of the detailed documentation sections remain unchanged, but will be formatted with proper Word document styling, including:
+- Consistent heading styles
+- Proper paragraph spacing
+- Table formatting
+- Code block styling
+- List formatting
+- Page breaks
+- Headers and footers
+- Table of contents with page numbers
+- Professional font choices
+- Proper margins and alignment] 
