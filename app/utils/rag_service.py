@@ -21,7 +21,18 @@ from langchain_core.messages import BaseMessage, SystemMessage, AIMessage, ToolM
 from langchain_core.tools import tool
 from langchain_core.documents import Document
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from app.utils.llm_factory import create_llm
+# Try to import from langchain_huggingface first (newer), fallback to langchain_community
+try:
+    from langchain_huggingface import HuggingFaceEmbeddings
+    HUGGINGFACE_EMBEDDINGS_AVAILABLE = True
+except ImportError:
+    try:
+        from langchain_community.embeddings import HuggingFaceEmbeddings
+        HUGGINGFACE_EMBEDDINGS_AVAILABLE = True
+    except ImportError:
+        HUGGINGFACE_EMBEDDINGS_AVAILABLE = False
+        logger.warning("HuggingFace embeddings not available. Install langchain-huggingface or langchain-community.")
+from app.utils.llm_factory import create_llm, get_chat_model
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import START, StateGraph
 from langgraph.graph.message import add_messages
@@ -97,7 +108,12 @@ def get_cached_llm(user_id: int, api_key: str, provider: str):
     with _llm_cache_lock:
         if cache_key not in _llm_cache:
             logger.debug(f"Creating new LLM instance for cache key: {cache_key[:20]}...")
-            _llm_cache[cache_key] = get_rag_llm(api_key=api_key, provider=provider)
+            # Use new get_chat_model which respects admin/user settings
+            try:
+                _llm_cache[cache_key] = get_chat_model(user_id=user_id, timeout=120)
+            except Exception as e:
+                logger.warning(f"Error using get_chat_model, falling back to get_rag_llm: {str(e)}")
+                _llm_cache[cache_key] = get_rag_llm(api_key=api_key, provider=provider)
         else:
             logger.debug(f"Reusing cached LLM instance for user {user_id}")
         return _llm_cache[cache_key]
@@ -108,16 +124,30 @@ def get_cached_llm(user_id: int, api_key: str, provider: str):
 # Use dynamic LLM factory - supports OpenAI, Groq, and vLLM
 # Note: RAG service uses a global LLM instance, but individual requests should use user-specific API keys
 # This is a fallback for when user API key is not available
-def get_rag_llm(api_key=None, provider=None):
+def get_rag_llm(api_key=None, provider=None, user_id=None):
     """Get LLM for RAG service, using system settings or provided parameters"""
+    # If user_id is provided, use the new get_chat_model which respects admin/user settings
+    if user_id:
+        try:
+            return get_chat_model(user_id=user_id, timeout=120, temperature=0.7)
+        except Exception as e:
+            logger.warning(f"Error using get_chat_model with user_id {user_id}, falling back: {str(e)}")
+    
+    # Fallback to old behavior for backward compatibility
     if provider is None:
-        # Get from system settings
+        # Get from system settings (check new active_provider first, then old llm_provider)
         from app.utils.db import get_db
         from app.models.database_models import SystemSettings
         try:
             db = get_db()
-            setting = db.query(SystemSettings).filter(SystemSettings.key == 'llm_provider').first()
-            provider = setting.value if setting else os.getenv('LLM_PROVIDER', 'openai').lower()
+            # Check for new active_provider setting first
+            setting = db.query(SystemSettings).filter(SystemSettings.key == 'active_provider').first()
+            if setting:
+                provider = setting.value.lower()
+            else:
+                # Fallback to old llm_provider setting
+                setting = db.query(SystemSettings).filter(SystemSettings.key == 'llm_provider').first()
+                provider = setting.value if setting else os.getenv('LLM_PROVIDER', 'openai').lower()
         except:
             provider = os.getenv('LLM_PROVIDER', 'openai').lower()
     
@@ -142,7 +172,53 @@ def get_rag_llm(api_key=None, provider=None):
 
 # Global fallback LLM (used when user API key is not available)
 llm = get_rag_llm()
-embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+# Cache for current provider to detect changes
+_LAST_EMBEDDING_PROVIDER = None
+
+def get_rag_embeddings():
+    """Get embeddings based on active provider setting"""
+    global _LAST_EMBEDDING_PROVIDER, _SHARED_VECTOR_STORE
+    
+    try:
+        from app.utils.db import get_db
+        from app.models.database_models import SystemSettings
+        
+        db = get_db()
+        # Check for new active_provider setting first
+        setting = db.query(SystemSettings).filter(SystemSettings.key == 'active_provider').first()
+        if setting:
+            provider = setting.value.upper()
+        else:
+            # Fallback to old llm_provider setting
+            setting = db.query(SystemSettings).filter(SystemSettings.key == 'llm_provider').first()
+            provider = setting.value.upper() if setting else os.getenv('LLM_PROVIDER', 'OPENAI').upper()
+        
+        # Check if provider changed - if so, clear vector store cache
+        if _LAST_EMBEDDING_PROVIDER is not None and _LAST_EMBEDDING_PROVIDER != provider:
+            logger.warning(f"Provider changed from {_LAST_EMBEDDING_PROVIDER} to {provider}. Clearing vector store cache.")
+            _SHARED_VECTOR_STORE = None  # Clear cache to force regeneration with new embeddings
+        
+        _LAST_EMBEDDING_PROVIDER = provider
+        
+        # Use HuggingFace embeddings for Groq, OpenAI embeddings for OpenAI
+        if provider == 'GROQ':
+            if not HUGGINGFACE_EMBEDDINGS_AVAILABLE:
+                raise ValueError(
+                    "HuggingFace embeddings are required for Groq provider. "
+                    "Please install: pip install langchain-huggingface"
+                )
+            logger.info("Using HuggingFace embeddings for Groq provider")
+            return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+        else:
+            logger.info("Using OpenAI embeddings for OpenAI provider")
+            return OpenAIEmbeddings(model="text-embedding-3-small")
+    except Exception as e:
+        logger.warning(f"Error getting provider for embeddings, defaulting to OpenAI: {str(e)}")
+        return OpenAIEmbeddings(model="text-embedding-3-small")
+
+# Initialize embeddings based on provider
+embeddings = get_rag_embeddings()
 
 # -------------------
 # 2. Single shared vector store paths
@@ -191,15 +267,57 @@ def _load_shared_vector_store():
     
     if SHARED_VECTOR_STORE_PATH.exists():
         try:
+            # Get current embeddings based on provider (dynamic)
+            current_embeddings = get_rag_embeddings()
+            
+            # Test embedding dimension first
+            test_embedding = current_embeddings.embed_query("test")
+            test_dim = len(test_embedding)
+            
+            # Try to load the vector store
             _SHARED_VECTOR_STORE = FAISS.load_local(
                 str(SHARED_VECTOR_STORE_PATH.parent),
-                embeddings,
+                current_embeddings,
                 allow_dangerous_deserialization=True,
                 index_name=SHARED_VECTOR_STORE_PATH.stem
             )
-            print(f"Loaded shared vector store with {_SHARED_VECTOR_STORE.index.ntotal} vectors")
+            
+            # Check if dimensions match after loading
+            if hasattr(_SHARED_VECTOR_STORE, 'index') and hasattr(_SHARED_VECTOR_STORE.index, 'd'):
+                store_dim = _SHARED_VECTOR_STORE.index.d
+                if test_dim != store_dim:
+                    logger.warning(
+                        f"Vector store dimension mismatch detected: store has {store_dim} dimensions, "
+                        f"but current embeddings have {test_dim} dimensions. Deleting incompatible vector store."
+                    )
+                    # Delete the incompatible vector store
+                    try:
+                        import shutil
+                        if SHARED_VECTOR_STORE_PATH.parent.exists():
+                            shutil.rmtree(str(SHARED_VECTOR_STORE_PATH.parent))
+                        logger.info("Deleted incompatible vector store. It will be regenerated with current embeddings.")
+                    except Exception as del_error:
+                        logger.error(f"Error deleting incompatible vector store: {del_error}")
+                    _SHARED_VECTOR_STORE = None
+                else:
+                    print(f"Loaded shared vector store with {_SHARED_VECTOR_STORE.index.ntotal} vectors")
+            else:
+                print(f"Loaded shared vector store (dimension check unavailable)")
         except Exception as e:
-            print(f"Error loading shared vector store: {e}")
+            # Vector store might be incompatible with current embeddings (e.g., created with different provider)
+            error_msg = str(e).lower()
+            if 'dimension' in error_msg or 'embedding' in error_msg or 'incompatible' in error_msg:
+                logger.warning(f"Vector store incompatible with current embeddings (likely created with different provider). Will regenerate.")
+                # Delete the incompatible vector store
+                try:
+                    import shutil
+                    if SHARED_VECTOR_STORE_PATH.parent.exists():
+                        shutil.rmtree(str(SHARED_VECTOR_STORE_PATH.parent))
+                    logger.info("Deleted incompatible vector store. It will be regenerated with current embeddings.")
+                except Exception as del_error:
+                    logger.error(f"Error deleting incompatible vector store: {del_error}")
+            else:
+                logger.error(f"Error loading shared vector store: {e}")
             _SHARED_VECTOR_STORE = None
     
     return _SHARED_VECTOR_STORE
@@ -705,24 +823,92 @@ def ingest_pdf(
 
         all_docs_to_index = page_docs + chunks  # NEW: index both
 
+        # Get current embeddings based on provider (dynamic)
+        current_embeddings = get_rag_embeddings()
+        
         if vector_store is None:
             _send_progress("embeddings", 65, "Creating embeddings for pages + chunks (may take a moment)...")
-            vector_store = FAISS.from_documents(all_docs_to_index, embeddings)
+            vector_store = FAISS.from_documents(all_docs_to_index, current_embeddings)
             _SHARED_VECTOR_STORE = vector_store
             _send_progress("embeddings", 80, f"Created embeddings for {len(all_docs_to_index)} documents")
         else:
-            _send_progress("embeddings", 70, f"Adding {len(all_docs_to_index)} documents to vector store...")
-            vector_store.add_documents(all_docs_to_index)
-            _SHARED_VECTOR_STORE = vector_store
-            _send_progress("embeddings", 80, f"Added {len(all_docs_to_index)} documents to vector store")
+            # Check if embeddings are compatible with existing vector store
+            try:
+                # Test embedding dimension by embedding a small text
+                test_embedding = current_embeddings.embed_query("test")
+                test_dim = len(test_embedding)
+                
+                # Check if vector store dimension matches
+                if hasattr(vector_store, 'index') and hasattr(vector_store.index, 'd'):
+                    store_dim = vector_store.index.d
+                    if test_dim != store_dim:
+                        logger.warning(
+                            f"Embedding dimension mismatch: vector store has {store_dim} dimensions, "
+                            f"but current embeddings have {test_dim} dimensions. Recreating vector store."
+                        )
+                        _send_progress("embeddings", 65, "Recreating vector store with new embeddings (provider changed)...")
+                        # Delete old vector store and create new one
+                        _SHARED_VECTOR_STORE = None
+                        try:
+                            import shutil
+                            if SHARED_VECTOR_STORE_PATH.parent.exists():
+                                shutil.rmtree(str(SHARED_VECTOR_STORE_PATH.parent))
+                                logger.info("Deleted incompatible vector store")
+                        except Exception as del_error:
+                            logger.error(f"Error deleting incompatible vector store: {del_error}")
+                        
+                        # Create new vector store with current embeddings
+                        vector_store = FAISS.from_documents(all_docs_to_index, current_embeddings)
+                        _SHARED_VECTOR_STORE = vector_store
+                        _send_progress("embeddings", 80, f"Created new vector store with {len(all_docs_to_index)} documents")
+                    else:
+                        # Dimensions match, safe to add documents
+                        _send_progress("embeddings", 70, f"Adding {len(all_docs_to_index)} documents to vector store...")
+                        vector_store.add_documents(all_docs_to_index)
+                        _SHARED_VECTOR_STORE = vector_store
+                        _send_progress("embeddings", 80, f"Added {len(all_docs_to_index)} documents to vector store")
+                else:
+                    # Can't check dimension, try to add and catch error
+                    _send_progress("embeddings", 70, f"Adding {len(all_docs_to_index)} documents to vector store...")
+                    vector_store.add_documents(all_docs_to_index)
+                    _SHARED_VECTOR_STORE = vector_store
+                    _send_progress("embeddings", 80, f"Added {len(all_docs_to_index)} documents to vector store")
+            except AssertionError as dim_error:
+                # Dimension mismatch detected, recreate vector store
+                logger.warning(f"Dimension mismatch detected when adding documents. Recreating vector store: {dim_error}")
+                _send_progress("embeddings", 65, "Recreating vector store with new embeddings (dimension mismatch)...")
+                _SHARED_VECTOR_STORE = None
+                try:
+                    import shutil
+                    if SHARED_VECTOR_STORE_PATH.parent.exists():
+                        shutil.rmtree(str(SHARED_VECTOR_STORE_PATH.parent))
+                        logger.info("Deleted incompatible vector store due to dimension mismatch")
+                except Exception as del_error:
+                    logger.error(f"Error deleting incompatible vector store: {del_error}")
+                
+                # Create new vector store with current embeddings
+                vector_store = FAISS.from_documents(all_docs_to_index, current_embeddings)
+                _SHARED_VECTOR_STORE = vector_store
+                _send_progress("embeddings", 80, f"Created new vector store with {len(all_docs_to_index)} documents")
 
         _send_progress("saving", 85, "Saving vector store to disk...")
         _save_shared_vector_store()
 
+        # Delete uploaded PDF file after embeddings are successfully created
+        _send_progress("cleanup", 87, "Deleting uploaded file after embedding creation...")
+        try:
+            if file_path.exists():
+                file_path.unlink()  # Use Path.unlink() for Path objects
+                logger.info(f"Successfully deleted uploaded PDF file: {file_path}")
+            else:
+                logger.warning(f"Uploaded PDF file not found for deletion: {file_path}")
+        except Exception as e:
+            logger.error(f"Failed to delete uploaded PDF file {file_path}: {e}")
+
         _send_progress("metadata", 90, "Saving document metadata...")
         _THREAD_METADATA[thread_id_str] = {
             "filename": filename or safe_filename,
-            "file_path": str(file_path),
+            "file_path": str(file_path),  # Keep path in metadata for reference, but file is deleted
             "user_id": user_id,
             "documents": num_pages,
             "num_pages": num_pages,
@@ -737,14 +923,9 @@ def ingest_pdf(
         try:
             if os.path.exists(temp_path):
                 os.remove(temp_path)
+                logger.info(f"Successfully deleted temporary PDF file: {temp_path}")
         except OSError as e:
             logger.warning(f"Failed to delete temporary PDF file {temp_path}: {e}")
-
-        try:
-            if file_path.exists():
-                os.remove(file_path)
-        except OSError as e:
-            logger.warning(f"Failed to delete uploaded PDF file {file_path}: {e}")
 
         _send_progress("complete", 100, f"PDF processing complete! Processed {num_pages} pages.")
 
@@ -759,6 +940,7 @@ def ingest_pdf(
         }
 
     finally:
+        # Cleanup temporary file (used for PDF loading)
         try:
             if "temp_path" in locals() and os.path.exists(temp_path):
                 os.remove(temp_path)
@@ -1536,71 +1718,44 @@ def chat_node(state: ChatState, config=None):
     # Get user_id from thread_id
     user_id = _extract_user_id_from_thread_id(thread_id_str) if thread_id_str else None
     
-    # Get user-specific API key and provider for this request
-    user_api_key = None
-    provider = None
-    if user_id:
-        try:
-            from app.models.database_models import User as DBUser
-            db = get_db()
-            
-            # Get provider from system settings first
-            from app.models.database_models import SystemSettings
+    # Get active provider from admin settings (needed for error handling and rate limiting)
+    # Initialize with default first to ensure it's always defined
+    provider = os.getenv('LLM_PROVIDER', 'openai').lower()
+    try:
+        from app.utils.db import get_db
+        from app.models.database_models import SystemSettings
+        db = get_db()
+        # Check for new active_provider setting first
+        setting = db.query(SystemSettings).filter(SystemSettings.key == 'active_provider').first()
+        if setting:
+            provider = setting.value.lower()
+        else:
+            # Fallback to old llm_provider setting
             setting = db.query(SystemSettings).filter(SystemSettings.key == 'llm_provider').first()
-            provider = setting.value if setting else os.getenv('LLM_PROVIDER', 'openai').lower()
-            
-            # If OpenAI is set from admin, use environment variable instead of database key
-            if provider == 'openai' and setting:
-                user_api_key = os.getenv('OPENAI_API_KEY')
-            else:
-                # Get user's API key from database
-                # Note: The field is named 'groq_api_key' but it stores the API key for the selected provider
-                user = db.query(DBUser).filter(DBUser.id == user_id).first()
-                if user:
-                    user_api_key = user.groq_api_key or None
-                    # If no API key in database, try to get from environment as fallback
-                    if not user_api_key:
-                        if provider == 'groq':
-                            user_api_key = os.getenv('GROQ_API_KEY')
-                        elif provider == 'openai':
-                            user_api_key = os.getenv('OPENAI_API_KEY')
-                else:
-                    user_api_key = None
-        except Exception as e:
-            logger.warning(f"Error getting user API key or provider: {str(e)}, falling back to defaults")
-            provider = os.getenv('LLM_PROVIDER', 'openai').lower()
-            user_api_key = os.getenv('GROQ_API_KEY') if provider == 'groq' else os.getenv('OPENAI_API_KEY')
-    else:
-        # Fallback to environment variables if no user_id
-        provider = os.getenv('LLM_PROVIDER', 'openai').lower()
-        user_api_key = os.getenv('GROQ_API_KEY') if provider == 'groq' else os.getenv('OPENAI_API_KEY')
+            if setting:
+                provider = setting.value.lower()
+    except Exception as e:
+        logger.warning(f"Error getting provider from settings: {str(e)}, using default: {provider}")
     
-    # Create user-specific LLM instance with correct provider and API key
-    # Log the provider and whether API key is available (without logging the actual key)
-    logger.info(f"Creating LLM for user {user_id}: provider={provider}, has_api_key={bool(user_api_key)}")
-    
-    # Validate API key is present when required
-    if provider in ['openai', 'groq'] and not user_api_key:
-        error_msg = (
-            f"{provider.upper()} API key is required when {provider} is selected as the LLM provider. "
-            f"Please configure your {provider.upper()} API key using the key icon in the chat interface."
-        )
-        logger.error(f"Missing API key for provider {provider}: {error_msg}")
-        # Return error message as AI response
-        error_response = AIMessage(
-            content=(
-                f"⚠️ **API Key Required**: {error_msg}\n\n"
-                f"Please configure your {provider.upper()} API key to continue using the chat feature."
-            )
-        )
-        return {"messages": [error_response]}
+    # Use new get_chat_model which handles admin/user settings automatically
+    logger.info(f"Creating LLM for user {user_id} (thread: {thread_id_str}, provider: {provider})")
     
     try:
         # Use cached LLM instance to avoid recreating on every call
         if user_id:
-            user_llm = get_cached_llm(user_id, user_api_key, provider)
+            # Include provider in cache key to ensure correct provider is used
+            cache_key = f"{user_id}_{provider}_factory"
+            with _llm_cache_lock:
+                if cache_key not in _llm_cache:
+                    logger.debug(f"Creating new LLM instance using get_chat_model for user {user_id} with provider {provider}")
+                    _llm_cache[cache_key] = get_chat_model(user_id=user_id, timeout=120, temperature=0.7)
+                    logger.info(f"Created and cached {provider} LLM instance for user {user_id}")
+                else:
+                    logger.debug(f"Reusing cached LLM instance for user {user_id} with provider {provider}")
+                user_llm = _llm_cache[cache_key]
         else:
-            user_llm = get_rag_llm(api_key=user_api_key, provider=provider)
+            # No user_id, use fallback
+            user_llm = get_rag_llm(user_id=None, provider=provider, timeout=120, temperature=0.7)
         
         user_llm_with_tools = user_llm.bind_tools(tools)
         user_llm_structured_output = user_llm.with_structured_output(LessonState)
@@ -1898,8 +2053,14 @@ def chat_node(state: ChatState, config=None):
             "input length",
             "maximum input length",
             "input tokens",
+            "tokens per minute",  # Groq TPM limit
+            "tpm",  # Tokens per minute abbreviation
+            "request too large",  # 413 Payload Too Large
+            "payload too large",  # 413 error
         ]
-        return any(keyword in error_lower for keyword in token_keywords)
+        # Also check for 413 status code
+        is_413 = '413' in error_msg or 'payload too large' in error_lower
+        return is_413 or any(keyword in error_lower for keyword in token_keywords)
     
     def _prepare_messages(num_messages: int):
         """Prepare messages list with specified number of conversation messages.
@@ -2006,7 +2167,10 @@ def chat_node(state: ChatState, config=None):
         return [system_message, *limited_messages]
     
     # Try with progressively fewer messages if token errors occur
-    for attempt in range(max_attempts):
+    # For Groq, reduce max attempts to avoid rate limit cascades (Groq SDK handles retries internally)
+    effective_max_attempts = max_attempts if provider != 'groq' else min(max_attempts, 2)
+    logger.debug(f"Using {effective_max_attempts} max attempts for provider {provider}")
+    for attempt in range(effective_max_attempts):
         # Calculate number of messages for this attempt: 7, 5, 3, 1
         if attempt == 0:
             current_max = initial_max_messages
@@ -2201,9 +2365,72 @@ def chat_node(state: ChatState, config=None):
                 hasattr(e, '__class__') and 'timeout' in e.__class__.__name__.lower()
             )
             
-            # Record 429 errors for rate limiter adjustment
-            if provider == 'groq' and ('429' in error_msg or 'Rate limit' in error_msg):
+            # Record 429/413 errors for rate limiter adjustment
+            # Note: 413 Payload Too Large is also a rate limit (TPM - tokens per minute)
+            is_rate_limit_error = (
+                '429' in error_msg or 
+                '413' in error_msg or
+                'Rate limit' in error_msg or 
+                'rate_limit' in error_msg.lower() or
+                'tokens per minute' in error_msg.lower() or
+                'TPM' in error_msg
+            )
+            
+            if provider == 'groq' and is_rate_limit_error:
                 groq_rate_limiter.record_429_error()
+                
+                # Check if it's a token limit (TPM) error - these need message reduction
+                is_token_limit = 'tokens per minute' in error_msg.lower() or 'TPM' in error_msg or '413' in error_msg
+                
+                if is_token_limit:
+                    # For token limit errors, try with fewer messages if possible
+                    if attempt < effective_max_attempts - 1:
+                        logger.info(f"Groq token limit (TPM) error detected, retrying with fewer messages (attempt {attempt + 2})")
+                        continue  # Retry with fewer messages
+                    else:
+                        # Last attempt failed, return error
+                        logger.error(f"Groq token limit error after {effective_max_attempts} attempts.")
+                        # Extract limit info from error if available
+                        import re
+                        limit_match = re.search(r'Limit (\d+)', error_msg)
+                        requested_match = re.search(r'Requested (\d+)', error_msg)
+                        limit = limit_match.group(1) if limit_match else '6000'
+                        requested = requested_match.group(1) if requested_match else 'Unknown'
+                        
+                        error_response = AIMessage(
+                            content=(
+                                "⚠️ **Token Limit Exceeded**: Your request is too large for the current Groq plan.\n\n"
+                                f"- **Limit**: {limit} tokens/minute\n"
+                                f"- **Requested**: {requested} tokens\n\n"
+                                "**Solutions:**\n"
+                                "- Start a new conversation (shorter history)\n"
+                                "- Reduce the conversation context\n"
+                                "- Upgrade your Groq plan at https://console.groq.com/settings/billing\n\n"
+                                f"*This error occurred after {effective_max_attempts} retry attempts.*"
+                            )
+                        )
+                        return {"messages": [error_response]}
+                else:
+                    # For regular rate limit (429), don't retry in our loop - Groq SDK handles retries internally
+                    # But we still need to return something to the user if it's the last attempt
+                    logger.warning(f"Groq rate limit (429) error on attempt {attempt + 1}. Groq SDK will handle retry.")
+                    if attempt >= effective_max_attempts - 1:
+                        error_response = AIMessage(
+                            content=(
+                                "⚠️ **Rate Limit Reached**: Groq API rate limit has been exceeded.\n\n"
+                                "The Groq service is currently handling too many requests. Please:\n"
+                                "- Wait a few moments and try again\n"
+                                "- Reduce the frequency of your requests\n"
+                                "- Check your Groq API quota at https://console.groq.com\n\n"
+                                f"*This error occurred after {effective_max_attempts} retry attempts.*"
+                            )
+                        )
+                        return {"messages": [error_response]}
+                    # For first attempts, continue to let Groq SDK handle retry
+                    # But we need to wait a bit to avoid immediate retry
+                    import time
+                    time.sleep(2)  # Wait 2 seconds before continuing
+                    continue
             
             # Check if it's a Groq daily token limit error (429 with type 'tokens')
             if 'Rate limit reached' in error_msg and 'tokens per day' in error_msg and 'TPD' in error_msg:
@@ -2257,12 +2484,12 @@ def chat_node(state: ChatState, config=None):
             
             if is_timeout_error:
                 # For timeout errors, try once more with fewer messages if not last attempt
-                if attempt < max_attempts - 1:
+                if attempt < effective_max_attempts - 1:
                     logger.info(f"Timeout error detected, retrying with fewer messages (current: {current_max}, next: {current_max - 2 if current_max > 2 else 1})")
                     continue  # Retry with fewer messages
                 else:
                     # Last attempt failed with timeout
-                    logger.error(f"Request timed out after {max_attempts} attempts. Final attempt with {current_max} messages.")
+                    logger.error(f"Request timed out after {effective_max_attempts} attempts. Final attempt with {current_max} messages.")
                     error_response = AIMessage(
                         content=(
                             "⚠️ **Request Timeout**: The request took too long to process.\n\n"
@@ -2282,7 +2509,7 @@ def chat_node(state: ChatState, config=None):
             # Check if it's a token error (context length)
             if _is_token_error(error_msg):
                 # If this is not the last attempt, try with fewer messages
-                if attempt < max_attempts - 1:
+                if attempt < effective_max_attempts - 1:
                     logger.info(f"Token error detected, retrying with fewer messages (current: {current_max}, next: {current_max - 2 if current_max > 2 else 1})")
                     continue  # Retry with fewer messages
                 else:
@@ -2309,7 +2536,7 @@ def chat_node(state: ChatState, config=None):
                     )
                 else:
                     # Generic error handling (only show if not retrying)
-                    if attempt < max_attempts - 1:
+                    if attempt < effective_max_attempts - 1:
                         # Try one more time with fewer messages even for non-token errors
                         logger.info(f"Non-token error detected, retrying with fewer messages (attempt {attempt + 2})")
                         continue
@@ -2324,6 +2551,18 @@ def chat_node(state: ChatState, config=None):
                         )
                 
                 return {"messages": [error_response]}
+    
+    # Fallback: If we somehow exit the loop without returning, return a generic error
+    # This should never happen, but ensures we always return a response
+    logger.error(f"Retry loop completed without returning a response. This should not happen!")
+    error_response = AIMessage(
+        content=(
+            "⚠️ **Error**: An unexpected error occurred while processing your request.\n\n"
+            "Please try again, or contact support if the issue persists.\n\n"
+            "*The request could not be completed after multiple retry attempts.*"
+        )
+    )
+    return {"messages": [error_response]}
 
 tool_node = ToolNode(tools)
 

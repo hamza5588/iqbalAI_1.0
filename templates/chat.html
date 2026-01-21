@@ -199,6 +199,141 @@
       color: #2563eb;
       margin-top: 1.5rem;
     }
+
+    /* Remove spacing between consecutive headings in general prose */
+    .prose h1 + h1,
+    .prose h1 + h2,
+    .prose h1 + h3,
+    .prose h1 + h4,
+    .prose h2 + h1,
+    .prose h2 + h2,
+    .prose h2 + h3,
+    .prose h2 + h4,
+    .prose h3 + h1,
+    .prose h3 + h2,
+    .prose h3 + h3,
+    .prose h3 + h4,
+    .prose h4 + h1,
+    .prose h4 + h2,
+    .prose h4 + h3,
+    .prose h4 + h4 {
+      margin-top: 0 !important;
+    }
+
+    /* Remove margin-bottom from headings when followed by another heading */
+    .prose h1:has(+ h1),
+    .prose h1:has(+ h2),
+    .prose h1:has(+ h3),
+    .prose h1:has(+ h4),
+    .prose h2:has(+ h1),
+    .prose h2:has(+ h2),
+    .prose h2:has(+ h3),
+    .prose h2:has(+ h4),
+    .prose h3:has(+ h1),
+    .prose h3:has(+ h2),
+    .prose h3:has(+ h3),
+    .prose h3:has(+ h4),
+    .prose h4:has(+ h1),
+    .prose h4:has(+ h2),
+    .prose h4:has(+ h3),
+    .prose h4:has(+ h4) {
+      margin-bottom: 0 !important;
+    }
+
+    /* Handle headings in adjacent divs (for numbered content) */
+    .prose div:has(> h1) + div:has(> h1),
+    .prose div:has(> h1) + div:has(> h2),
+    .prose div:has(> h1) + div:has(> h3),
+    .prose div:has(> h1) + div:has(> h4),
+    .prose div:has(> h2) + div:has(> h1),
+    .prose div:has(> h2) + div:has(> h2),
+    .prose div:has(> h2) + div:has(> h3),
+    .prose div:has(> h2) + div:has(> h4),
+    .prose div:has(> h3) + div:has(> h1),
+    .prose div:has(> h3) + div:has(> h2),
+    .prose div:has(> h3) + div:has(> h3),
+    .prose div:has(> h3) + div:has(> h4),
+    .prose div:has(> h4) + div:has(> h1),
+    .prose div:has(> h4) + div:has(> h2),
+    .prose div:has(> h4) + div:has(> h3),
+    .prose div:has(> h4) + div:has(> h4) {
+      margin-top: 0 !important;
+    }
+
+    /* Remove spacing between headings and paragraphs/text */
+    .prose h1 + p,
+    .prose h2 + p,
+    .prose h3 + p,
+    .prose h4 + p,
+    .prose h1 + div,
+    .prose h2 + div,
+    .prose h3 + div,
+    .prose h4 + div {
+      margin-top: 0 !important;
+    }
+
+    /* Remove margin-bottom from headings when followed by paragraphs or content */
+    .prose h1:has(+ p),
+    .prose h1:has(+ div),
+    .prose h2:has(+ p),
+    .prose h2:has(+ div),
+    .prose h3:has(+ p),
+    .prose h3:has(+ div),
+    .prose h4:has(+ p),
+    .prose h4:has(+ div) {
+      margin-bottom: 0 !important;
+    }
+
+    /* Remove spacing between headings and equations (MathJax) */
+    .prose h1 + .math-display,
+    .prose h2 + .math-display,
+    .prose h3 + .math-display,
+    .prose h4 + .math-display,
+    .prose h1 + div[class*="MathJax"],
+    .prose h2 + div[class*="MathJax"],
+    .prose h3 + div[class*="MathJax"],
+    .prose h4 + div[class*="MathJax"],
+    .prose h1 + .mjx-chtml,
+    .prose h2 + .mjx-chtml,
+    .prose h3 + .mjx-chtml,
+    .prose h4 + .mjx-chtml {
+      margin-top: 0 !important;
+    }
+
+    /* Remove margin-bottom from headings when followed by equations */
+    .prose h1:has(+ .math-display),
+    .prose h2:has(+ .math-display),
+    .prose h3:has(+ .math-display),
+    .prose h4:has(+ .math-display),
+    .prose h1:has(+ div[class*="MathJax"]),
+    .prose h2:has(+ div[class*="MathJax"]),
+    .prose h3:has(+ div[class*="MathJax"]),
+    .prose h4:has(+ div[class*="MathJax"]) {
+      margin-bottom: 0 !important;
+    }
+
+    /* Reduce margins on math equations and MathJax elements */
+    .prose .math-display {
+      margin-top: 0.25rem !important;
+      margin-bottom: 0.25rem !important;
+    }
+
+    .prose div[class*="MathJax"],
+    .prose .mjx-chtml {
+      margin-top: 0.25rem !important;
+      margin-bottom: 0.25rem !important;
+    }
+
+    /* Remove excessive white space from empty paragraphs and divs */
+    .prose p:empty,
+    .prose div:empty {
+      display: none;
+    }
+
+    /* Reduce spacing in general - remove top margin from first content element */
+    .prose > *:first-child {
+      margin-top: 0 !important;
+    }
     
     .prose p {
       margin-top: 0;
@@ -361,25 +496,165 @@
 
     /* Reduce heading margins in lesson content */
     #lessonSummary .lesson-content-wrapper .prose h1 {
-      margin-top: 0.75rem !important;
-      margin-bottom: 0.75rem !important;
+      margin-top: 0.5rem !important;
+      margin-bottom: 0.25rem !important;
       padding-bottom: 0.5rem !important;
     }
 
     #lessonSummary .lesson-content-wrapper .prose h2 {
-      margin-top: 1rem !important;
-      margin-bottom: 0.5rem !important;
+      margin-top: 0.5rem !important;
+      margin-bottom: 0.25rem !important;
       padding-bottom: 0.375rem !important;
     }
 
     #lessonSummary .lesson-content-wrapper .prose h3 {
-      margin-top: 0.875rem !important;
-      margin-bottom: 0.5rem !important;
+      margin-top: 0.5rem !important;
+      margin-bottom: 0.25rem !important;
     }
 
     #lessonSummary .lesson-content-wrapper .prose h4 {
-      margin-top: 0.75rem !important;
-      margin-bottom: 0.5rem !important;
+      margin-top: 0.5rem !important;
+      margin-bottom: 0.25rem !important;
+    }
+
+    /* Remove spacing between consecutive headings */
+    #lessonSummary .lesson-content-wrapper .prose h1 + h1,
+    #lessonSummary .lesson-content-wrapper .prose h1 + h2,
+    #lessonSummary .lesson-content-wrapper .prose h1 + h3,
+    #lessonSummary .lesson-content-wrapper .prose h1 + h4,
+    #lessonSummary .lesson-content-wrapper .prose h2 + h1,
+    #lessonSummary .lesson-content-wrapper .prose h2 + h2,
+    #lessonSummary .lesson-content-wrapper .prose h2 + h3,
+    #lessonSummary .lesson-content-wrapper .prose h2 + h4,
+    #lessonSummary .lesson-content-wrapper .prose h3 + h1,
+    #lessonSummary .lesson-content-wrapper .prose h3 + h2,
+    #lessonSummary .lesson-content-wrapper .prose h3 + h3,
+    #lessonSummary .lesson-content-wrapper .prose h3 + h4,
+    #lessonSummary .lesson-content-wrapper .prose h4 + h1,
+    #lessonSummary .lesson-content-wrapper .prose h4 + h2,
+    #lessonSummary .lesson-content-wrapper .prose h4 + h3,
+    #lessonSummary .lesson-content-wrapper .prose h4 + h4 {
+      margin-top: 0 !important;
+    }
+
+    /* Remove margin-bottom from headings when followed by another heading in lesson content */
+    #lessonSummary .lesson-content-wrapper .prose h1:has(+ h1),
+    #lessonSummary .lesson-content-wrapper .prose h1:has(+ h2),
+    #lessonSummary .lesson-content-wrapper .prose h1:has(+ h3),
+    #lessonSummary .lesson-content-wrapper .prose h1:has(+ h4),
+    #lessonSummary .lesson-content-wrapper .prose h2:has(+ h1),
+    #lessonSummary .lesson-content-wrapper .prose h2:has(+ h2),
+    #lessonSummary .lesson-content-wrapper .prose h2:has(+ h3),
+    #lessonSummary .lesson-content-wrapper .prose h2:has(+ h4),
+    #lessonSummary .lesson-content-wrapper .prose h3:has(+ h1),
+    #lessonSummary .lesson-content-wrapper .prose h3:has(+ h2),
+    #lessonSummary .lesson-content-wrapper .prose h3:has(+ h3),
+    #lessonSummary .lesson-content-wrapper .prose h3:has(+ h4),
+    #lessonSummary .lesson-content-wrapper .prose h4:has(+ h1),
+    #lessonSummary .lesson-content-wrapper .prose h4:has(+ h2),
+    #lessonSummary .lesson-content-wrapper .prose h4:has(+ h3),
+    #lessonSummary .lesson-content-wrapper .prose h4:has(+ h4) {
+      margin-bottom: 0 !important;
+    }
+
+    /* Handle headings in adjacent divs (for numbered content) in lesson content */
+    #lessonSummary .lesson-content-wrapper .prose div:has(> h1) + div:has(> h1),
+    #lessonSummary .lesson-content-wrapper .prose div:has(> h1) + div:has(> h2),
+    #lessonSummary .lesson-content-wrapper .prose div:has(> h1) + div:has(> h3),
+    #lessonSummary .lesson-content-wrapper .prose div:has(> h1) + div:has(> h4),
+    #lessonSummary .lesson-content-wrapper .prose div:has(> h2) + div:has(> h1),
+    #lessonSummary .lesson-content-wrapper .prose div:has(> h2) + div:has(> h2),
+    #lessonSummary .lesson-content-wrapper .prose div:has(> h2) + div:has(> h3),
+    #lessonSummary .lesson-content-wrapper .prose div:has(> h2) + div:has(> h4),
+    #lessonSummary .lesson-content-wrapper .prose div:has(> h3) + div:has(> h1),
+    #lessonSummary .lesson-content-wrapper .prose div:has(> h3) + div:has(> h2),
+    #lessonSummary .lesson-content-wrapper .prose div:has(> h3) + div:has(> h3),
+    #lessonSummary .lesson-content-wrapper .prose div:has(> h3) + div:has(> h4),
+    #lessonSummary .lesson-content-wrapper .prose div:has(> h4) + div:has(> h1),
+    #lessonSummary .lesson-content-wrapper .prose div:has(> h4) + div:has(> h2),
+    #lessonSummary .lesson-content-wrapper .prose div:has(> h4) + div:has(> h3),
+    #lessonSummary .lesson-content-wrapper .prose div:has(> h4) + div:has(> h4) {
+      margin-top: 0 !important;
+    }
+
+    /* Also reduce margin-bottom on numbered-line divs containing headings */
+    #lessonSummary .lesson-content-wrapper .prose .numbered-line:has(h1, h2, h3, h4) + .numbered-line:has(h1, h2, h3, h4) {
+      margin-top: 0 !important;
+    }
+
+    /* Remove spacing between headings and paragraphs/text in lesson content */
+    #lessonSummary .lesson-content-wrapper .prose h1 + p,
+    #lessonSummary .lesson-content-wrapper .prose h2 + p,
+    #lessonSummary .lesson-content-wrapper .prose h3 + p,
+    #lessonSummary .lesson-content-wrapper .prose h4 + p,
+    #lessonSummary .lesson-content-wrapper .prose h1 + div:not(.numbered-line),
+    #lessonSummary .lesson-content-wrapper .prose h2 + div:not(.numbered-line),
+    #lessonSummary .lesson-content-wrapper .prose h3 + div:not(.numbered-line),
+    #lessonSummary .lesson-content-wrapper .prose h4 + div:not(.numbered-line) {
+      margin-top: 0 !important;
+    }
+
+    /* Remove margin-bottom from headings when followed by content in lesson content */
+    #lessonSummary .lesson-content-wrapper .prose h1:has(+ p),
+    #lessonSummary .lesson-content-wrapper .prose h1:has(+ div),
+    #lessonSummary .lesson-content-wrapper .prose h2:has(+ p),
+    #lessonSummary .lesson-content-wrapper .prose h2:has(+ div),
+    #lessonSummary .lesson-content-wrapper .prose h3:has(+ p),
+    #lessonSummary .lesson-content-wrapper .prose h3:has(+ div),
+    #lessonSummary .lesson-content-wrapper .prose h4:has(+ p),
+    #lessonSummary .lesson-content-wrapper .prose h4:has(+ div) {
+      margin-bottom: 0 !important;
+    }
+
+    /* Remove spacing between headings and equations (MathJax) in lesson content */
+    #lessonSummary .lesson-content-wrapper .prose h1 + .math-display,
+    #lessonSummary .lesson-content-wrapper .prose h2 + .math-display,
+    #lessonSummary .lesson-content-wrapper .prose h3 + .math-display,
+    #lessonSummary .lesson-content-wrapper .prose h4 + .math-display,
+    #lessonSummary .lesson-content-wrapper .prose h1 + div[class*="MathJax"],
+    #lessonSummary .lesson-content-wrapper .prose h2 + div[class*="MathJax"],
+    #lessonSummary .lesson-content-wrapper .prose h3 + div[class*="MathJax"],
+    #lessonSummary .lesson-content-wrapper .prose h4 + div[class*="MathJax"],
+    #lessonSummary .lesson-content-wrapper .prose h1 + .mjx-chtml,
+    #lessonSummary .lesson-content-wrapper .prose h2 + .mjx-chtml,
+    #lessonSummary .lesson-content-wrapper .prose h3 + .mjx-chtml,
+    #lessonSummary .lesson-content-wrapper .prose h4 + .mjx-chtml {
+      margin-top: 0 !important;
+    }
+
+    /* Remove margin-bottom from headings when followed by equations in lesson content */
+    #lessonSummary .lesson-content-wrapper .prose h1:has(+ .math-display),
+    #lessonSummary .lesson-content-wrapper .prose h2:has(+ .math-display),
+    #lessonSummary .lesson-content-wrapper .prose h3:has(+ .math-display),
+    #lessonSummary .lesson-content-wrapper .prose h4:has(+ .math-display),
+    #lessonSummary .lesson-content-wrapper .prose h1:has(+ div[class*="MathJax"]),
+    #lessonSummary .lesson-content-wrapper .prose h2:has(+ div[class*="MathJax"]),
+    #lessonSummary .lesson-content-wrapper .prose h3:has(+ div[class*="MathJax"]),
+    #lessonSummary .lesson-content-wrapper .prose h4:has(+ div[class*="MathJax"]) {
+      margin-bottom: 0 !important;
+    }
+
+    /* Handle numbered-line divs - remove spacing when heading is followed by content */
+    #lessonSummary .lesson-content-wrapper .prose .numbered-line:has(h1, h2, h3, h4) + .numbered-line:not(:has(h1, h2, h3, h4)) {
+      margin-top: 0 !important;
+    }
+
+    /* Reduce margins on math equations and MathJax elements in lesson content */
+    #lessonSummary .lesson-content-wrapper .prose .math-display {
+      margin-top: 0.25rem !important;
+      margin-bottom: 0.25rem !important;
+    }
+
+    #lessonSummary .lesson-content-wrapper .prose div[class*="MathJax"],
+    #lessonSummary .lesson-content-wrapper .prose .mjx-chtml {
+      margin-top: 0.25rem !important;
+      margin-bottom: 0.25rem !important;
+    }
+
+    /* Remove excessive white space from empty paragraphs and divs in lesson content */
+    #lessonSummary .lesson-content-wrapper .prose p:empty,
+    #lessonSummary .lesson-content-wrapper .prose div:empty {
+      display: none;
     }
 
     /* Reduce paragraph margins in lesson content */
@@ -1657,9 +1932,25 @@
         <!-- Settings Content -->
             <div id="settingsContent" class="hidden flex-1 px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 overflow-y-auto">
                 <div class="max-w-xs sm:max-w-lg lg:max-w-2xl mx-auto">
-                    <div class="bg-white rounded-xl p-4 sm:p-6 lg:p-8 shadow-lg">
-                        <h3 class="text-xl sm:text-2xl text-center font-bold text-sky-500 mb-4 sm:mb-6">Settings
-                        </h3>
+                    <div class="bg-white rounded-xl p-4 sm:p-6 lg:p-8 shadow-lg space-y-6">
+                        <h3 class="text-xl sm:text-2xl text-center font-bold text-sky-500 mb-4 sm:mb-6">Settings</h3>
+                        
+                        <!-- Model Selection (shown only if enabled by admin) -->
+                        <div id="model-selection-section" class="hidden">
+                            <h4 class="text-lg font-semibold text-gray-800 mb-3">Model Selection</h4>
+                            <div class="space-y-3">
+                                <label class="block text-sm font-medium text-gray-700">Select Model</label>
+                                <select id="user-model-select" 
+                                        class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#05B0FC] focus:border-transparent">
+                                    <option value="">Loading models...</option>
+                                </select>
+                                <p class="text-xs text-gray-500">Choose your preferred AI model for chat responses</p>
+                                <button onclick="saveUserModel()" 
+                                        class="bg-[#05B0FC] text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors text-sm">
+                                    <i class="fas fa-save mr-2"></i>Save Model Preference
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1841,6 +2132,8 @@
    // Initialize
         // Check LLM provider on page load
         checkLLMProvider();
+        // Load user model selection
+        loadUserModelSelection();
         
         window.onload = function () {
     initializeApp();
@@ -1869,6 +2162,107 @@
         }
     }
 
+    // Load user model selection
+    async function loadUserModelSelection() {
+        try {
+            const response = await fetch('/admin/settings/user-model');
+            const data = await response.json();
+            
+            if (data.success && data.allow_user_selection) {
+                const modelSection = document.getElementById('model-selection-section');
+                const modelSelect = document.getElementById('user-model-select');
+                
+                if (modelSection && modelSelect) {
+                    modelSection.classList.remove('hidden');
+                    modelSelect.innerHTML = '<option value="">Select a model...</option>';
+                    
+                    // Populate models based on provider
+                    if (data.active_provider === 'GROQ') {
+                        // Groq models - group by type
+                        if (data.available_models.qwen && data.available_models.qwen.length > 0) {
+                            const qwenGroup = document.createElement('optgroup');
+                            qwenGroup.label = 'Qwen Models';
+                            data.available_models.qwen.forEach(model => {
+                                const option = document.createElement('option');
+                                option.value = model.id;
+                                option.textContent = model.name;
+                                if (data.selected_model === model.id) {
+                                    option.selected = true;
+                                }
+                                qwenGroup.appendChild(option);
+                            });
+                            modelSelect.appendChild(qwenGroup);
+                        }
+                        
+                        if (data.available_models.llama && data.available_models.llama.length > 0) {
+                            const llamaGroup = document.createElement('optgroup');
+                            llamaGroup.label = 'Llama Models';
+                            data.available_models.llama.forEach(model => {
+                                const option = document.createElement('option');
+                                option.value = model.id;
+                                option.textContent = model.name;
+                                if (data.selected_model === model.id) {
+                                    option.selected = true;
+                                }
+                                llamaGroup.appendChild(option);
+                            });
+                            modelSelect.appendChild(llamaGroup);
+                        }
+                    } else {
+                        // OpenAI models
+                        if (data.available_models && Array.isArray(data.available_models)) {
+                            data.available_models.forEach(model => {
+                                const option = document.createElement('option');
+                                option.value = model.id;
+                                option.textContent = model.name;
+                                if (data.selected_model === model.id) {
+                                    option.selected = true;
+                                }
+                                modelSelect.appendChild(option);
+                            });
+                        }
+                    }
+                }
+            } else {
+                // Hide model selection if not allowed
+                const modelSection = document.getElementById('model-selection-section');
+                if (modelSection) {
+                    modelSection.classList.add('hidden');
+                }
+            }
+        } catch (error) {
+            console.warn('Could not load user model selection:', error);
+        }
+    }
+
+    // Save user model selection
+    async function saveUserModel() {
+        const modelSelect = document.getElementById('user-model-select');
+        if (!modelSelect || !modelSelect.value) {
+            showNotification('Please select a model', 'warning');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/admin/settings/user-model', {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({model_id: modelSelect.value})
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showNotification('Model preference saved successfully!', 'success');
+            } else {
+                showNotification('Error saving model: ' + data.error, 'error');
+            }
+        } catch (error) {
+            console.error('Error saving user model:', error);
+            showNotification('Error saving model preference', 'error');
+        }
+    }
+
 async function initializeApp() {
     // Initialize message focus effects
     addMessageFocusEffect();
@@ -1891,8 +2285,11 @@ async function initializeApp() {
         // Setup UI
         setupSidebarListeners();
         
-        // Check if we should restore RAG mode before restoring regular chat
+        // Check if we should restore conversation from localStorage
+        const savedConversationId = localStorage.getItem('currentConversationId');
         const savedRAGThreadId = localStorage.getItem('currentRAGThreadId');
+        
+        // Priority 1: Restore RAG mode if thread exists
         if (savedRAGThreadId && ragThreads.length > 0) {
             // Verify the thread still exists
             const threadExists = ragThreads.some(t => t.thread_id === savedRAGThreadId);
@@ -1900,14 +2297,43 @@ async function initializeApp() {
                 // Restore RAG chat mode
                 const thread = ragThreads.find(t => t.thread_id === savedRAGThreadId);
                 switchToRAGChatMode(savedRAGThreadId, thread?.filename || null);
-            } else {
-                // Thread no longer exists, restore regular chat
-                await restoreOrStartChat();
+                
+                // Restore conversation_id if available
+                if (savedConversationId) {
+                    currentRAGConversationId = parseInt(savedConversationId);
+                    currentChatId = parseInt(savedConversationId);
+                    // Load chat history for this conversation
+                    await loadRAGChatHistory(parseInt(savedConversationId));
+                }
+                return; // Don't restore regular chat if RAG mode is restored
             }
-        } else {
-            // No RAG thread to restore, restore regular chat
-            await restoreOrStartChat();
         }
+        
+        // Priority 2: Restore regular conversation if conversation_id exists
+        if (savedConversationId) {
+            try {
+                const conversationId = parseInt(savedConversationId);
+                const response = await fetch(`/get_messages/${conversationId}`, {
+                    method: 'GET',
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.messages && data.messages.length > 0) {
+                        // Conversation exists and has messages, restore it
+                        currentChatId = conversationId;
+                        await loadChat(conversationId);
+                        return; // Don't start new chat
+                    }
+                }
+            } catch (error) {
+                console.error('Error restoring conversation:', error);
+            }
+        }
+        
+        // Priority 3: Restore or start new chat
+        await restoreOrStartChat();
         
         // Initialize mobile state
         if (window.innerWidth < 768) {
@@ -4456,8 +4882,19 @@ async function initializeApp() {
                 if (uploadStatus) uploadStatus.textContent = 'Upload completed!';
                 showNotification('PDF uploaded successfully! Switching to chat...', 'success');
                 
+                // Store conversation_id if returned from backend
+                if (data.conversation_id) {
+                    currentRAGConversationId = data.conversation_id;
+                    currentChatId = data.conversation_id;
+                    localStorage.setItem('currentConversationId', data.conversation_id);
+                    console.log(`File upload created conversation ${data.conversation_id}`);
+                }
+                
                 // Reload threads from database
                 await loadRAGThreads();
+                
+                // Reload chat history to show new conversation
+                await loadChatHistory();
                 
                 // Switch to RAG chat mode in existing interface
                 switchToRAGChatMode(data.thread_id, data.filename);
@@ -5477,16 +5914,35 @@ async function initializeApp() {
                     showNotification('PDF uploaded and processed successfully!', 'success');
                     closeRAGUploadModal();
                     
+                    // Store conversation_id if returned from backend
+                    if (result.conversation_id) {
+                        currentRAGConversationId = result.conversation_id;
+                        currentChatId = result.conversation_id;
+                        localStorage.setItem('currentConversationId', result.conversation_id);
+                        localStorage.setItem('currentChatId', result.conversation_id);
+                        console.log(`File upload created conversation ${result.conversation_id}`);
+                    }
+                    
+                    // Reload threads from database
                     await loadRAGThreads();
+                    
+                    // Reload chat history to show new conversation in sidebar
+                    await loadChatHistory();
+                    
                     // Use thread_id from result, not filename
                     const threadId = result.thread_id || result.threadId;
                     if (threadId) {
+                        // Store thread_id
+                        currentRAGThreadId = threadId;
+                        localStorage.setItem('currentRAGThreadId', threadId);
                         switchToRAGChatMode(threadId, result.filename);
                     } else {
                         // If no thread_id in result, find the most recent thread with document
                         if (ragThreads && ragThreads.length > 0) {
                             const threadWithDoc = ragThreads.find(t => t.has_document);
                             if (threadWithDoc) {
+                                currentRAGThreadId = threadWithDoc.thread_id;
+                                localStorage.setItem('currentRAGThreadId', threadWithDoc.thread_id);
                                 switchToRAGChatMode(threadWithDoc.thread_id, threadWithDoc.filename);
                             }
                         }
@@ -5502,7 +5958,24 @@ async function initializeApp() {
                     showNotification('PDF uploaded successfully!', 'success');
                     closeRAGUploadModal();
                     
+                    // Store conversation_id if returned from backend
+                    if (data.conversation_id) {
+                        currentRAGConversationId = data.conversation_id;
+                        currentChatId = data.conversation_id;
+                        localStorage.setItem('currentConversationId', data.conversation_id);
+                        localStorage.setItem('currentChatId', data.conversation_id);
+                        console.log(`File upload created conversation ${data.conversation_id}`);
+                    }
+                    
+                    // Reload threads from database
                     await loadRAGThreads();
+                    
+                    // Reload chat history to show new conversation in sidebar
+                    await loadChatHistory();
+                    
+                    // Store thread_id
+                    currentRAGThreadId = data.thread_id;
+                    localStorage.setItem('currentRAGThreadId', data.thread_id);
                     switchToRAGChatMode(data.thread_id, data.filename);
                 } else {
                     throw new Error(data.error || 'Upload failed');
@@ -5896,13 +6369,53 @@ async function initializeApp() {
             // Add some basic styling classes to the rendered content with consistent formatting
             const finalContent = `<div class="prose prose-sm max-w-none text-gray-700 leading-relaxed">
                 <style>
-                    .prose h2 { font-size: 1.25rem; font-weight: 600; margin-top: 1.5rem; margin-bottom: 0.75rem; color: #1f2937; }
-                    .prose h3 { font-size: 1.125rem; font-weight: 600; margin-top: 1.25rem; margin-bottom: 0.5rem; color: #374151; }
+                    .prose h1 { font-size: 1.5rem; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.25rem; color: #1f2937; }
+                    .prose h2 { font-size: 1.25rem; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.25rem; color: #1f2937; }
+                    .prose h3 { font-size: 1.125rem; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.25rem; color: #374151; }
+                    .prose h4 { font-size: 1rem; font-weight: 600; margin-top: 0.5rem; margin-bottom: 0.25rem; color: #374151; }
                     .prose ul { margin: 0.75rem 0; padding-left: 1.5rem; }
                     .prose li { margin: 0.25rem 0; line-height: 1.6; }
                     .prose p { margin: 0.25rem 0; line-height: 1.6; }
                     .prose p + p { margin-top: 0; }
                     .prose strong { font-weight: 600; color: #1f2937; }
+                    /* Remove spacing between consecutive headings */
+                    .prose h1 + h1, .prose h1 + h2, .prose h1 + h3, .prose h1 + h4,
+                    .prose h2 + h1, .prose h2 + h2, .prose h2 + h3, .prose h2 + h4,
+                    .prose h3 + h1, .prose h3 + h2, .prose h3 + h3, .prose h3 + h4,
+                    .prose h4 + h1, .prose h4 + h2, .prose h4 + h3, .prose h4 + h4 {
+                        margin-top: 0 !important;
+                        margin-bottom: 0 !important;
+                    }
+                    /* Remove margin-bottom from headings when followed by another heading */
+                    .prose h1:has(+ h1), .prose h1:has(+ h2), .prose h1:has(+ h3), .prose h1:has(+ h4),
+                    .prose h2:has(+ h1), .prose h2:has(+ h2), .prose h2:has(+ h3), .prose h2:has(+ h4),
+                    .prose h3:has(+ h1), .prose h3:has(+ h2), .prose h3:has(+ h3), .prose h3:has(+ h4),
+                    .prose h4:has(+ h1), .prose h4:has(+ h2), .prose h4:has(+ h3), .prose h4:has(+ h4) {
+                        margin-bottom: 0 !important;
+                    }
+                    /* Remove spacing between headings and paragraphs/text */
+                    .prose h1 + p, .prose h2 + p, .prose h3 + p, .prose h4 + p,
+                    .prose h1 + div, .prose h2 + div, .prose h3 + div, .prose h4 + div {
+                        margin-top: 0 !important;
+                    }
+                    /* Remove margin-bottom from headings when followed by paragraphs or content */
+                    .prose h1:has(+ p), .prose h1:has(+ div),
+                    .prose h2:has(+ p), .prose h2:has(+ div),
+                    .prose h3:has(+ p), .prose h3:has(+ div),
+                    .prose h4:has(+ p), .prose h4:has(+ div) {
+                        margin-bottom: 0 !important;
+                    }
+                    /* Remove spacing between headings and equations (MathJax) */
+                    .prose h1 + .math-display, .prose h2 + .math-display, .prose h3 + .math-display, .prose h4 + .math-display,
+                    .prose h1 + div[class*="MathJax"], .prose h2 + div[class*="MathJax"], .prose h3 + div[class*="MathJax"], .prose h4 + div[class*="MathJax"],
+                    .prose h1 + .mjx-chtml, .prose h2 + .mjx-chtml, .prose h3 + .mjx-chtml, .prose h4 + .mjx-chtml {
+                        margin-top: 0 !important;
+                    }
+                    /* Remove margin-bottom from headings when followed by equations */
+                    .prose h1:has(+ .math-display), .prose h2:has(+ .math-display), .prose h3:has(+ .math-display), .prose h4:has(+ .math-display),
+                    .prose h1:has(+ div[class*="MathJax"]), .prose h2:has(+ div[class*="MathJax"]), .prose h3:has(+ div[class*="MathJax"]), .prose h4:has(+ div[class*="MathJax"]) {
+                        margin-bottom: 0 !important;
+                    }
                 </style>
                 ${markdownContent}
             </div>`;
@@ -8187,6 +8700,9 @@ async function initializeApp() {
                 currentChatId = data.conversation_id;
                 // Save chat ID to localStorage for persistence
                 localStorage.setItem('currentChatId', currentChatId);
+                localStorage.setItem('currentConversationId', currentChatId);
+                // Reload chat history to show new conversation
+                await loadChatHistory();
             } else {
                 currentChatId = Date.now();
                 localStorage.setItem('currentChatId', currentChatId);
@@ -9394,6 +9910,8 @@ async function initializeApp() {
     }
 
     function openSettings() {
+        // Load model selection when opening settings
+        loadUserModelSelection();
         window.location.href = '/subscription/settings';
     }
 
@@ -10463,9 +10981,10 @@ async function initializeApp() {
     function updateChatHistoryDisplay() {
         const dropdown = document.getElementById('dropdownContent');
         if (dropdown && chatHistory.length > 0) {
-                // Show only the last 4 chat history items for cleaner UI
-                const lastFourChats = chatHistory.slice(-4);
-                let dropdownHTML = lastFourChats.map(chat => `
+                // Show only the latest 4 chat history items (most recent first)
+                // Backend returns conversations sorted by most recent first, so take first 4
+                const latestFourChats = chatHistory.slice(0, 4);
+                let dropdownHTML = latestFourChats.map(chat => `
                 <div class="flex items-center gap-2 p-2 hover:bg-gray-100 rounded cursor-pointer" onclick="loadChat('${chat.id}')">
                     <i class="fas fa-comment text-gray-400 text-sm"></i>
                     <span class="text-sm text-gray-700 truncate">${chat.title || 'Untitled Chat'}</span>
@@ -10477,7 +10996,7 @@ async function initializeApp() {
                     dropdownHTML += `
                     <div class="flex items-center gap-2 p-2 text-gray-500 text-xs border-t border-gray-200">
                         <i class="fas fa-info-circle"></i>
-                        <span>Showing last 4 of ${chatHistory.length} chats</span>
+                        <span>Showing latest 4 of ${chatHistory.length} chats</span>
                     </div>
                     `;
                 }
@@ -10488,6 +11007,54 @@ async function initializeApp() {
 
     async function loadChat(chatId) {
         try {
+            // First, check if this conversation is a RAG conversation
+            const ragCheckResponse = await fetch(`/rag/conversation/${chatId}/thread`, {
+                method: 'GET',
+                credentials: 'include'
+            });
+            
+            if (ragCheckResponse.ok) {
+                const ragCheckData = await ragCheckResponse.json();
+                
+                // If this is a RAG conversation, switch to RAG mode
+                if (ragCheckData.is_rag_conversation && ragCheckData.thread_id && ragCheckData.has_document) {
+                    // Switch to RAG chat mode
+                    const filename = ragCheckData.filename || null;
+                    switchToRAGChatMode(ragCheckData.thread_id, filename);
+                    
+                    // Update conversation IDs
+                    currentChatId = chatId;
+                    currentRAGConversationId = chatId;
+                    currentRAGThreadId = ragCheckData.thread_id;
+                    
+                    // Persist conversation ID and thread ID
+                    localStorage.setItem('currentChatId', chatId);
+                    localStorage.setItem('currentConversationId', chatId);
+                    localStorage.setItem('currentRAGThreadId', ragCheckData.thread_id);
+                    
+                    // Load RAG chat history for this conversation
+                    await loadRAGChatHistory(chatId);
+                    
+                    // Update chat title with the actual conversation title
+                    const conversationResponse = await fetch(`/get_conversation/${chatId}`, {
+                        method: 'GET',
+                        credentials: 'include'
+                    });
+                    
+                    if (conversationResponse.ok) {
+                        const conversationData = await conversationResponse.json();
+                        const chatTitleElement = document.getElementById('chatTitle');
+                        if (chatTitleElement && conversationData.title) {
+                            chatTitleElement.textContent = conversationData.title;
+                        }
+                    }
+                    
+                    changeTab(null, 'chat');
+                    return; // Exit early, we're done
+                }
+            }
+            
+            // Not a RAG conversation - proceed with regular chat loading
             // Load both messages and conversation details
             const [messagesResponse, conversationResponse] = await Promise.all([
                 fetch(`/get_messages/${chatId}`, {
@@ -10515,12 +11082,26 @@ async function initializeApp() {
                     addMessageToChat(msg.role === 'bot' ? 'ai' : 'user', msg.message);
                 });
                 
+                // Update conversation IDs
                 currentChatId = chatId;
+                currentRAGConversationId = chatId; // Also set for RAG conversations
+                
+                // Persist conversation ID
+                localStorage.setItem('currentChatId', chatId);
+                localStorage.setItem('currentConversationId', chatId);
                 
                 // Update chat title with the actual conversation title
                 const chatTitleElement = document.getElementById('chatTitle');
                 if (chatTitleElement && conversationData.title) {
                     chatTitleElement.textContent = conversationData.title;
+                }
+                
+                // Exit RAG mode when loading a regular conversation
+                if (isRAGChatMode) {
+                    isRAGChatMode = false;
+                    currentRAGThreadId = null;
+                    hideRAGThreadSelector();
+                    localStorage.removeItem('currentRAGThreadId');
                 }
                 
                 changeTab(null, 'chat');
@@ -10531,6 +11112,11 @@ async function initializeApp() {
             console.error('Error loading chat:', error);
             showNotification('Error loading chat', 'error');
         }
+    }
+    
+    // Reset chat function - creates a new conversation
+    async function resetChat() {
+        await startNewChat();
     }
 
     async function downloadCurrentChat() {

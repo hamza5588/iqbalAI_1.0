@@ -401,3 +401,18 @@ class SystemSettings(Base):
         Index('idx_system_settings_key', 'key'),
     )
 
+
+class UserSettings(Base):
+    """User-specific settings model for storing user preferences"""
+    __tablename__ = 'user_settings'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey('users.id', ondelete='CASCADE'), nullable=False, unique=True, index=True)
+    selected_model = Column(String(255), nullable=True)  # User's selected model (if allowed)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow,
+                       server_default=func.now(), server_onupdate=func.now())
+    
+    __table_args__ = (
+        Index('idx_user_settings_user_id', 'user_id'),
+    )
+

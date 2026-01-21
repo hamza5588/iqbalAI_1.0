@@ -10,6 +10,7 @@ from app.utils.rag_service import (
 )
 from app.utils.db import get_db
 from app.models.database_models import RAGThread, RAGPrompt
+from app.services.chat_service import ChatService
 from langchain_core.messages import HumanMessage
 import logging
 import uuid
@@ -113,6 +114,21 @@ def ingest():
         provided_thread_id = request.form.get('thread_id')
         create_new_thread = request.form.get('create_new_thread', 'true').lower() == 'true'
         
+        # If no conversation_id is provided, automatically create a new conversation
+        if not conversation_id:
+            try:
+                api_key = session.get('groq_api_key', '')
+                chat_service = ChatService(user_id, api_key)
+                # Create conversation with filename as title
+                filename = file.filename
+                conversation_title = f"Chat: {filename}" if filename else "New Chat"
+                conversation_id = chat_service.create_conversation(conversation_title)
+                logger.info(f"Auto-created conversation {conversation_id} for file upload: {filename}")
+            except Exception as e:
+                logger.error(f"Error creating conversation for file upload: {str(e)}")
+                # Continue without conversation_id if creation fails
+                conversation_id = None
+        
         # If create_new_thread is False AND a thread_id is provided, use existing thread
         # (This is rare - normally each upload creates a new thread)
         if provided_thread_id and not create_new_thread:
@@ -131,7 +147,7 @@ def ingest():
             # Always create a new thread for new PDF uploads (default behavior)
             # This ensures each uploaded PDF gets its own thread
             thread_id = _get_thread_id(user_id, conversation_id)
-            logger.info(f"Creating new thread {thread_id} for PDF upload (filename: {file.filename})")
+            logger.info(f"Creating new thread {thread_id} for PDF upload (filename: {file.filename}, conversation_id: {conversation_id})")
         
         filename = file.filename
 
@@ -159,6 +175,7 @@ def ingest():
             'success': True,
             'message': 'PDF ingested successfully',
             'thread_id': thread_id,
+            'conversation_id': conversation_id,  # Return conversation_id to frontend
             'filename': result['filename'],
             'documents': result.get('documents', result.get('num_pages', 0)),  # Backward compatibility
             'num_pages': result.get('num_pages', result.get('documents', 0)),  # Explicit page count
@@ -451,74 +468,70 @@ def chat():
             from app.models.models import ConversationModel
             conversation_model = ConversationModel(user_id)
             
-            # Extract conversation_id from thread_id if present (format: user_{user_id}_conv_{conversation_id})
-            # Or create/get a conversation for this thread
-            import re
-            # Import metadata functions
-            from app.utils.rag_service import _THREAD_METADATA, _save_metadata, _load_metadata
-            _load_metadata()  # Ensure we have latest metadata
-            
-            thread_conv_match = re.search(r'user_\d+_conv_(\d+)', thread_id)
-            if thread_conv_match:
-                # Conversation ID is in thread_id
-                db_conversation_id = int(thread_conv_match.group(1))
-                # Verify conversation belongs to user
-                conv = conversation_model.get_conversation_by_id(db_conversation_id)
-                if not conv:
-                    # Create new conversation if it doesn't exist or doesn't belong to user
-                    db_conversation_id = conversation_model.create_conversation(
-                        title=message[:50] if len(message) > 50 else message
-                    )
-                # Store in metadata
-                if thread_id not in _THREAD_METADATA:
-                    _THREAD_METADATA[thread_id] = {}
-                _THREAD_METADATA[thread_id]['conversation_id'] = db_conversation_id
-                _save_metadata()
-            elif conversation_id:
-                # Use provided conversation_id
+            # Priority 1: Use conversation_id from request if provided (most reliable)
+            if conversation_id:
                 conv = conversation_model.get_conversation_by_id(conversation_id)
                 if conv:
                     db_conversation_id = conversation_id
+                    logger.info(f"Using provided conversation_id: {conversation_id} for thread {thread_id}")
                 else:
-                    # Create new conversation if it doesn't exist or doesn't belong to user
+                    # Conversation doesn't exist or doesn't belong to user, create new one
                     db_conversation_id = conversation_model.create_conversation(
                         title=message[:50] if len(message) > 50 else message
                     )
-                # Store in metadata
-                if thread_id not in _THREAD_METADATA:
-                    _THREAD_METADATA[thread_id] = {}
-                _THREAD_METADATA[thread_id]['conversation_id'] = db_conversation_id
-                _save_metadata()
+                    logger.info(f"Created new conversation {db_conversation_id} (provided conversation_id {conversation_id} was invalid)")
             else:
-                # Check if we have a thread metadata with stored conversation_id
-                stored_conv_id = _THREAD_METADATA.get(thread_id, {}).get('conversation_id')
-                
-                if stored_conv_id:
-                    # Verify it still exists and belongs to user
-                    conv = conversation_model.get_conversation_by_id(stored_conv_id)
-                    if conv:
-                        db_conversation_id = stored_conv_id
-                    else:
-                        # Create new conversation
+                # Priority 2: Extract conversation_id from thread_id if present (format: user_{user_id}_conv_{conversation_id})
+                import re
+                thread_conv_match = re.search(r'user_\d+_conv_(\d+)', thread_id)
+                if thread_conv_match:
+                    # Conversation ID is in thread_id
+                    db_conversation_id = int(thread_conv_match.group(1))
+                    # Verify conversation belongs to user
+                    conv = conversation_model.get_conversation_by_id(db_conversation_id)
+                    if not conv:
+                        # Create new conversation if it doesn't exist or doesn't belong to user
                         db_conversation_id = conversation_model.create_conversation(
                             title=message[:50] if len(message) > 50 else message
                         )
-                        # Update metadata
+                    logger.info(f"Extracted conversation_id {db_conversation_id} from thread_id {thread_id}")
+                else:
+                    # Priority 3: Check thread metadata for stored conversation_id
+                    from app.utils.rag_service import _THREAD_METADATA, _save_metadata, _load_metadata
+                    _load_metadata()  # Ensure we have latest metadata
+                    
+                    stored_conv_id = _THREAD_METADATA.get(thread_id, {}).get('conversation_id')
+                    if stored_conv_id:
+                        # Verify it still exists and belongs to user
+                        conv = conversation_model.get_conversation_by_id(stored_conv_id)
+                        if conv:
+                            db_conversation_id = stored_conv_id
+                            logger.info(f"Using stored conversation_id {db_conversation_id} from metadata for thread {thread_id}")
+                        else:
+                            # Create new conversation
+                            db_conversation_id = conversation_model.create_conversation(
+                                title=message[:50] if len(message) > 50 else message
+                            )
+                            # Update metadata
+                            if thread_id not in _THREAD_METADATA:
+                                _THREAD_METADATA[thread_id] = {}
+                            _THREAD_METADATA[thread_id]['conversation_id'] = db_conversation_id
+                            _save_metadata()
+                            logger.info(f"Created new conversation {db_conversation_id} (stored conversation_id was invalid)")
+                    else:
+                        # Priority 4: Create new conversation
+                        db_conversation_id = conversation_model.create_conversation(
+                            title=message[:50] if len(message) > 50 else message
+                        )
+                        
+                        # Store conversation_id in thread metadata for future reference
+                        from app.utils.rag_service import _THREAD_METADATA, _save_metadata, _load_metadata
+                        _load_metadata()
                         if thread_id not in _THREAD_METADATA:
                             _THREAD_METADATA[thread_id] = {}
                         _THREAD_METADATA[thread_id]['conversation_id'] = db_conversation_id
                         _save_metadata()
-                else:
-                    # Create new conversation
-                    db_conversation_id = conversation_model.create_conversation(
-                        title=message[:50] if len(message) > 50 else message
-                    )
-                    
-                    # Store conversation_id in thread metadata for future reference
-                    if thread_id not in _THREAD_METADATA:
-                        _THREAD_METADATA[thread_id] = {}
-                    _THREAD_METADATA[thread_id]['conversation_id'] = db_conversation_id
-                    _save_metadata()
+                        logger.info(f"Created new conversation {db_conversation_id} for thread {thread_id}")
             
             # Save user message
             conversation_model.save_message(
@@ -847,6 +860,82 @@ def update_lesson_finalized(thread_id):
     except Exception as e:
         logger.error(f"Error updating lesson finalized status: {str(e)}")
         return jsonify({'error': f'Failed to update lesson finalized status: {str(e)}'}), 500
+
+
+@bp.route('/conversation/<int:conversation_id>/thread', methods=['GET'])
+@login_required
+def get_thread_for_conversation(conversation_id):
+    """
+    Get the RAG thread_id associated with a conversation.
+    Returns thread_id if conversation is a RAG conversation, None otherwise.
+    """
+    try:
+        if 'user_id' not in session:
+            return jsonify({'error': 'Not authenticated'}), 401
+
+        user_id = session['user_id']
+        
+        # Method 1: Check if there's a thread with the pattern user_{user_id}_conv_{conversation_id}
+        expected_thread_id = f"user_{user_id}_conv_{conversation_id}"
+        if thread_has_document(expected_thread_id):
+            return jsonify({
+                'success': True,
+                'is_rag_conversation': True,
+                'thread_id': expected_thread_id,
+                'has_document': True
+            })
+        
+        # Method 2: Check RAGThread table for threads with this conversation_id pattern
+        db = get_db()
+        try:
+            threads = db.query(RAGThread).filter_by(user_id=user_id).all()
+            for thread in threads:
+                # Check if thread_id matches the conversation pattern
+                import re
+                thread_conv_match = re.search(r'user_\d+_conv_(\d+)', thread.thread_id)
+                if thread_conv_match:
+                    thread_conv_id = int(thread_conv_match.group(1))
+                    if thread_conv_id == conversation_id and thread_has_document(thread.thread_id):
+                        return jsonify({
+                            'success': True,
+                            'is_rag_conversation': True,
+                            'thread_id': thread.thread_id,
+                            'has_document': True,
+                            'filename': thread.filename
+                        })
+        except Exception as e:
+            logger.warning(f"Error checking RAGThread table for conversation {conversation_id}: {str(e)}")
+        
+        # Method 3: Check thread metadata for stored conversation_id
+        try:
+            from app.utils.rag_service import _THREAD_METADATA, _load_metadata
+            _load_metadata()
+            
+            for thread_id, metadata in _THREAD_METADATA.items():
+                stored_conv_id = metadata.get('conversation_id')
+                if stored_conv_id == conversation_id:
+                    # Validate thread belongs to user
+                    if _validate_thread_id(thread_id, user_id) and thread_has_document(thread_id):
+                        return jsonify({
+                            'success': True,
+                            'is_rag_conversation': True,
+                            'thread_id': thread_id,
+                            'has_document': True
+                        })
+        except Exception as e:
+            logger.warning(f"Error checking thread metadata for conversation {conversation_id}: {str(e)}")
+        
+        # Not a RAG conversation
+        return jsonify({
+            'success': True,
+            'is_rag_conversation': False,
+            'thread_id': None,
+            'has_document': False
+        })
+
+    except Exception as e:
+        logger.error(f"Error getting thread for conversation: {str(e)}")
+        return jsonify({'error': f'Failed to get thread: {str(e)}'}), 500
 
 
 @bp.route('/thread/<thread_id>', methods=['DELETE'])

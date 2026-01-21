@@ -1497,22 +1497,34 @@ class ConversationModel:
             db.rollback()
             raise
     
-    def get_conversations(self, limit: int = 4) -> List[Dict]:
+    def get_conversations(self, limit: int = 20) -> List[Dict]:
         """Get user's recent conversations"""
         try:
             db = get_db()
+            # Query conversations with their last message time
+            # Use subquery or alias to properly order by coalesced values
+            last_msg_subq = db.query(
+                DBChatHistory.conversation_id,
+                func.max(DBChatHistory.created_at).label('last_message')
+            ).group_by(DBChatHistory.conversation_id).subquery()
+            
             conversations = db.query(
                 DBConversation.id, 
                 DBConversation.title, 
-                func.max(DBChatHistory.created_at).label('last_message')
+                last_msg_subq.c.last_message.label('last_message'),
+                DBConversation.updated_at,
+                DBConversation.created_at
             ).outerjoin(
-                DBChatHistory, DBConversation.id == DBChatHistory.conversation_id
+                last_msg_subq, DBConversation.id == last_msg_subq.c.conversation_id
             ).filter(
                 DBConversation.user_id == self.user_id
-            ).group_by(
-                DBConversation.id
             ).order_by(
-                desc('last_message')
+                # Order by last_message if available, otherwise by updated_at, then by created_at
+                desc(func.coalesce(
+                    last_msg_subq.c.last_message, 
+                    DBConversation.updated_at, 
+                    DBConversation.created_at
+                ))
             ).limit(limit).all()
             
             result = []
@@ -1520,7 +1532,9 @@ class ConversationModel:
                 result.append({
                     'id': conv.id,
                     'title': conv.title,
-                    'last_message': conv.last_message.isoformat() if conv.last_message else None
+                    'last_message': conv.last_message.isoformat() if conv.last_message else None,
+                    'updated_at': conv.updated_at.isoformat() if conv.updated_at else None,
+                    'created_at': conv.created_at.isoformat() if conv.created_at else None
                 })
             return result
         except Exception as e:
