@@ -15,6 +15,21 @@ from app.models.database_models import RAGPrompt
 logger = logging.getLogger(__name__)
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
+# Try to import fallback PDF loaders
+try:
+    from langchain_community.document_loaders import PyMuPDFLoader
+    PYMUPDF_AVAILABLE = True
+except ImportError:
+    PYMUPDF_AVAILABLE = False
+    logger.warning("PyMuPDFLoader not available. Install PyMuPDF for better PDF support.")
+
+try:
+    from langchain_community.document_loaders import PDFPlumberLoader
+    PDFPLUMBER_AVAILABLE = True
+except ImportError:
+    PDFPLUMBER_AVAILABLE = False
+    logger.warning("PDFPlumberLoader not available. Install pdfplumber for better PDF support.")
+
 from langchain_community.tools import DuckDuckGoSearchRun
 from langchain_community.vectorstores import FAISS
 from langchain_core.messages import BaseMessage, SystemMessage, AIMessage, ToolMessage
@@ -733,18 +748,101 @@ def ingest_pdf(
 
     try:
         _send_progress("loading", 15, "Reading PDF document...")
-        loader = PyPDFLoader(temp_path)
-        docs = loader.load()  # 1 Document per page
+        
+        # Try multiple PDF loaders as fallback
+        docs = None
+        loader_used = None
+        last_error = None
+        
+        # Try 1: PyPDFLoader (fastest, works for most PDFs)
+        try:
+            loader = PyPDFLoader(temp_path)
+            docs = loader.load()
+            loader_used = "PyPDFLoader"
+            logger.info(f"Successfully loaded PDF using PyPDFLoader")
+        except Exception as e1:
+            last_error = str(e1)
+            logger.warning(f"PyPDFLoader failed: {last_error}")
+            docs = None
+        
+        # Try 2: PyMuPDFLoader (better for complex PDFs, handles more formats)
+        if not docs or (docs and len([d for d in docs if d.page_content and d.page_content.strip()]) == 0):
+            if PYMUPDF_AVAILABLE:
+                try:
+                    _send_progress("loading", 18, "Trying alternative PDF loader (PyMuPDF)...")
+                    loader = PyMuPDFLoader(temp_path)
+                    docs = loader.load()
+                    loader_used = "PyMuPDFLoader"
+                    logger.info(f"Successfully loaded PDF using PyMuPDFLoader (fallback)")
+                except Exception as e2:
+                    last_error = str(e2)
+                    logger.warning(f"PyMuPDFLoader failed: {last_error}")
+                    if not docs:
+                        docs = None
+            else:
+                logger.debug("PyMuPDFLoader not available, skipping fallback")
+        
+        # Try 3: PDFPlumberLoader (good for tables and complex layouts)
+        if not docs or (docs and len([d for d in docs if d.page_content and d.page_content.strip()]) == 0):
+            if PDFPLUMBER_AVAILABLE:
+                try:
+                    _send_progress("loading", 20, "Trying alternative PDF loader (PDFPlumber)...")
+                    loader = PDFPlumberLoader(temp_path)
+                    docs = loader.load()
+                    loader_used = "PDFPlumberLoader"
+                    logger.info(f"Successfully loaded PDF using PDFPlumberLoader (fallback)")
+                except Exception as e3:
+                    last_error = str(e3)
+                    logger.warning(f"PDFPlumberLoader failed: {last_error}")
+                    if not docs:
+                        docs = None
+            else:
+                logger.debug("PDFPlumberLoader not available, skipping fallback")
+        
+        # Final check - all loaders failed
+        if not docs:
+            error_msg = (
+                "Failed to load PDF with all available loaders (PyPDFLoader"
+            )
+            if PYMUPDF_AVAILABLE:
+                error_msg += ", PyMuPDFLoader"
+            if PDFPLUMBER_AVAILABLE:
+                error_msg += ", PDFPlumberLoader"
+            error_msg += (
+                "). The PDF might be corrupted, password-protected, or image-based (scanned). "
+                "For scanned PDFs, OCR support is required."
+            )
+            if last_error:
+                error_msg += f" Last error: {last_error}"
+            raise ValueError(error_msg)
 
         num_pages = len(docs)
         if num_pages == 0:
             raise ValueError("PDF appears to be empty or could not be loaded. No pages found.")
 
-        _send_progress("validating", 25, f"Validating {num_pages} pages...")
+        _send_progress("validating", 25, f"Validating {num_pages} pages (loaded with {loader_used})...")
 
         valid_pages = [d for d in docs if d.page_content and d.page_content.strip()]
         if len(valid_pages) == 0:
-            raise ValueError("PDF loaded but contains no extractable text content.")
+            # Check if PDF might be scanned (image-based)
+            scanned_hint = ""
+            try:
+                import fitz  # PyMuPDF
+                pdf_doc = fitz.open(temp_path)
+                has_images = any(len(page.get_images()) > 0 for page in pdf_doc)
+                pdf_doc.close()
+                
+                if has_images:
+                    scanned_hint = (
+                        " This PDF appears to contain images and might be scanned. "
+                        "OCR support is required for scanned documents."
+                    )
+            except (ImportError, Exception):
+                pass  # PyMuPDF not available or error checking images
+            
+            raise ValueError(
+                f"PDF loaded with {loader_used} but contains no extractable text content.{scanned_hint}"
+            )
 
         _send_progress("metadata", 30, "Adding metadata to pages...")
         for i, doc in enumerate(docs):
